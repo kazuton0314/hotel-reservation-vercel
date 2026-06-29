@@ -3,6 +3,8 @@ import Link from "next/link";
 const NAV = [
   { href: "/", label: "ホーム" },
   { href: "/reservations", label: "本予約" },
+  { href: "/requests", label: "リクエスト" },
+  { href: "/rooms", label: "部屋割" },
   { href: "/settings/setup", label: "設定" },
   { href: "/settings/sync", label: "同期" },
 ];
@@ -17,7 +19,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <h1 className="text-lg font-bold">予約管理</h1>
           </div>
           <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">
-            Phase 1
+            Phase 3
           </span>
         </div>
       </header>

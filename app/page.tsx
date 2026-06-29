@@ -31,14 +31,28 @@ async function HomeContent() {
     <>
       <PageHeader
         title="ダッシュボード"
-        description="Phase 1: 読み取り専用。データはフォーム取込 + 初期CSVから構築されます。"
+        description="予約・リクエスト・部屋割りの運用管理（Phase 3）"
       />
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="アクティブ予約" value={stats.activeCount} />
         <StatCard label="今後の予約" value={stats.upcomingCount} />
         <StatCard label="未割当" value={stats.unassignedCount} />
+        <StatCard label="完了メール未送付" value={stats.mailPendingCount} />
       </div>
+
+      <section className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
+        <p className="text-sm text-amber-900">
+          未処理リクエスト:
+          <span className="ml-2 text-lg font-bold">{stats.requestPendingCount}</span>
+        </p>
+        <Link
+          href="/requests"
+          className="mt-2 inline-block text-sm font-medium text-amber-800 hover:underline"
+        >
+          リクエスト一覧で確認する →
+        </Link>
+      </section>
 
       <section className="mt-8 rounded-xl border border-zinc-200 bg-white p-5">
         <h2 className="font-semibold">フォーム取込状況</h2>
@@ -76,7 +90,31 @@ async function HomeContent() {
           className="block rounded-xl border border-emerald-200 bg-emerald-50 p-5 text-emerald-900 hover:bg-emerald-100"
         >
           <p className="font-semibold">本予約一覧を開く</p>
-          <p className="mt-1 text-sm opacity-80">ステータス・日付で絞り込み（読み取り専用）</p>
+          <p className="mt-1 text-sm opacity-80">ステータス・部屋割・メールで絞り込み・編集</p>
+        </Link>
+      </section>
+
+      <section className="mt-4">
+        <Link
+          href="/requests"
+          className="block rounded-xl border border-blue-200 bg-blue-50 p-5 text-blue-900 hover:bg-blue-100"
+        >
+          <p className="font-semibold">リクエスト一覧を開く</p>
+          <p className="mt-1 text-sm opacity-80">
+            承認・却下・連携ステータスを管理（Phase 2）
+          </p>
+        </Link>
+      </section>
+
+      <section className="mt-4">
+        <Link
+          href="/rooms"
+          className="block rounded-xl border border-violet-200 bg-violet-50 p-5 text-violet-900 hover:bg-violet-100"
+        >
+          <p className="font-semibold">部屋割りボードを開く</p>
+          <p className="mt-1 text-sm opacity-80">
+            月次の占有状況を表示（編集は予約詳細から）
+          </p>
         </Link>
       </section>
     </>
