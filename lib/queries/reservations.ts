@@ -38,6 +38,8 @@ export type ReservationListItem = {
   girl_student: string | null;
   age_3plus: string | null;
   under_3: string | null;
+  created_at: string | null;
+  sheet_created_at: string | null;
   received_ms: number;
   updated_ms: number;
   updated_at: string | null;
@@ -168,6 +170,8 @@ function mapReservationListItem(
     girl_student: row.girl_student,
     age_3plus: row.age_3plus,
     under_3: row.under_3,
+    created_at: row.created_at,
+    sheet_created_at: row.sheet_created_at,
     received_ms: receivedSource ? new Date(receivedSource).getTime() : 0,
     updated_ms: row.updated_at ? new Date(row.updated_at).getTime() : 0,
     updated_at: row.updated_at,

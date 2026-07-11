@@ -71,6 +71,8 @@ function toDashboardItem(card: DayCalendarView["checkinCards"][0]): DashboardLis
     day11EmailSent: false,
     day3EmailSent: false,
     companionFormAnswered: false,
+    createdAt: null,
+    sheetCreatedAt: null,
   };
 }
 
