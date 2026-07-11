@@ -104,9 +104,16 @@ export function ReservationMailSection(props: Props) {
             </span>
           </div>
           {sentAtStr ? <p className="form-hint">{sentAtStr}</p> : null}
-          <Button type="button" size="sm" onClick={() => openCompose("仮予約")}>
-            メールを作成
-          </Button>
+          <div className="mail-action-card-actions">
+            <Button
+              type="button"
+              size="sm"
+              className="mail-action-primary"
+              onClick={() => openCompose("仮予約")}
+            >
+              メールを作成
+            </Button>
+          </div>
         </div>
         <MailComposeModal
           open={composeOpen}
@@ -162,29 +169,32 @@ export function ReservationMailSection(props: Props) {
                 <Button
                   type="button"
                   size="sm"
+                  className="mail-action-primary"
                   disabled={st.notRequired && !st.sent}
                   onClick={() => openCompose(item.kind)}
                 >
                   メールを作成
                 </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  disabled={pending || st.sent}
-                  onClick={() => submitFlag(item.kind, true)}
-                >
-                  手動で送付済
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  disabled={pending || !st.sent}
-                  onClick={() => submitFlag(item.kind, false)}
-                >
-                  未送付に戻す
-                </Button>
+                <div className="mail-action-secondary-row">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    disabled={pending || st.sent}
+                    onClick={() => submitFlag(item.kind, true)}
+                  >
+                    送付済
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    disabled={pending || !st.sent}
+                    onClick={() => submitFlag(item.kind, false)}
+                  >
+                    未送付に戻す
+                  </Button>
+                </div>
               </div>
             </article>
           );

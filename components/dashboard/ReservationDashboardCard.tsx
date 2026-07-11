@@ -30,6 +30,8 @@ export function ReservationDashboardCard({
     >
       <div className="row-card-head">
         <p className="card-title list-card-title">{displayName}</p>
+      </div>
+      <div className="row-card-status-row">
         <div className="row-card-badges">
           <ReservationStatusBadge status={item.status} />
         </div>

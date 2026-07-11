@@ -27,13 +27,13 @@ export function ReservationListRow({ item }: { item: ReservationListItem }) {
     >
       <div className="row-card-head">
         <p className="card-title list-card-title">{displayName}</p>
-        <div className="row-card-badges">
-          <ReservationListStatusActions
-            reservationId={item.reservation_id}
-            status={item.status}
-            updatedAt={item.updated_at}
-          />
-        </div>
+      </div>
+      <div className="row-card-status-row">
+        <ReservationListStatusActions
+          reservationId={item.reservation_id}
+          status={item.status}
+          updatedAt={item.updated_at}
+        />
       </div>
       <p className="card-sub">
         {item.reservation_id} / {item.check_in}〜{item.check_out}

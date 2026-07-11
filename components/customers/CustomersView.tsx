@@ -136,12 +136,14 @@ export function CustomersView({
                   href={`/customers/${encodeURIComponent(openId)}`}
                   className="card customer-card block"
                 >
-                  <p className="card-title list-card-title">
-                    {c.representativeName || "—"}
+                  <div className="customer-card-head">
+                    <p className="card-title list-card-title">
+                      {c.representativeName || "—"}
+                    </p>
                     {c.isRepeater ? (
                       <span className="badge badge-confirmed">リピーター</span>
                     ) : null}
-                  </p>
+                  </div>
                   {c.customerId ? (
                     <p className="card-sub">{c.customerId}</p>
                   ) : null}
