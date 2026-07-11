@@ -1,5 +1,10 @@
 /** 一覧検索（本予約・リクエスト）— GAS listSearch 相当 */
 
+import {
+  isIdLikeQuery,
+  matchesIdPrefix,
+} from "@/lib/utils/id-search";
+
 const KATA_TO_HIRA: Record<string, string> = {};
 const HIRA_TO_KATA: Record<string, string> = {};
 for (let i = 0; i < 83; i++) {
@@ -39,9 +44,8 @@ export type ListSearchFields = {
   phone?: string | null;
 };
 
-function fieldTexts(item: ListSearchFields): string[] {
+function nameLikeTexts(item: ListSearchFields): string[] {
   return [
-    item.id,
     item.representative_name,
     item.name_kana,
     item.last_name,
@@ -56,7 +60,11 @@ function fieldTexts(item: ListSearchFields): string[] {
     .filter(Boolean);
 }
 
-/** キーワード部分一致（かな正規化・ID/電話は数字部分一致） */
+/**
+ * キーワード一致
+ * - IDらしい入力 → 予約/リクエストIDのプレフィックス一致のみ
+ * - それ以外 → 名前・メール・電話などの部分一致（IDは見ない）
+ */
 export function matchesListKeyword(
   item: ListSearchFields,
   rawKeyword: string | undefined
@@ -64,10 +72,14 @@ export function matchesListKeyword(
   const keyword = String(rawKeyword ?? "").trim();
   if (!keyword) return true;
 
+  if (isIdLikeQuery(keyword)) {
+    return matchesIdPrefix(item.id, keyword);
+  }
+
   const normKeyword = normalizeSearchText(keyword);
   const digitKeyword = digitsOnly(keyword);
 
-  for (const text of fieldTexts(item)) {
+  for (const text of nameLikeTexts(item)) {
     const normText = normalizeSearchText(text);
     if (normText.includes(normKeyword)) return true;
 

@@ -6,6 +6,7 @@ import {
   reservationNeedsCompanionInfo,
 } from "@/lib/services/mail-pending";
 import { effectiveGuestCountForCompanion } from "@/lib/utils/guest-display";
+import { idPrefixIlikePattern, isIdLikeQuery } from "@/lib/utils/id-search";
 
 export type ReservationListItem = {
   reservation_id: string;
@@ -284,10 +285,18 @@ export async function getReservationsForLinking(query?: string) {
     .limit(80);
 
   if (query?.trim()) {
-    const escaped = query.trim().replace(/[%_]/g, "");
-    dbQuery = dbQuery.or(
-      `reservation_id.ilike.%${escaped}%,representative_name.ilike.%${escaped}%`
-    );
+    const raw = query.trim();
+    const escaped = raw.replace(/[%_]/g, "");
+    if (isIdLikeQuery(raw)) {
+      dbQuery = dbQuery.ilike(
+        "reservation_id",
+        `${idPrefixIlikePattern(raw)}%`
+      );
+    } else {
+      dbQuery = dbQuery.or(
+        `reservation_id.ilike.%${escaped}%,representative_name.ilike.%${escaped}%`
+      );
+    }
   }
 
   const { data, error } = await dbQuery;

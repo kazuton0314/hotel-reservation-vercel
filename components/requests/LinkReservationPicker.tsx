@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { filterListBySearch } from "@/lib/utils/list-search";
 
 type Candidate = {
   reservation_id: string;
@@ -26,14 +27,14 @@ export function LinkReservationPicker({
 }: Props) {
   const [q, setQ] = useState("");
 
-  const filtered = candidates.filter((c) => {
-    if (!q.trim()) return true;
-    const needle = q.trim().toLowerCase();
-    return (
-      c.reservation_id.toLowerCase().includes(needle) ||
-      (c.representative_name || "").toLowerCase().includes(needle)
-    );
-  });
+  const filtered = filterListBySearch(
+    candidates.map((c) => ({
+      ...c,
+      id: c.reservation_id,
+      check_in: c.check_in,
+    })),
+    q
+  );
 
   return (
     <div className="date-jump-overlay" role="dialog" aria-modal>

@@ -1,7 +1,18 @@
 import { unstable_cache } from "next/cache";
 import { CACHE_TAGS } from "@/lib/cache/tags";
 import { createReadClient } from "@/lib/supabase/read";
-import { buildCustomerKey } from "@/lib/services/customer-index";
+import {
+  buildCustomerKey,
+  buildEphemeralCustomerKey,
+  countsAsVisit,
+  isEphemeralCustomerKey,
+  reservationIdFromEphemeralKey,
+} from "@/lib/services/customer-index";
+import {
+  idPrefixIlikePattern,
+  isIdLikeQuery,
+  matchesIdPrefix,
+} from "@/lib/utils/id-search";
 
 export type CustomerSearchCriteria = {
   name?: string;
@@ -63,12 +74,97 @@ function escapeIlike(value: string): string {
   return value.replace(/[%_\\]/g, "\\$&");
 }
 
+type ReservationProfileRow = {
+  reservation_id: string;
+  customer_id: string | null;
+  representative_name: string | null;
+  name_kana: string | null;
+  email: string | null;
+  phone: string | null;
+  check_in: string | null;
+  check_out: string | null;
+  status: string;
+};
+
+const RESERVATION_PROFILE_SELECT =
+  "reservation_id, customer_id, representative_name, name_kana, email, phone, check_in, check_out, status";
+
+/** 連絡先なし予約向け（索引外・リピーター対象外・当該予約のみ） */
+function ephemeralListItem(r: ReservationProfileRow): CustomerListItem {
+  return ephemeralListItemFromRows([r]);
+}
+
+function ephemeralListItemFromRows(rows: ReservationProfileRow[]): CustomerListItem {
+  const profile =
+    rows.find((r) => r.representative_name) ?? rows[0];
+  let visitCount = 0;
+  let lastCheckOut: string | null = null;
+  for (const r of rows) {
+    if (!countsAsVisit(r)) continue;
+    visitCount++;
+    if (r.check_out && (!lastCheckOut || r.check_out > lastCheckOut)) {
+      lastCheckOut = r.check_out;
+    }
+  }
+  return {
+    customerKey: buildEphemeralCustomerKey(profile.reservation_id),
+    customerId: profile.customer_id,
+    representativeName: profile.representative_name,
+    nameKana: profile.name_kana,
+    email: profile.email,
+    phone: profile.phone,
+    visitCount,
+    lastCheckOut,
+    isRepeater: false,
+  };
+}
+
+async function loadIndexedCustomerByReservation(
+  supabase: Awaited<ReturnType<typeof createReadClient>>,
+  r: Pick<ReservationProfileRow, "email" | "phone" | "representative_name">
+): Promise<DbCustomer | null> {
+  const key = buildCustomerKey(r);
+  if (!key) return null;
+  const { data } = await supabase
+    .from("customers")
+    .select(
+      "customer_id, customer_key, representative_name, name_kana, email, phone, visit_count, last_check_out, is_repeater"
+    )
+    .eq("customer_key", key)
+    .maybeSingle();
+  return (data as DbCustomer) ?? null;
+}
+
+async function addReservationSearchHits(
+  supabase: Awaited<ReturnType<typeof createReadClient>>,
+  items: Map<string, CustomerListItem>,
+  reservations: ReservationProfileRow[]
+) {
+  for (const r of reservations) {
+    const indexed = await loadIndexedCustomerByReservation(supabase, r);
+    if (indexed) {
+      items.set(indexed.customer_key, rowToListItem(indexed));
+      continue;
+    }
+    if (!String(r.representative_name ?? "").trim()) continue;
+    items.set(
+      buildEphemeralCustomerKey(r.reservation_id),
+      ephemeralListItem(r)
+    );
+  }
+}
+
 async function searchCustomersUncached(criteria: CustomerSearchCriteria) {
   const supabase = await createReadClient();
   const orParts: string[] = [];
 
   if (criteria.customerId) {
-    orParts.push(`customer_id.ilike.%${escapeIlike(criteria.customerId)}%`);
+    const cid = criteria.customerId.trim();
+    if (isIdLikeQuery(cid)) {
+      orParts.push(`customer_id.ilike.${idPrefixIlikePattern(cid)}%`);
+    } else {
+      orParts.push(`customer_id.ilike.%${escapeIlike(cid)}%`);
+    }
   }
   if (criteria.email) {
     orParts.push(`email.ilike.%${escapeIlike(criteria.email)}%`);
@@ -107,32 +203,47 @@ async function searchCustomersUncached(criteria: CustomerSearchCriteria) {
     customerRows = (data ?? []) as DbCustomer[];
   }
 
+  const items = new Map<string, CustomerListItem>();
+  for (const row of customerRows) {
+    items.set(row.customer_key, rowToListItem(row));
+  }
+
   if (criteria.reservationId) {
+    const rid = criteria.reservationId.trim();
+    const pattern = isIdLikeQuery(rid)
+      ? `${idPrefixIlikePattern(rid)}%`
+      : `%${escapeIlike(rid)}%`;
     const { data: reservations } = await supabase
       .from("reservations")
-      .select("customer_id, representative_name, name_kana, email, phone, reservation_id")
-      .ilike("reservation_id", `%${escapeIlike(criteria.reservationId)}%`);
+      .select(RESERVATION_PROFILE_SELECT)
+      .ilike("reservation_id", pattern);
 
-    for (const r of reservations ?? []) {
-      const key = buildCustomerKey(r);
-      if (!key) continue;
-      const { data: byKey } = await supabase
-        .from("customers")
-        .select(
-          "customer_id, customer_key, representative_name, name_kana, email, phone, visit_count, last_check_out, is_repeater"
-        )
-        .eq("customer_key", key)
-        .maybeSingle();
-      if (byKey) customerRows.push(byKey as DbCustomer);
-    }
+    const hits = (reservations ?? []).filter(
+      (r) => !isIdLikeQuery(rid) || matchesIdPrefix(r.reservation_id, rid)
+    ) as ReservationProfileRow[];
+    await addReservationSearchHits(supabase, items, hits);
   }
 
   if (criteria.name) {
+    const q = escapeIlike(criteria.name);
+    const { data: byName } = await supabase
+      .from("reservations")
+      .select(RESERVATION_PROFILE_SELECT)
+      .or(`representative_name.ilike.%${q}%,name_kana.ilike.%${q}%`)
+      .order("check_in", { ascending: false })
+      .limit(40);
+
+    await addReservationSearchHits(
+      supabase,
+      items,
+      (byName ?? []) as ReservationProfileRow[]
+    );
+
     const { data: companions } = await supabase
       .from("companions")
       .select("reservation_id")
       .or(
-        `name.ilike.%${escapeIlike(criteria.name)}%,name_kana.ilike.%${escapeIlike(criteria.name)}%`
+        `name.ilike.%${q}%,name_kana.ilike.%${escapeIlike(criteria.name)}%`
       );
     const ids = Array.from(
       new Set((companions ?? []).map((c) => String(c.reservation_id)))
@@ -140,28 +251,17 @@ async function searchCustomersUncached(criteria: CustomerSearchCriteria) {
     if (ids.length) {
       const { data: reservations } = await supabase
         .from("reservations")
-        .select("customer_id, representative_name, name_kana, email, phone, reservation_id")
+        .select(RESERVATION_PROFILE_SELECT)
         .in("reservation_id", ids);
-      for (const r of reservations ?? []) {
-        const key = buildCustomerKey(r);
-        if (!key) continue;
-        const { data: byKey } = await supabase
-          .from("customers")
-          .select(
-            "customer_id, customer_key, representative_name, name_kana, email, phone, visit_count, last_check_out, is_repeater"
-          )
-          .eq("customer_key", key)
-          .maybeSingle();
-        if (byKey) customerRows.push(byKey as DbCustomer);
-      }
+      await addReservationSearchHits(
+        supabase,
+        items,
+        (reservations ?? []) as ReservationProfileRow[]
+      );
     }
   }
 
-  const unique = new Map<string, DbCustomer>();
-  for (const row of customerRows) unique.set(row.customer_key, row);
-
-  const customers = Array.from(unique.values())
-    .map(rowToListItem)
+  const customers = Array.from(items.values())
     .sort((a, b) =>
       (a.representativeName ?? "").localeCompare(b.representativeName ?? "", "ja")
     )
@@ -193,9 +293,47 @@ async function getCustomerDetailUncached(openId: string) {
   const id = decodeURIComponent(openId).trim();
   if (!id) return { detail: null, error: null };
 
+  const ephemeralReservationId = reservationIdFromEphemeralKey(id);
+  if (ephemeralReservationId) {
+    const { data: r } = await supabase
+      .from("reservations")
+      .select(`${RESERVATION_PROFILE_SELECT}, channel, is_archived`)
+      .eq("reservation_id", ephemeralReservationId)
+      .maybeSingle();
+    if (!r) return { detail: null, error: null };
+
+    const indexed = await loadIndexedCustomerByReservation(supabase, r);
+    if (indexed) {
+      return getCustomerDetailUncached(indexed.customer_id);
+    }
+
+    const row = r as ReservationProfileRow & {
+      channel: string | null;
+    };
+    const detail: CustomerDetail = {
+      ...ephemeralListItem(row),
+      reservations: [
+        {
+          reservationId: row.reservation_id,
+          checkIn: row.check_in,
+          checkOut: row.check_out,
+          status: row.status,
+          channel: row.channel,
+        },
+      ],
+    };
+    return { detail, error: null };
+  }
+
   let customer: DbCustomer | null = null;
 
-  if (id.startsWith("cid:") || id.startsWith("email:") || id.startsWith("phone:") || id.startsWith("name:") || id.includes("|")) {
+  if (
+    id.startsWith("cid:") ||
+    id.startsWith("email:") ||
+    id.startsWith("phone:") ||
+    id.startsWith("name:") ||
+    id.includes("|")
+  ) {
     const { data } = await supabase
       .from("customers")
       .select(
@@ -226,6 +364,34 @@ async function getCustomerDetailUncached(openId: string) {
   }
 
   if (!customer) {
+    const { data: orphanReservations } = await supabase
+      .from("reservations")
+      .select(`${RESERVATION_PROFILE_SELECT}, channel, is_archived`)
+      .eq("customer_id", id)
+      .order("check_in", { ascending: false });
+
+    if (orphanReservations?.length) {
+      const rows = orphanReservations as (ReservationProfileRow & {
+        channel: string | null;
+      })[];
+      const indexed = await loadIndexedCustomerByReservation(supabase, rows[0]);
+      if (indexed) {
+        return getCustomerDetailUncached(indexed.customer_id);
+      }
+
+      const detail: CustomerDetail = {
+        ...ephemeralListItemFromRows(rows),
+        reservations: rows.map((r) => ({
+          reservationId: r.reservation_id,
+          checkIn: r.check_in,
+          checkOut: r.check_out,
+          status: r.status,
+          channel: r.channel,
+        })),
+      };
+      return { detail, error: null };
+    }
+
     return { detail: null, error: null };
   }
 
@@ -282,8 +448,8 @@ export function parseCustomerPrefill(
     if (q.includes("@")) criteria.email = criteria.email || q;
     else if (/^[\d\-+()]+$/.test(q.replace(/\s/g, ""))) criteria.phone = criteria.phone || q;
     else if (/^CU-/i.test(q)) criteria.customerId = criteria.customerId || q;
-    else if (/^(STUDIO|MANUAL|CK)-/i.test(q)) criteria.customerId = criteria.customerId || q;
-    else if (/^(STUDIO|MANUAL)-/i.test(q)) criteria.reservationId = criteria.reservationId || q;
+    else if (/^CK-/i.test(q)) criteria.customerId = criteria.customerId || q;
+    else if (isIdLikeQuery(q)) criteria.reservationId = criteria.reservationId || q;
     else criteria.name = criteria.name || q;
   }
 
@@ -291,6 +457,9 @@ export function parseCustomerPrefill(
 }
 
 export function customerDetailPath(item: CustomerListItem): string {
+  if (isEphemeralCustomerKey(item.customerKey)) {
+    return `/customers/${encodeURIComponent(item.customerKey)}`;
+  }
   const openId = item.customerId || item.customerKey;
   return `/customers/${encodeURIComponent(openId)}`;
 }

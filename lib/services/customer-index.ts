@@ -57,6 +57,23 @@ function countsAsVisit(r: Pick<ReservationRow, "status" | "check_in" | "check_ou
   return Boolean(r.check_in && r.check_out);
 }
 
+/** 検索・詳細用（索引・リピーター判定には使わない） */
+export function buildEphemeralCustomerKey(reservationId: string): string {
+  return `reservation:${reservationId}`;
+}
+
+export function isEphemeralCustomerKey(key: string): boolean {
+  return key.startsWith("reservation:");
+}
+
+export function reservationIdFromEphemeralKey(key: string): string | null {
+  if (!isEphemeralCustomerKey(key)) return null;
+  const id = key.slice("reservation:".length).trim();
+  return id || null;
+}
+
+export { countsAsVisit };
+
 async function loadRelatedReservations(
   supabase: SupabaseClient,
   reservation: ReservationRow

@@ -6,6 +6,7 @@ import { Kv } from "@/components/detail/Kv";
 import { RealtimeRefresh } from "@/components/realtime/RealtimeRefresh";
 import { ConnectionError } from "@/components/SetupRequired";
 import { getCustomerDetail } from "@/lib/queries/customers";
+import { isEphemeralCustomerKey } from "@/lib/services/customer-index";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -43,6 +44,11 @@ async function CustomerDetailContent({ openId }: { openId: string }) {
       />
       <div className="detail-block customer-detail-block">
         <h3>顧客情報</h3>
+        {isEphemeralCustomerKey(detail.customerKey) ? (
+          <p className="form-hint">
+            連絡先未登録のため顧客索引・リピーター判定の対象外です（この予約のみ表示）。
+          </p>
+        ) : null}
         {detail.customerId ? <Kv label="顧客ID" value={detail.customerId} /> : null}
         <Kv label="代表者" value={detail.representativeName} />
         {detail.nameKana ? <Kv label="ふりがな" value={detail.nameKana} /> : null}

@@ -49,7 +49,7 @@ export function ListSearchBar({ className }: Props) {
     }
 
     const timer = window.setTimeout(() => {
-      const params = new URLSearchParams(window.location.search);
+      const params = new URLSearchParams(searchParams.toString());
       if (nextQ) params.set("q", nextQ);
       else params.delete("q");
       if (nextCheckIn) params.set("checkIn", nextCheckIn);
@@ -62,13 +62,13 @@ export function ListSearchBar({ className }: Props) {
     }, DEBOUNCE_MS);
 
     return () => window.clearTimeout(timer);
-  }, [keyword, checkIn, pathname, router]);
+  }, [keyword, checkIn, pathname, router, searchParams]);
 
   function clearAll() {
     setKeyword("");
     setCheckIn("");
     lastPushed.current = { q: "", checkIn: "" };
-    const params = new URLSearchParams(window.location.search);
+    const params = new URLSearchParams(searchParams.toString());
     params.delete("q");
     params.delete("checkIn");
     params.delete("page");
