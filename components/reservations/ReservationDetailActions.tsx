@@ -50,6 +50,19 @@ export function ReservationDetailActions({
           >
             {pending ? "更新中…" : "確定にする"}
           </Button>
+        ) : optimisticStatus === "確定" ? (
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={pending}
+            onClick={() => {
+              if (confirm("この予約を仮予約に戻しますか？")) {
+                submit("仮予約");
+              }
+            }}
+          >
+            仮予約に戻す
+          </Button>
         ) : null}
         {optimisticStatus !== "キャンセル" ? (
           <Button

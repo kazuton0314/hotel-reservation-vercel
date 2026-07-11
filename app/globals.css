@@ -56,7 +56,13 @@ body {
   justify-content: flex-end;
   gap: 4px;
   grid-column: 3;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+}
+
+.header-actions form {
+  margin: 0;
+  display: flex;
 }
 .header h1 {
   margin: 0;

@@ -34,10 +34,36 @@
   cursor: pointer;
 }
 
+.customer-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  margin-bottom: 4px;
+}
+
+.customer-card-head .list-card-title {
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.customer-card-head .badge {
+  flex-shrink: 0;
+}
+
+.customer-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
 .customer-history-row {
   cursor: pointer;
-  padding: 8px 0;
+  padding: 10px 0;
   border-bottom: 1px dashed var(--border, #d4d4d8);
+  text-decoration: none;
+  color: inherit;
 }
 
 .customer-history-row:last-child {
@@ -46,6 +72,78 @@
 
 .customer-history-row:active {
   color: var(--accent, #166534);
+}
+
+.customer-history-row-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 10px;
+}
+
+.customer-history-id {
+  font-weight: 800;
+  font-size: 0.84rem;
+  overflow-wrap: anywhere;
+}
+
+.customer-history-status {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.customer-history-meta {
+  margin: 4px 0 0;
+  font-size: 0.74rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.action-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 220;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 12px 12px calc(12px + env(safe-area-inset-bottom, 0px));
+}
+
+.action-dialog {
+  width: 100%;
+  max-width: 420px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--card);
+  padding: 16px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+}
+
+.action-dialog-title {
+  margin: 0 0 6px;
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.action-dialog-hint {
+  margin: 0 0 12px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.action-dialog-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.action-dialog-actions button {
+  width: 100%;
+  min-height: 40px;
 }
 
 .mail-modal-overlay {
@@ -366,8 +464,48 @@
 
 .mail-action-card-actions {
   display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: stretch;
+}
+
+.mail-action-primary {
+  width: 100%;
+}
+
+.mail-action-secondary-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.mail-action-form {
+  display: flex;
+  margin: 0;
+  min-width: 0;
+}
+
+.mail-action-form button {
+  width: 100%;
+}
+
+.row-card-status-row {
+  display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  align-items: center;
+  gap: 6px 8px;
+  margin-top: 2px;
+  margin-bottom: 2px;
+}
+
+.row-card-status-row .row-card-badges,
+.row-card-status-row .list-inline-status {
+  max-width: none;
+  justify-content: flex-start;
+}
+
+.row-card-status-row > .badge {
+  flex-shrink: 0;
 }
 
 .mail-kind-stack {
@@ -549,6 +687,15 @@
   min-height: 24px !important;
   padding: 2px 8px !important;
   font-size: 0.68rem !important;
+}
+
+.list-inline-status-btn-danger {
+  color: #b91c1c !important;
+  border-color: #fca5a5 !important;
+}
+
+.request-row-card .row-card-status-row {
+  gap: 6px;
 }
 
 .header-settings-menu {
@@ -1152,6 +1299,92 @@
 
 /* スマホ: メール編集・設定・一覧の縦伸びを抑える */
 @media (max-width: 639px) {
+  .header-top {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .header h1 {
+    flex: 1 1 auto;
+    min-width: 0;
+    grid-column: unset;
+    justify-self: auto;
+    text-align: left;
+    font-size: 0.98rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .header-actions {
+    flex: 0 0 auto;
+    grid-column: unset;
+    gap: 3px;
+  }
+
+  .header-action-btn {
+    min-width: 42px;
+    min-height: 38px;
+    padding: 4px 6px !important;
+  }
+
+  .header-action-label {
+    font-size: 0.5rem;
+    letter-spacing: 0;
+  }
+
+  .header-settings-panel {
+    position: fixed;
+    top: calc(52px + env(safe-area-inset-top, 0px));
+    right: 10px;
+    left: auto;
+    width: min(280px, calc(100vw - 20px));
+    min-width: 0;
+    max-height: calc(100dvh - 64px - env(safe-area-inset-top, 0px));
+    overflow-y: auto;
+  }
+
+  .request-filter-tabs .tab,
+  .list-filter-tabs .tab {
+    font-size: 0.68rem;
+    padding: 8px 3px;
+    line-height: 1.2;
+  }
+
+  .list-scope-btn {
+    font-size: 0.72rem;
+    padding: 8px 6px;
+  }
+
+  .list-sort-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .list-sort-toolbar .list-toolbar-label {
+    flex: none;
+  }
+
+  .list-sort-segments {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .list-sort-seg {
+    padding: 8px 4px;
+    font-size: 0.72rem;
+    text-align: center;
+  }
+
+  .list-sort-dir {
+    margin-left: 0;
+    width: 100%;
+    justify-content: center;
+  }
+
   .mail-modal,
   .mail-compose-dialog,
   .mail-template-dialog {
@@ -1267,11 +1500,53 @@
 
   .row-card-badges {
     width: 100%;
+    max-width: none !important;
+    justify-content: flex-start;
+  }
+
+  .row-card-status-row {
+    width: 100%;
   }
 
   .list-inline-status {
     width: 100%;
     justify-content: flex-start;
+    gap: 6px;
+  }
+
+  .list-inline-status-btn {
+    min-height: 30px !important;
+    padding: 4px 10px !important;
+    font-size: 0.72rem !important;
+  }
+
+  .stats-overview,
+  .stats-status,
+  .stats-todos {
+    gap: 4px;
+  }
+
+  .stats-status .stat-btn,
+  .stats-todos .stat-todo {
+    padding: 8px 2px;
+    min-width: 0;
+  }
+
+  .stats-status .stat-btn .label,
+  .stats-todos .stat-todo .label,
+  .stats-overview .stat-info .label {
+    font-size: 0.58rem;
+    line-height: 1.25;
+  }
+
+  .stats-status .stat-btn .num,
+  .stats-todos .stat-todo .num {
+    font-size: 1.15rem;
+  }
+
+  .detail-status-actions .detail-actions > .btn,
+  .detail-status-actions .detail-actions > button {
+    flex: 1 1 100%;
   }
 
   .status-groups.compact {
@@ -1298,15 +1573,41 @@
     gap: 6px;
   }
 
-  .mail-action-card-actions {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 6px;
-    width: 100%;
+  .customers-search-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
   }
 
-  .mail-action-card-actions button {
+  .customers-search-form .btn {
     width: 100%;
-    min-width: 0;
+    margin-right: 0;
+    margin-top: 8px;
+  }
+
+  .customer-card .card-row,
+  .customer-card .card-sub {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .customer-detail-block .kv {
+    grid-template-columns: 1fr;
+    gap: 2px 0;
+    margin-bottom: 10px;
+  }
+
+  .customer-detail-block .kv .k {
+    font-size: 0.72rem;
+  }
+
+  .customer-detail-block .kv .v {
+    font-size: 0.86rem;
+    margin-bottom: 2px;
+  }
+
+  .action-dialog-overlay {
+    align-items: center;
+    padding: 16px;
   }
 }

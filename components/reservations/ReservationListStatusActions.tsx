@@ -57,8 +57,7 @@ export function ReservationListStatusActions({
         >
           確定
         </Button>
-      ) : null}
-      {optimisticStatus !== "キャンセル" ? (
+      ) : optimisticStatus === "確定" ? (
         <Button
           type="button"
           size="sm"
@@ -66,10 +65,24 @@ export function ReservationListStatusActions({
           disabled={pending}
           className="list-inline-status-btn"
           onClick={() =>
+            changeStatus("仮予約", "この予約を仮予約に戻しますか？")
+          }
+        >
+          仮予約に戻す
+        </Button>
+      ) : null}
+      {optimisticStatus !== "キャンセル" ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          disabled={pending}
+          className="list-inline-status-btn list-inline-status-btn-danger"
+          onClick={() =>
             changeStatus("キャンセル", "この予約をキャンセルにしますか？")
           }
         >
-          取消
+          キャンセル
         </Button>
       ) : null}
     </div>

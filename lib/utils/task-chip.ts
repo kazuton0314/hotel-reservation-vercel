@@ -84,3 +84,25 @@ export function mailKindChipState(
 
   return { state: "skip", title: st.reason || `${label}メールは対象外です` };
 }
+
+const REQUEST_REPLY_STATUSES = new Set(["承認済", "却下", "本予約連携済"]);
+
+/** リクエスト一覧の返信メールチップ（本予約のメール種別チップと同じ位置づけ） */
+export function requestReplyChipState(
+  status: string,
+  hasEmail: boolean,
+  replyEmailSent: boolean
+): { state: TaskChipState; title: string } | null {
+  if (!REQUEST_REPLY_STATUSES.has(status)) return null;
+
+  if (replyEmailSent) {
+    return { state: "done", title: "返信メール送信済" };
+  }
+  if (!hasEmail) {
+    return {
+      state: "blocked",
+      title: "メールアドレス未登録のため送信できません",
+    };
+  }
+  return { state: "action", title: "返信メールが未送信です" };
+}

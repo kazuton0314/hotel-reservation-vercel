@@ -10,6 +10,7 @@ import {
   unlinkRequestReservationAction,
 } from "@/lib/actions/requests";
 import { LinkReservationPicker } from "@/components/requests/LinkReservationPicker";
+import { RequestApproveDialog } from "@/components/requests/RequestApproveDialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
 import { showErrorToast, showSuccessToast } from "@/lib/utils/toast";
@@ -210,44 +211,15 @@ export function RequestDetailActions({
       ) : null}
 
       {approveOpen ? (
-        <div className="detail-status-edit">
-          <p className="form-section-label">承認の確認</p>
-          <p className="detail-hint">
-            承認のみの場合は仮予約は作成されません。部屋割り等が必要な場合は仮予約も作成してください。
-          </p>
-          <div className="detail-actions detail-actions-inline">
-            <Button
-              type="button"
-              variant="default"
-              disabled={busy}
-              onClick={() => {
-                submitQuick("承認済", undefined, false);
-                setApproveOpen(false);
-              }}
-            >
-              承認のみ
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              disabled={busy}
-              onClick={() => {
-                submitQuick("承認済", undefined, true);
-                setApproveOpen(false);
-              }}
-            >
-              承認して仮予約を作成
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              disabled={busy}
-              onClick={() => setApproveOpen(false)}
-            >
-              キャンセル
-            </Button>
-          </div>
-        </div>
+        <RequestApproveDialog
+          open={approveOpen}
+          pending={busy}
+          onClose={() => setApproveOpen(false)}
+          onApprove={(createProvisional) => {
+            setApproveOpen(false);
+            submitQuick("承認済", undefined, createProvisional);
+          }}
+        />
       ) : null}
 
       {rejectOpen ? (

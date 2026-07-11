@@ -60,37 +60,44 @@ export function RequestMailBlock({
         </div>
         {sentAtStr ? <p className="form-hint">{sentAtStr}</p> : null}
         <div className="mail-action-card-actions">
-          <Button type="button" size="sm" onClick={() => setComposeOpen(true)}>
+          <Button
+            type="button"
+            size="sm"
+            className="mail-action-primary"
+            onClick={() => setComposeOpen(true)}
+          >
             メールを作成
           </Button>
-          <form action={formAction}>
-            <input type="hidden" name="request_id" value={requestId} />
-            <input
-              type="hidden"
-              name="reply_email_sent"
-              value={replyEmailSent ? "false" : "true"}
-            />
-            <Button
-              type="submit"
-              variant="secondary"
-              size="sm"
-              disabled={pending || replyEmailSent}
-            >
-              手動で送付済
-            </Button>
-          </form>
-          <form action={formAction}>
-            <input type="hidden" name="request_id" value={requestId} />
-            <input type="hidden" name="reply_email_sent" value="false" />
-            <Button
-              type="submit"
-              variant="secondary"
-              size="sm"
-              disabled={pending || !replyEmailSent}
-            >
-              未送付に戻す
-            </Button>
-          </form>
+          <div className="mail-action-secondary-row">
+            <form action={formAction} className="mail-action-form">
+              <input type="hidden" name="request_id" value={requestId} />
+              <input
+                type="hidden"
+                name="reply_email_sent"
+                value={replyEmailSent ? "false" : "true"}
+              />
+              <Button
+                type="submit"
+                variant="secondary"
+                size="sm"
+                disabled={pending || replyEmailSent}
+              >
+                送付済
+              </Button>
+            </form>
+            <form action={formAction} className="mail-action-form">
+              <input type="hidden" name="request_id" value={requestId} />
+              <input type="hidden" name="reply_email_sent" value="false" />
+              <Button
+                type="submit"
+                variant="secondary"
+                size="sm"
+                disabled={pending || !replyEmailSent}
+              >
+                未送付に戻す
+              </Button>
+            </form>
+          </div>
         </div>
       </div>
 
