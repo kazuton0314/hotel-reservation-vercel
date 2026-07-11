@@ -27,18 +27,53 @@ function extractEmailAddress(from: string): string {
   return (m?.[1] ?? from).trim();
 }
 
+export type ParsedMailFrom = {
+  name: string;
+  address: string;
+  header: string;
+};
+
 /** 差出人ヘッダー（MAIL_FROM 優先。SMTP_USER とは別アドレスにできる） */
 export function resolveMailFromHeader(): string {
+  return parseMailFrom().header;
+}
+
+export function parseMailFrom(): ParsedMailFrom {
   const explicit = process.env.MAIL_FROM?.trim();
-  if (explicit) return explicit;
+  if (explicit) {
+    const address = extractEmailAddress(explicit);
+    const nameMatch = explicit.match(/^\s*(.*?)\s*<[^>]+>\s*$/);
+    const name = nameMatch
+      ? nameMatch[1].replace(/^"|"$/g, "").trim()
+      : "";
+    return { name, address, header: explicit };
+  }
 
-  const address = process.env.MAIL_FROM_ADDRESS?.trim();
+  const address =
+    process.env.MAIL_FROM_ADDRESS?.trim() ||
+    process.env.SMTP_USER?.trim() ||
+    "";
   const name =
-    process.env.MAIL_FROM_NAME?.trim() || process.env.FACILITY_NAME?.trim();
-  if (address && name) return `${name} <${address}>`;
-  if (address) return address;
+    process.env.MAIL_FROM_NAME?.trim() ||
+    process.env.FACILITY_NAME?.trim() ||
+    "";
+  const header = name && address ? `${name} <${address}>` : address;
+  return { name, address, header };
+}
 
-  return process.env.SMTP_USER?.trim() || "";
+function formatSmtpErrorMessage(error: unknown): string {
+  const raw = error instanceof Error ? error.message : String(error);
+  if (/550|5\.7\.1/i.test(raw)) {
+    const authUser = process.env.SMTP_USER?.trim();
+    return [
+      "送信元アドレスがメールサーバーに拒否されました（550）。",
+      authUser
+        ? `さくらSMTPでは From を認証ユーザー（${authUser}）と一致させてください。`
+        : "SMTP_USER と MAIL_FROM_ADDRESS を同じアドレスにしてください。",
+      `詳細: ${raw}`,
+    ].join(" ");
+  }
+  return raw;
 }
 
 export function resolveMailProvider(): MailProvider | null {
@@ -269,21 +304,36 @@ export async function sendMailViaSmtp(
   });
 
   try {
-    const from = resolveMailFromHeader();
+    const parsed = parseMailFrom();
+    const smtpUser = process.env.SMTP_USER!.trim();
+    // さくら等: 表示名は任意だがアドレスは認証ユーザーと一致必須
+    const fromAddress =
+      parsed.address &&
+      parsed.address.toLowerCase() === smtpUser.toLowerCase()
+        ? parsed.address
+        : smtpUser;
+    const fromName = parsed.name;
+
     const replyTo =
-      process.env.MAIL_REPLY_TO?.trim() ||
-      extractEmailAddress(from) ||
-      process.env.SMTP_USER?.trim();
+      process.env.MAIL_REPLY_TO?.trim() || fromAddress || smtpUser;
+
     const info = await transporter.sendMail({
-      from,
+      from: fromName
+        ? { name: fromName, address: fromAddress }
+        : fromAddress,
       to: input.to,
       replyTo: replyTo || undefined,
       subject: input.subject,
       text: input.body,
+      // さくら等: エンベロープ From は認証ユーザー必須
+      envelope: {
+        from: smtpUser,
+        to: input.to,
+      },
     });
     const sentCopyError = await appendSmtpMailToSent(
       input,
-      from,
+      fromName ? `${fromName} <${fromAddress}>` : fromAddress,
       info.messageId ?? null
     );
     return {
@@ -295,7 +345,7 @@ export async function sendMailViaSmtp(
   } catch (e) {
     return {
       ok: false,
-      message: e instanceof Error ? e.message : String(e),
+      message: formatSmtpErrorMessage(e),
     };
   }
 }

@@ -272,7 +272,7 @@ export function MailTemplatesView({
       </div>
 
       <Dialog open={editor != null} onOpenChange={(next) => !next && setEditor(null)}>
-        <DialogContent className="mail-compose-dialog mail-modal-wide" aria-describedby={undefined}>
+        <DialogContent className="mail-compose-dialog mail-modal-wide mail-template-dialog" aria-describedby={undefined}>
           {editor ? (
             <>
             <h3 className="mail-modal-title">

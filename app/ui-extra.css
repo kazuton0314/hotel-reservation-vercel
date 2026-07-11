@@ -252,6 +252,9 @@
   outline: none;
   white-space: pre-wrap;
   word-break: break-word;
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .mail-merge-editor:focus {
@@ -1144,5 +1147,166 @@
 @media (min-width: 640px) {
   .settings-stat-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* スマホ: メール編集・設定・一覧の縦伸びを抑える */
+@media (max-width: 639px) {
+  .mail-modal,
+  .mail-compose-dialog,
+  .mail-template-dialog {
+    position: fixed !important;
+    inset: 0 !important;
+    left: 0 !important;
+    top: 0 !important;
+    transform: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    padding: 12px 12px calc(12px + env(safe-area-inset-bottom, 0px));
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+  }
+
+  .mail-modal-title {
+    font-size: 0.92rem;
+    padding-right: 28px;
+  }
+
+  .mail-modal-actions {
+    position: sticky;
+    bottom: 0;
+    margin-top: auto;
+    padding-top: 10px;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    background: var(--card);
+    z-index: 2;
+    border-top: 1px solid var(--border);
+  }
+
+  .mail-modal-actions .btn,
+  .mail-modal-actions button {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .mail-merge-editor-body {
+    min-height: 140px;
+  }
+
+  .mail-placeholder-chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    gap: 5px;
+    padding-bottom: 2px;
+  }
+
+  .mail-placeholder-chip {
+    flex: 0 0 auto;
+  }
+
+  .settings-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .settings-toolbar-start,
+  .settings-toolbar-actions {
+    width: 100%;
+  }
+
+  .settings-toolbar-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .settings-filter-select {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .settings-template-head {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .settings-template-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .settings-template-actions button {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .list-search-bar {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+  }
+
+  .list-search-keyword {
+    grid-column: 1 / -1;
+  }
+
+  .row-card-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .row-card-badges {
+    width: 100%;
+  }
+
+  .list-inline-status {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .status-groups.compact {
+    gap: 3px;
+  }
+
+  .task-chip {
+    font-size: 0.54rem;
+    padding: 1px 5px;
+  }
+
+  .list-filter-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .list-filter-select {
+    width: 100%;
+  }
+
+  .mail-action-card-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .mail-action-card-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    width: 100%;
+  }
+
+  .mail-action-card-actions button {
+    width: 100%;
+    min-width: 0;
   }
 }
