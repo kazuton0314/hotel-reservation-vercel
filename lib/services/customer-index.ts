@@ -23,10 +23,7 @@ export function normalizeNameForCustomerKey(name: string | null): string {
 
 /** GAS 09_顧客索引と同じ: 正規化氏名|メール or 正規化氏名|電話(10桁以上) */
 export function buildCustomerKey(
-  r: Pick<
-    ReservationRow,
-    "email" | "phone" | "representative_name" | "reservation_id"
-  >
+  r: Pick<ReservationRow, "email" | "phone" | "representative_name">
 ): string | null {
   const name = normalizeNameForCustomerKey(r.representative_name);
   const email = String(r.email ?? "").trim().toLowerCase();
