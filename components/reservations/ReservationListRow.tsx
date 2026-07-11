@@ -1,64 +1,111 @@
 import Link from "next/link";
 import type { ReservationListItem } from "@/lib/queries/reservations";
+import { ReservationListStatusActions } from "@/components/reservations/ReservationListStatusActions";
+import { formatReceivedDate } from "@/lib/services/reservation-list-filter";
+import { formatDisplayName } from "@/lib/utils/display-name";
+import { formatGuestCompact } from "@/lib/utils/guest-display";
+import { reservationMailStatusesFromListItem } from "@/lib/utils/reservation-mail-badges";
+import type { MailKindStatus } from "@/lib/utils/mail-kind-status";
 
-const STATUS_COLORS: Record<string, string> = {
-  確定: "bg-blue-100 text-blue-800",
-  仮予約: "bg-amber-100 text-amber-800",
-  キャンセル: "bg-zinc-200 text-zinc-600",
-};
+function mailPillClass(st: MailKindStatus, noEmail: boolean): string {
+  if (noEmail) return "status-pill status-pill-muted";
+  if (st.sent) return "status-pill status-pill-ok";
+  if (st.notRequired) return "status-pill status-pill-muted";
+  if (st.pending) return "status-pill warn";
+  return "status-pill";
+}
+
+function MailKindPill({
+  label,
+  st,
+  noEmail,
+}: {
+  label: string;
+  st: MailKindStatus;
+  noEmail: boolean;
+}) {
+  const title = noEmail
+    ? "メールアドレス未登録"
+    : st.sentAtStr || st.reason || undefined;
+  return (
+    <span className={mailPillClass(st, noEmail)} title={title}>
+      {label}
+      {noEmail ? " —" : st.sent ? " 済" : st.pending ? " 未" : ""}
+    </span>
+  );
+}
 
 export function ReservationListRow({ item }: { item: ReservationListItem }) {
-  const statusClass =
-    STATUS_COLORS[item.status] ?? "bg-zinc-100 text-zinc-700";
+  const compact = formatGuestCompact({
+    guest_total: item.guest_total,
+    adult_male: item.adult_male,
+    adult_female: item.adult_female,
+    boy_student: item.boy_student,
+    girl_student: item.girl_student,
+    age_3plus: item.age_3plus,
+    under_3: item.under_3,
+  });
+  const received = formatReceivedDate(item.received_ms);
+  const noEmail = !item.email?.trim();
+  const mailStatuses =
+    item.status === "確定" ? reservationMailStatusesFromListItem(item) : null;
+  const displayName = formatDisplayName(item.representative_name);
+  const mailKinds = mailStatuses
+    ? [
+        { label: "予約確定", st: mailStatuses.confirmation },
+        { label: "11日前", st: mailStatuses.day11 },
+        { label: "3日前", st: mailStatuses.day3 },
+      ]
+    : [];
 
   return (
     <Link
       href={`/reservations/${encodeURIComponent(item.reservation_id)}`}
-      className="block rounded-xl border border-zinc-200 bg-white p-4 shadow-sm transition hover:border-zinc-300"
+      prefetch
+      className="card list-card reservation-row-card block"
     >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="font-semibold">
-            {item.representative_name || "（代表者名なし）"}
-          </p>
-          <p className="mt-0.5 text-xs text-zinc-500">{item.reservation_id}</p>
+      <div className="row-card-head">
+        <p className="card-title list-card-title">{displayName}</p>
+        <div className="row-card-badges">
+          <ReservationListStatusActions
+            reservationId={item.reservation_id}
+            status={item.status}
+            updatedAt={item.updated_at}
+          />
         </div>
-        <span
-          className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${statusClass}`}
-        >
-          {item.status}
-        </span>
       </div>
-      <div className="mt-2 flex flex-wrap gap-2">
-        {item.assignment_status === "未割当" ? (
-          <span className="rounded-full bg-orange-100 px-2 py-0.5 text-xs text-orange-800">
-            未割当
+      <p className="card-sub">
+        {item.reservation_id} / {item.check_in}〜{item.check_out}
+        {received ? ` / 受付 ${received}` : ""}
+      </p>
+      {item.status === "確定" ? (
+        <div className="status-groups compact">
+          {item.companion_required ? (
+            <span
+              className={`status-pill${item.companion_pending ? " warn" : " status-pill-ok"}`}
+              title={item.companion_pending ? "同行者情報未入力" : "同行者情報入力済"}
+            >
+              同行者{item.companion_pending ? " 未" : " 済"}
+            </span>
+          ) : null}
+          <span className={`status-pill${item.assignment_status === "未割当" ? " warn" : ""}`}>
+            部屋割{item.assignment_status === "未割当" ? " 未" : ""}
           </span>
-        ) : null}
-        {!item.completion_email_sent ? (
-          <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs text-rose-800">
-            メール未送付
-          </span>
-        ) : null}
-      </div>
-      <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-        <div>
-          <dt className="text-zinc-500">チェックイン</dt>
-          <dd>{item.check_in ?? "—"}</dd>
+          {mailKinds.map(({ label, st }) => (
+            <MailKindPill key={label} label={label} st={st} noEmail={noEmail} />
+          ))}
         </div>
-        <div>
-          <dt className="text-zinc-500">チェックアウト</dt>
-          <dd>{item.check_out ?? "—"}</dd>
-        </div>
-        <div>
-          <dt className="text-zinc-500">人数</dt>
-          <dd>{item.guest_total || "—"}</dd>
-        </div>
-        <div>
-          <dt className="text-zinc-500">部屋割</dt>
-          <dd>{item.assignment_status || "—"}</dd>
-        </div>
-      </dl>
+      ) : null}
+      {compact && compact !== "—" ? (
+        <p className="card-meta">
+          <span className="meta-guests">{compact}</span>
+        </p>
+      ) : null}
+      {item.assigned_rooms ? (
+        <p className="card-row">
+          <strong>部屋:</strong> {item.assigned_rooms}
+        </p>
+      ) : null}
     </Link>
   );
 }

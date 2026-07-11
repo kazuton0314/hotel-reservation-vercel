@@ -8,7 +8,9 @@ export type SetupCheckId =
   | "google_sa_key"
   | "booking_spreadsheet"
   | "request_spreadsheet"
-  | "cron_secret";
+  | "cron_secret"
+  | "mail_smtp"
+  | "mail_from";
 
 export type SetupCheck = {
   id: SetupCheckId;
@@ -85,6 +87,25 @@ export function getSetupChecks(): SetupCheck[] {
       label: "CRON_SECRET",
       ok: Boolean(process.env.CRON_SECRET?.trim()),
       detail: process.env.CRON_SECRET ? "設定済み" : "未設定（Vercel 本番時）",
+    },
+    {
+      id: "mail_smtp",
+      label: "メール SMTP（さくら等）",
+      ok: Boolean(
+        process.env.SMTP_HOST?.trim() &&
+          process.env.SMTP_USER?.trim() &&
+          process.env.SMTP_PASS?.trim()
+      ),
+      detail: process.env.SMTP_HOST
+        ? `${process.env.SMTP_HOST}:${process.env.SMTP_PORT ?? 587}`
+        : "未設定",
+      userAction: "さくらのSMTPサーバ・メールアドレス・パスワードを .env.local に",
+    },
+    {
+      id: "mail_from",
+      label: "MAIL_FROM",
+      ok: Boolean(process.env.MAIL_FROM?.trim()),
+      detail: process.env.MAIL_FROM ? "設定済み" : "未設定",
     },
   ];
 }

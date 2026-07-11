@@ -1,52 +1,57 @@
 import Link from "next/link";
 import type { RequestListItem } from "@/lib/queries/requests";
+import { formatReceivedDate } from "@/lib/services/reservation-list-filter";
+import { formatDisplayName } from "@/lib/utils/display-name";
 
-const STATUS_COLORS: Record<string, string> = {
-  リクエスト: "bg-amber-100 text-amber-800",
-  承認済: "bg-blue-100 text-blue-800",
-  却下: "bg-rose-100 text-rose-800",
-  本予約連携済: "bg-emerald-100 text-emerald-800",
-};
+function statusBadge(status: string) {
+  let cls = "badge badge-status";
+  if (status === "リクエスト") cls += " badge-status-request";
+  else if (status === "承認済" || status === "本予約連携済")
+    cls += " badge-confirmed badge-status-confirmed";
+  else if (status === "却下") cls += " badge-cancelled badge-status-cancelled";
+  const label = status === "本予約連携済" ? "承認済" : status;
+  return <span className={cls}>{label}</span>;
+}
+
+function mailBadge(item: RequestListItem) {
+  if (!item.email) return null;
+  if (
+    item.status !== "承認済" &&
+    item.status !== "却下" &&
+    item.status !== "本予約連携済"
+  ) {
+    return null;
+  }
+  if (item.reply_email_sent) return null;
+  return <span className="badge badge-todo badge-todo-warn">返信未</span>;
+}
 
 export function RequestListRow({ item }: { item: RequestListItem }) {
-  const statusClass = STATUS_COLORS[item.status] ?? "bg-zinc-100 text-zinc-700";
+  const received = formatReceivedDate(item.received_ms);
+  const displayName = formatDisplayName(item.representative_name);
 
   return (
     <Link
       href={`/requests/${encodeURIComponent(item.request_id)}`}
-      className="block rounded-xl border border-zinc-200 bg-white p-4 shadow-sm transition hover:border-zinc-300"
+      prefetch
+      className="card request-card list-card request-row-card block"
     >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="font-semibold">
-            {item.representative_name || "（代表者名なし）"}
-          </p>
-          <p className="mt-0.5 text-xs text-zinc-500">{item.request_id}</p>
+      <div className="row-card-head">
+        <p className="card-title list-card-title">{displayName}</p>
+        <div className="row-card-badges">
+          {statusBadge(item.status)}
+          {mailBadge(item)}
         </div>
-        <span
-          className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${statusClass}`}
-        >
-          {item.status}
-        </span>
       </div>
-      <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-        <div>
-          <dt className="text-zinc-500">チェックイン</dt>
-          <dd>{item.check_in ?? "—"}</dd>
-        </div>
-        <div>
-          <dt className="text-zinc-500">チェックアウト</dt>
-          <dd>{item.check_out ?? "—"}</dd>
-        </div>
-        <div>
-          <dt className="text-zinc-500">人数</dt>
-          <dd>{item.guest_total || "—"}</dd>
-        </div>
-        <div>
-          <dt className="text-zinc-500">本予約連携</dt>
-          <dd>{item.linked_reservation_id || "未連携"}</dd>
-        </div>
-      </dl>
+      <p className="card-sub">
+        {item.request_id} / {item.check_in ?? "—"}〜{item.check_out ?? "—"}
+        {received ? ` / 受付 ${received}` : ""}
+      </p>
+      {item.guest_total ? (
+        <p className="card-row">
+          <strong>宿泊人数:</strong> {item.guest_total}
+        </p>
+      ) : null}
     </Link>
   );
 }

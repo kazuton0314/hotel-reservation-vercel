@@ -6,11 +6,9 @@ export function PageHeader({
   description?: string;
 }) {
   return (
-    <header className="mb-6">
-      <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
-      {description ? (
-        <p className="mt-1 text-sm text-zinc-600">{description}</p>
-      ) : null}
+    <header className="settings-page-header detail-block">
+      <h1 className="settings-page-title">{title}</h1>
+      {description ? <p className="settings-page-desc">{description}</p> : null}
     </header>
   );
 }

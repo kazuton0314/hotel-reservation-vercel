@@ -5,6 +5,9 @@ import {
   addCompanionAction,
   deleteCompanionAction,
 } from "@/lib/actions/companions";
+import { Button } from "@/components/ui/button";
+import { Input, Select } from "@/components/ui/input";
+import { formatCompanionAgeDisplay } from "@/lib/utils/companion-age";
 
 type Companion = {
   id: string;
@@ -20,6 +23,7 @@ type Props = {
   reservationId: string;
   companions: Companion[];
   companionFormAnswered: boolean;
+  tableMissing?: boolean;
 };
 
 const GENDER_OPTIONS = ["男性", "女性", "その他", "回答しない"] as const;
@@ -29,6 +33,7 @@ export function CompanionSection({
   reservationId,
   companions,
   companionFormAnswered,
+  tableMissing = false,
 }: Props) {
   const [addState, addAction, addPending] = useActionState(
     addCompanionAction,
@@ -36,14 +41,20 @@ export function CompanionSection({
   );
 
   return (
-    <div className="space-y-4">
-      <p className="text-sm text-zinc-600">
+    <div>
+      <p className="detail-hint">
         回答状況: {companionFormAnswered ? "回答済" : "未回答"}（
         {companions.length} 名）
       </p>
+      {tableMissing ? (
+        <p className="detail-hint">
+          同行者テーブル（companions）が未作成です。Supabase で migration
+          003_companions.sql を適用してください。
+        </p>
+      ) : null}
 
       {companions.length > 0 ? (
-        <ul className="divide-y divide-zinc-100 rounded-lg border border-zinc-200">
+        <ul className="room-assignment-list">
           {companions.map((c) => (
             <CompanionRow
               key={c.id}
@@ -53,61 +64,55 @@ export function CompanionSection({
           ))}
         </ul>
       ) : (
-        <p className="text-sm text-zinc-500">同行者は未登録です。</p>
+        <p className="detail-empty-note">同行者は未登録です。</p>
       )}
 
-      <div className="rounded-lg border border-dashed border-zinc-300 p-4">
-        <h3 className="text-sm font-semibold">同行者を手動追加</h3>
-        <form action={addAction} className="mt-3 space-y-3">
+      <div className="room-assignment-add">
+        <h3 className="form-section-label" style={{ marginTop: 0 }}>
+          同行者を手動追加
+        </h3>
+        <form action={addAction}>
           <input type="hidden" name="reservation_id" value={reservationId} />
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block text-sm">
-              <span className="mb-1 block text-zinc-600">氏名</span>
-              <input
-                name="name"
-                required
-                className="w-full rounded-lg border border-zinc-300 px-3 py-2"
-              />
-            </label>
-            <label className="block text-sm">
-              <span className="mb-1 block text-zinc-600">ふりがな</span>
-              <input
-                name="name_kana"
-                className="w-full rounded-lg border border-zinc-300 px-3 py-2"
-              />
-            </label>
-            <label className="block text-sm">
-              <span className="mb-1 block text-zinc-600">年齢</span>
-              <input
-                name="age"
-                className="w-full rounded-lg border border-zinc-300 px-3 py-2"
-              />
-            </label>
-            <label className="block text-sm">
-              <span className="mb-1 block text-zinc-600">性別</span>
-              <select
-                name="gender"
-                className="w-full rounded-lg border border-zinc-300 px-3 py-2"
-              >
-                <option value="">未選択</option>
-                {GENDER_OPTIONS.map((g) => (
-                  <option key={g} value={g}>
-                    {g}
-                  </option>
-                ))}
-              </select>
-            </label>
+          <div className="form-group">
+            <label htmlFor="companion-name">氏名</label>
+            <Input id="companion-name" name="name" required />
+          </div>
+          <div className="form-group">
+            <label htmlFor="companion-kana">ふりがな</label>
+            <Input id="companion-kana" name="name_kana" />
+          </div>
+          <div className="form-group">
+            <label htmlFor="companion-age">年齢</label>
+            <Input
+              id="companion-age"
+              name="age"
+              type="number"
+              min={0}
+              max={120}
+              step={1}
+              inputMode="numeric"
+              placeholder="0〜120"
+            />
+          </div>
+          <div className="form-group">
+            <label htmlFor="companion-gender">性別</label>
+            <Select id="companion-gender" name="gender">
+              <option value="">—</option>
+              {GENDER_OPTIONS.map((g) => (
+                <option key={g} value={g}>
+                  {g}
+                </option>
+              ))}
+            </Select>
           </div>
           {addState.ok === false ? (
-            <p className="text-sm text-red-700">{addState.message}</p>
+            <p className="detail-hint" style={{ color: "#b91c1c" }}>
+              {addState.message}
+            </p>
           ) : null}
-          <button
-            type="submit"
-            disabled={addPending}
-            className="rounded-lg bg-zinc-800 px-4 py-2 text-sm text-white disabled:opacity-60"
-          >
+          <Button type="submit" size="sm" disabled={addPending}>
             {addPending ? "追加中..." : "同行者を追加"}
-          </button>
+          </Button>
         </form>
       </div>
     </div>
@@ -127,29 +132,35 @@ function CompanionRow({
   );
 
   return (
-    <li className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
-      <div>
-        <p className="font-medium">
-          {companion.entry_no}. {companion.name}
-        </p>
-        <p className="text-xs text-zinc-500">
-          {companion.name_kana || "—"} / {companion.age || "—"}歳 /{" "}
-          {companion.gender || "—"} / {companion.source}
-        </p>
+    <li className="companion-line">
+      <div className="detail-actions" style={{ marginTop: 0, alignItems: "center" }}>
+        <div style={{ flex: 1 }}>
+          <strong>
+            {companion.entry_no}. {companion.name}
+          </strong>
+          <div className="detail-hint" style={{ margin: "2px 0 0" }}>
+            {companion.name_kana || "—"} /{" "}
+            {formatCompanionAgeDisplay(companion.age) || "—"} /{" "}
+            {companion.gender || "—"} / {companion.source}
+          </div>
+        </div>
+        <form action={action}>
+          <input type="hidden" name="companion_id" value={companion.id} />
+          <input type="hidden" name="reservation_id" value={reservationId} />
+          <Button
+            type="submit"
+            variant="secondary"
+            size="sm"
+            disabled={pending}
+          >
+            削除
+          </Button>
+        </form>
       </div>
-      <form action={action}>
-        <input type="hidden" name="companion_id" value={companion.id} />
-        <input type="hidden" name="reservation_id" value={reservationId} />
-        <button
-          type="submit"
-          disabled={pending}
-          className="text-xs text-red-600 hover:underline"
-        >
-          削除
-        </button>
-      </form>
       {state.ok === false ? (
-        <p className="text-xs text-red-600">{state.message}</p>
+        <p className="detail-hint" style={{ color: "#b91c1c" }}>
+          {state.message}
+        </p>
       ) : null}
     </li>
   );

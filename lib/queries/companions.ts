@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createReadClient } from "@/lib/supabase/read";
 
 export type CompanionItem = {
   id: string;
@@ -12,7 +12,7 @@ export type CompanionItem = {
 };
 
 export async function getCompanionsByReservationId(reservationId: string) {
-  const supabase = await createClient();
+  const supabase = await createReadClient();
   const { data, error } = await supabase
     .from("companions")
     .select(
@@ -21,8 +21,25 @@ export async function getCompanionsByReservationId(reservationId: string) {
     .eq("reservation_id", reservationId)
     .order("entry_no", { ascending: true });
 
+  if (error) {
+    const message = error.message ?? "";
+    if (/companions/i.test(message) && /schema cache|does not exist/i.test(message)) {
+      return {
+        companions: [] as CompanionItem[],
+        error: null,
+        tableMissing: true,
+      };
+    }
+    return {
+      companions: [] as CompanionItem[],
+      error: message,
+      tableMissing: false,
+    };
+  }
+
   return {
     companions: (data ?? []) as CompanionItem[],
-    error: error?.message ?? null,
+    error: null,
+    tableMissing: false,
   };
 }

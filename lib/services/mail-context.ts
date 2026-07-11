@@ -1,0 +1,141 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { MailEntityContext } from "@/lib/services/mail-placeholders";
+import { formatDateIso, parseDateValue } from "@/lib/import/date-utils";
+import { generateAccessKey } from "@/lib/utils/access-key";
+import { buildCompanionFormUrl } from "@/lib/utils/companion-form-url";
+import { formatBbqDisplayLabel } from "@/lib/utils/occ-display";
+
+const FACILITY_NAME = process.env.FACILITY_NAME ?? "みどりの時計台";
+const STUDIO_BOOKING_URL = process.env.STUDIO_BOOKING_FORM_URL ?? "";
+const MAIL_FROM = process.env.MAIL_FROM ?? "";
+
+function joinName(last: string | null | undefined, first: string | null | undefined) {
+  return [last, first].filter(Boolean).join(" ").trim();
+}
+
+function formatMailDate(value: string | null | undefined): string {
+  if (!value) return "";
+  const d = parseDateValue(value);
+  if (!d) return String(value).trim();
+  return formatDateIso(d);
+}
+
+function formatNightsLabel(nights: number | null | undefined): string {
+  if (nights == null || nights <= 0) return "";
+  return `${nights}泊`;
+}
+
+function formatRejectReason(value: string | null | undefined): string {
+  const reason = String(value ?? "").trim();
+  return reason ? `【理由】\n${reason}` : "";
+}
+
+function formatArrivalTime(value: string | null | undefined): string {
+  const v = String(value ?? "").trim();
+  return v || "未設定";
+}
+
+function extractMailAddress(from: string): string {
+  const m = from.match(/<([^>]+)>/);
+  return (m?.[1] ?? from).trim();
+}
+
+async function ensureReservationAccessKey(
+  supabase: SupabaseClient,
+  reservationId: string,
+  current: string | null | undefined
+): Promise<string> {
+  const key = String(current ?? "").trim();
+  if (key) return key;
+
+  const newKey = generateAccessKey();
+  await supabase
+    .from("reservations")
+    .update({
+      access_key: newKey,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("reservation_id", reservationId);
+  return newKey;
+}
+
+function baseContext(): MailEntityContext {
+  return {
+    facilityName: FACILITY_NAME,
+    studioBookingUrl: STUDIO_BOOKING_URL,
+    companionFormUrl: "",
+    mailFrom: extractMailAddress(MAIL_FROM),
+  };
+}
+
+export async function buildMailEntityContext(
+  supabase: SupabaseClient,
+  entityType: string,
+  entityId: string
+): Promise<MailEntityContext> {
+  const base = baseContext();
+
+  if (entityType === "reservation" && entityId) {
+    const { data } = await supabase
+      .from("reservations")
+      .select(
+        "reservation_id, access_key, representative_name, last_name, first_name, name_kana, last_name_kana, first_name_kana, email, phone, check_in, check_out, nights, guest_total, arrival_time, bbq"
+      )
+      .eq("reservation_id", entityId)
+      .maybeSingle();
+
+    if (!data) return base;
+    const accessKey = await ensureReservationAccessKey(
+      supabase,
+      data.reservation_id,
+      data.access_key
+    );
+    return {
+      ...base,
+      representativeName: data.representative_name ?? joinName(data.last_name, data.first_name),
+      lastName: data.last_name ?? "",
+      firstName: data.first_name ?? "",
+      nameKana: data.name_kana ?? joinName(data.last_name_kana, data.first_name_kana),
+      email: data.email ?? "",
+      phone: data.phone ?? "",
+      reservationId: data.reservation_id,
+      checkIn: formatMailDate(data.check_in),
+      checkOut: formatMailDate(data.check_out),
+      arrivalTime: formatArrivalTime(data.arrival_time),
+      nights: formatNightsLabel(data.nights),
+      guestTotal: data.guest_total ?? "",
+      bbq: formatBbqDisplayLabel(data.bbq),
+      companionFormUrl: buildCompanionFormUrl(accessKey),
+    };
+  }
+
+  if (entityType === "request" && entityId) {
+    const { data } = await supabase
+      .from("reservation_requests")
+      .select(
+        "request_id, linked_reservation_id, representative_name, last_name, first_name, name_kana, last_name_kana, first_name_kana, email, phone, check_in, check_out, nights, guest_total, reject_reason"
+      )
+      .eq("request_id", entityId)
+      .maybeSingle();
+
+    if (!data) return base;
+    return {
+      ...base,
+      representativeName: data.representative_name ?? joinName(data.last_name, data.first_name),
+      lastName: data.last_name ?? "",
+      firstName: data.first_name ?? "",
+      nameKana: data.name_kana ?? joinName(data.last_name_kana, data.first_name_kana),
+      email: data.email ?? "",
+      phone: data.phone ?? "",
+      requestId: data.request_id,
+      reservationId: data.linked_reservation_id ?? "",
+      checkIn: formatMailDate(data.check_in),
+      checkOut: formatMailDate(data.check_out),
+      nights: formatNightsLabel(data.nights),
+      guestTotal: data.guest_total ?? "",
+      rejectReason: formatRejectReason(data.reject_reason),
+    };
+  }
+
+  return base;
+}

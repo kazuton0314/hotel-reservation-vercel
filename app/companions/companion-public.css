@@ -1,0 +1,220 @@
+/* ゲスト向け同行者フォーム（スタッフ画面の detail-block とは分離） */
+
+body:has(.companions-public-page) {
+  padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+}
+
+.companions-public-page {
+  min-height: 100dvh;
+  background: var(--bg);
+  padding: 16px 12px calc(24px + env(safe-area-inset-bottom, 0px));
+  box-sizing: border-box;
+}
+
+.companions-public-inner {
+  max-width: 520px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.companions-public-header {
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.companions-public-header h1 {
+  margin: 0 0 6px;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.companions-public-sub {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+.companions-lang-toggle {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.companions-lang-btn {
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.companions-lang-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.companions-summary {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  display: grid;
+  gap: 6px;
+  font-size: 0.84rem;
+}
+
+.companions-summary-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.companions-summary-row dt {
+  margin: 0;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.companions-summary-row dd {
+  margin: 0;
+  text-align: right;
+  font-weight: 600;
+}
+
+.companions-form-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+  margin-bottom: 10px;
+}
+
+.companions-form-card h2 {
+  margin: 0 0 10px;
+  font-size: 0.82rem;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.companions-field {
+  margin-bottom: 10px;
+}
+
+.companions-field label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.companions-field input,
+.companions-field select {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 1rem;
+  background: #fff;
+  color: var(--text);
+}
+
+.companions-field-row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.companions-remove-btn {
+  border: none;
+  background: transparent;
+  color: var(--danger);
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.companions-hint {
+  margin: 0 0 12px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.companions-error {
+  margin: 0 0 10px;
+  font-size: 0.82rem;
+  color: var(--danger);
+}
+
+.companions-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.companions-add-btn {
+  width: 100%;
+  border: 1px dashed var(--border);
+  background: var(--surface-muted, #f8faf9);
+  color: var(--accent);
+  border-radius: 12px;
+  padding: 10px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.companions-add-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.companions-submit-btn {
+  width: 100%;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 12px;
+  padding: 12px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.companions-submit-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.companions-done {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px 16px;
+  text-align: center;
+}
+
+.companions-done h2 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+
+.companions-done p {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--muted);
+  line-height: 1.5;
+}

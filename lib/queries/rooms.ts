@@ -1,4 +1,5 @@
-import { createClient } from "@/lib/supabase/server";
+import { createReadClient } from "@/lib/supabase/read";
+import { includeArchivedForDateRange } from "@/lib/utils/list-scope";
 
 export type RoomItem = {
   room_id: string;
@@ -17,7 +18,7 @@ export type RoomAssignmentBoardItem = {
 };
 
 export async function getRooms() {
-  const supabase = await createClient();
+  const supabase = await createReadClient();
   const { data, error } = await supabase
     .from("rooms")
     .select("room_id, room_name, sort_order")
@@ -31,16 +32,23 @@ export async function getRooms() {
 }
 
 export async function getRoomAssignmentsForRange(from: string, to: string) {
-  const supabase = await createClient();
-  const { data, error } = await supabase
+  const supabase = await createReadClient();
+  const withArchived = includeArchivedForDateRange(from);
+
+  let query = supabase
     .from("room_assignments")
     .select(
       "room_assignment_id, reservation_id, room_id, room_name, stay_start, stay_end, assigned_guest_count"
     )
-    .eq("is_archived", false)
     .lte("stay_start", to)
     .gte("stay_end", from)
     .order("stay_start", { ascending: true });
+
+  if (!withArchived) {
+    query = query.eq("is_archived", false);
+  }
+
+  const { data, error } = await query;
 
   return {
     assignments: (data ?? []) as RoomAssignmentBoardItem[],

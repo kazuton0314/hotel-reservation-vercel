@@ -1,14 +1,10 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { updateRequestAction } from "@/lib/actions/requests";
-
-const REQUEST_STATUS_OPTIONS = [
-  "リクエスト",
-  "承認済",
-  "却下",
-  "本予約連携済",
-] as const;
+import { Button } from "@/components/ui/button";
+import { Select, Textarea } from "@/components/ui/input";
+import { REQUEST_STATUS_EDIT_OPTIONS } from "@/lib/config/field-options";
 
 type Props = {
   requestId: string;
@@ -26,69 +22,118 @@ export function RequestUpdateForm(props: Props) {
     initialState
   );
 
-  return (
-    <form action={formAction} className="space-y-4">
-      <input type="hidden" name="request_id" value={props.requestId} />
+  const displayStatus =
+    props.status === "本予約連携済" ? "承認済" : props.status;
+  const isApprovedLocked =
+    props.status === "承認済" || props.status === "本予約連携済";
+  const [selectedStatus, setSelectedStatus] = useState(displayStatus);
+  const showProvisionalOption =
+    !props.linkedReservationId &&
+    !isApprovedLocked &&
+    selectedStatus === "承認済";
+  const [createProvisional, setCreateProvisional] = useState(false);
 
-      <label className="block text-sm">
-        <span className="mb-1 block text-zinc-600">ステータス</span>
-        <select
+  return (
+    <form action={formAction}>
+      <input type="hidden" name="request_id" value={props.requestId} />
+      {props.linkedReservationId ? (
+        <input
+          type="hidden"
+          name="linked_reservation_id"
+          value={props.linkedReservationId}
+        />
+      ) : null}
+      {showProvisionalOption && createProvisional ? (
+        <input type="hidden" name="create_provisional" value="true" />
+      ) : null}
+
+      <p className="form-section-label">ステータス</p>
+      <div className="form-group">
+        <label htmlFor="req-status-edit">ステータス</label>
+        <Select
+          id="req-status-edit"
           name="status"
-          defaultValue={props.status}
-          className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2"
+          value={selectedStatus}
+          onChange={(e) => {
+            setSelectedStatus(e.target.value);
+            if (e.target.value !== "承認済") setCreateProvisional(false);
+          }}
         >
-          {REQUEST_STATUS_OPTIONS.map((status) => (
-            <option key={status} value={status}>
+          {isApprovedLocked ? (
+            <option value="承認済" disabled>
+              承認済
+            </option>
+          ) : null}
+          {REQUEST_STATUS_EDIT_OPTIONS.map((status) => (
+            <option
+              key={status}
+              value={status}
+              disabled={isApprovedLocked && status !== "承認済"}
+            >
               {status}
             </option>
           ))}
-        </select>
-      </label>
+        </Select>
+      </div>
 
-      <label className="block text-sm">
-        <span className="mb-1 block text-zinc-600">連携予約ID（任意）</span>
-        <input
-          type="text"
-          name="linked_reservation_id"
-          defaultValue={props.linkedReservationId ?? ""}
-          placeholder="STUDIO-MT150"
-          className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2"
-        />
-      </label>
+      {showProvisionalOption ? (
+        <div className="form-group">
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={createProvisional}
+              onChange={(e) => setCreateProvisional(e.target.checked)}
+            />
+            承認と同時に仮予約を作成する
+          </label>
+        </div>
+      ) : null}
 
-      <label className="block text-sm">
-        <span className="mb-1 block text-zinc-600">却下理由（却下時必須）</span>
-        <textarea
-          name="reject_reason"
-          defaultValue={props.rejectReason ?? ""}
-          rows={3}
-          className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2"
-        />
-      </label>
+      <p className="detail-hint">
+        「承認」でステータスを承認済にできます。仮予約の作成は承認時に選べます（部屋割り等が必要なとき）。確定の本予約が既にある場合は「本予約を紐づけ」から選べます。
+      </p>
 
-      <label className="block text-sm">
-        <span className="mb-1 block text-zinc-600">内部メモ</span>
-        <textarea
+      {displayStatus === "却下" || props.rejectReason ? (
+        <>
+          <p className="form-section-label">却下理由</p>
+          <div className="form-group">
+            <label htmlFor="reject-reason-edit">却下理由</label>
+            <Textarea
+              id="reject-reason-edit"
+              name="reject_reason"
+              rows={3}
+              defaultValue={props.rejectReason ?? ""}
+            />
+          </div>
+        </>
+      ) : null}
+
+      <p className="form-section-label">メモ</p>
+      <div className="form-group">
+        <label htmlFor="internal-memo">内部メモ</label>
+        <Textarea
+          id="internal-memo"
           name="internal_memo"
-          defaultValue={props.internalMemo ?? ""}
           rows={4}
-          className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2"
+          defaultValue={props.internalMemo ?? ""}
         />
-      </label>
+      </div>
 
       {state.ok === false ? (
-        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p className="detail-hint" style={{ color: "#b91c1c" }}>
           {state.message}
+        </p>
+      ) : state.ok === true && !isPending ? (
+        <p className="detail-hint" style={{ color: "#047857" }}>
+          保存しました
         </p>
       ) : null}
 
-      <button
-        type="submit"
-        disabled={isPending}
-        className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
-      >
-        {isPending ? "保存中..." : "変更を保存"}
-      </button>
+      <div className="form-actions-sticky">
+        <Button type="submit" disabled={isPending}>
+          {isPending ? "保存中..." : "保存"}
+        </Button>
+      </div>
     </form>
   );
 }

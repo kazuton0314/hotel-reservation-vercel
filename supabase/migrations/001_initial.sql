@@ -262,6 +262,15 @@ alter table public.room_assignments enable row level security;
 alter table public.form_import_log enable row level security;
 alter table public.sync_runs enable row level security;
 
+drop policy if exists "dev_all_rooms" on public.rooms;
+drop policy if exists "dev_all_master_values" on public.master_values;
+drop policy if exists "dev_all_import_sequences" on public.import_sequences;
+drop policy if exists "dev_all_reservations" on public.reservations;
+drop policy if exists "dev_all_reservation_requests" on public.reservation_requests;
+drop policy if exists "dev_all_room_assignments" on public.room_assignments;
+drop policy if exists "dev_all_form_import_log" on public.form_import_log;
+drop policy if exists "dev_all_sync_runs" on public.sync_runs;
+
 create policy "dev_all_rooms" on public.rooms
   for all to anon, authenticated using (true) with check (true);
 create policy "dev_all_master_values" on public.master_values

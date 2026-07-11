@@ -23,6 +23,7 @@ Google サービスアカウントが未設定です。
   console.log("フォーム取込完了");
   console.log("  リクエスト:", result.request);
   console.log("  STUDIO本予約:", result.studio);
+  console.log("  事後リンク:", result.postLink);
   console.log("  sync_run ID:", result.runId);
 }
 

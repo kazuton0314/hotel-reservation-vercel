@@ -1,0 +1,445 @@
+import { stripTime } from "@/lib/import/date-utils";
+import {
+  daysBetweenCalendarDates,
+  formatDateJa,
+  isSameDay,
+  parseReservationDate,
+  todayIso,
+  weekdayJa,
+} from "@/lib/utils/date-label";
+import { formatGuestCompact } from "@/lib/utils/guest-display";
+import type { TodayRoomBoardItem } from "@/lib/queries/dashboard";
+
+const ACTIVE_STATUSES = ["仮予約", "確定"] as const;
+
+export type CalendarReservation = {
+  reservation_id: string;
+  representative_name: string | null;
+  status: string;
+  check_in: string | null;
+  check_out: string | null;
+  nights: number | null;
+  guest_total: string | null;
+  adult_male: string | null;
+  adult_female: string | null;
+  boy_student: string | null;
+  girl_student: string | null;
+  age_3plus: string | null;
+  under_3: string | null;
+  arrival_time: string | null;
+  meal: string | null;
+  bbq: string | null;
+  inquiry: string | null;
+  assignment_status: string | null;
+};
+
+export type CalendarAssignment = {
+  room_assignment_id: string;
+  reservation_id: string;
+  room_id: string | null;
+  room_name: string | null;
+  stay_start: string;
+  stay_end: string;
+};
+
+export type CalendarEvent = {
+  reservationId: string;
+  representativeName: string;
+  guestCompact: string;
+  status: string;
+  type: "checkin" | "checkout";
+  typeLabel: string;
+  time: string;
+  date: string;
+  rooms: string;
+};
+
+export type CalendarDayCard = {
+  reservationId: string;
+  representativeName: string;
+  status: string;
+  checkIn: string;
+  checkOut: string;
+  guestTotal: string | null;
+  adultMale: string | null;
+  adultFemale: string | null;
+  boyStudent: string | null;
+  girlStudent: string | null;
+  age3plus: string | null;
+  under3: string | null;
+  arrivalTime: string | null;
+  assignmentStatus: string | null;
+  assignedRooms: string;
+  meal: string | null;
+  bbq: string | null;
+  inquiry: string | null;
+  nightNumber?: number;
+};
+
+export type MonthCalendarView = {
+  year: number;
+  month: number;
+  days: {
+    date: string;
+    dayNum: number;
+    isToday: boolean;
+    checkinCount: number;
+    checkoutCount: number;
+    stayingCount: number;
+    eventName: string;
+  }[];
+  gridStartOffset: number;
+  weekdayHeaders: string[];
+};
+
+export type WeekCalendarView = {
+  weekStart: string;
+  weekEnd: string;
+  days: {
+    date: string;
+    dateLabel: string;
+    weekday: string;
+    isToday: boolean;
+    checkinCount: number;
+    checkoutCount: number;
+    stayingCount: number;
+    events: CalendarEvent[];
+  }[];
+};
+
+export type DayCalendarView = {
+  date: string;
+  dateLabel: string;
+  checkinCards: CalendarDayCard[];
+  checkoutCards: CalendarDayCard[];
+  staying: CalendarDayCard[];
+  todayRooms: TodayRoomBoardItem[];
+};
+
+function formatDateIso(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function guestCompactFromReservation(r: CalendarReservation): string {
+  return formatGuestCompact({
+    guest_total: r.guest_total,
+    adult_male: r.adult_male,
+    adult_female: r.adult_female,
+    boy_student: r.boy_student,
+    girl_student: r.girl_student,
+    age_3plus: r.age_3plus,
+    under_3: r.under_3,
+  });
+}
+
+function getAssignedRoomsLabel(
+  reservationId: string,
+  assignmentsByReservation: Map<string, CalendarAssignment[]>
+): string {
+  const list = assignmentsByReservation.get(reservationId) ?? [];
+  const names = list
+    .map((a) => a.room_name || a.room_id)
+    .filter(Boolean) as string[];
+  return names.join(" / ");
+}
+
+function isActiveReservation(r: CalendarReservation): boolean {
+  return (
+    ACTIVE_STATUSES.includes(r.status as (typeof ACTIVE_STATUSES)[number]) &&
+    !!r.check_in &&
+    !!r.check_out
+  );
+}
+
+function isStayingOn(r: CalendarReservation, iso: string): boolean {
+  if (!isActiveReservation(r)) return false;
+  const ci = parseReservationDate(r.check_in);
+  const co = parseReservationDate(r.check_out);
+  if (!ci || !co) return false;
+  const dayMs = stripTime(parseReservationDate(iso)!).getTime();
+  const startMs = stripTime(ci).getTime();
+  const endMs = stripTime(co).getTime();
+  // チェックイン当日は「滞在中」に含めない（ホーム画面と同じ）
+  return startMs < dayMs && dayMs < endMs;
+}
+
+export function buildCalendarEventsForRange(
+  reservations: CalendarReservation[],
+  assignmentsByReservation: Map<string, CalendarAssignment[]>,
+  dateFrom: string,
+  dateTo: string
+): CalendarEvent[] {
+  const from = parseReservationDate(dateFrom);
+  const to = parseReservationDate(dateTo);
+  if (!from || !to) return [];
+
+  const events: CalendarEvent[] = [];
+  for (const r of reservations) {
+    if (!isActiveReservation(r)) continue;
+    const ci = parseReservationDate(r.check_in);
+    const co = parseReservationDate(r.check_out);
+    if (!ci || !co) continue;
+    if (
+      stripTime(ci).getTime() > stripTime(to).getTime() ||
+      stripTime(co).getTime() < stripTime(from).getTime()
+    ) {
+      continue;
+    }
+
+    const base = {
+      reservationId: r.reservation_id,
+      representativeName: r.representative_name ?? "—",
+      guestCompact: guestCompactFromReservation(r),
+      status: r.status,
+      rooms: getAssignedRoomsLabel(r.reservation_id, assignmentsByReservation),
+    };
+
+    const ciIso = r.check_in!;
+    const coIso = r.check_out!;
+    if (ciIso >= dateFrom && ciIso <= dateTo) {
+      events.push({
+        ...base,
+        date: ciIso,
+        type: "checkin",
+        typeLabel: "チェックイン",
+        time: r.arrival_time || "",
+      });
+    }
+    if (coIso >= dateFrom && coIso <= dateTo) {
+      events.push({
+        ...base,
+        date: coIso,
+        type: "checkout",
+        typeLabel: "チェックアウト",
+        time: "",
+      });
+    }
+  }
+
+  events.sort((a, b) => {
+    if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+    const ta = a.time || (a.type === "checkout" ? "99:99" : "00:00");
+    const tb = b.time || (b.type === "checkout" ? "99:99" : "00:00");
+    if (ta !== tb) return ta < tb ? -1 : 1;
+    return a.type === "checkin" ? -1 : 1;
+  });
+
+  return events;
+}
+
+function indexEventsByDate(events: CalendarEvent[]): Record<string, CalendarEvent[]> {
+  const map: Record<string, CalendarEvent[]> = {};
+  for (const e of events) {
+    if (!map[e.date]) map[e.date] = [];
+    map[e.date].push(e);
+  }
+  return map;
+}
+
+function toDayCard(
+  r: CalendarReservation,
+  assignmentsByReservation: Map<string, CalendarAssignment[]>,
+  nightNumber?: number
+): CalendarDayCard {
+  return {
+    reservationId: r.reservation_id,
+    representativeName: r.representative_name ?? "—",
+    status: r.status,
+    checkIn: r.check_in ?? "",
+    checkOut: r.check_out ?? "",
+    guestTotal: r.guest_total,
+    adultMale: r.adult_male,
+    adultFemale: r.adult_female,
+    boyStudent: r.boy_student,
+    girlStudent: r.girl_student,
+    age3plus: r.age_3plus,
+    under3: r.under_3,
+    arrivalTime: r.arrival_time,
+    assignmentStatus: r.assignment_status,
+    assignedRooms: getAssignedRoomsLabel(
+      r.reservation_id,
+      assignmentsByReservation
+    ),
+    meal: r.meal,
+    bbq: r.bbq,
+    inquiry: r.inquiry,
+    nightNumber,
+  };
+}
+
+export function buildMonthCalendarView(
+  year: number,
+  month: number,
+  reservations: CalendarReservation[],
+  assignmentsByReservation: Map<string, CalendarAssignment[]>
+): MonthCalendarView {
+  const lastDay = new Date(year, month, 0);
+  const monthStart = formatDateIso(new Date(year, month - 1, 1));
+  const monthEnd = formatDateIso(lastDay);
+  const allEvents = buildCalendarEventsForRange(
+    reservations,
+    assignmentsByReservation,
+    monthStart,
+    monthEnd
+  );
+  const eventsByDate = indexEventsByDate(allEvents);
+  const today = stripTime(new Date());
+  const firstDate = new Date(year, month - 1, 1);
+  const gridStartOffset = (firstDate.getDay() + 6) % 7;
+  const days: MonthCalendarView["days"] = [];
+
+  for (let d = 1; d <= lastDay.getDate(); d++) {
+    const date = new Date(year, month - 1, d);
+    const iso = formatDateIso(date);
+    const events = eventsByDate[iso] || [];
+    const checkins = events.filter((e) => e.type === "checkin");
+    const checkouts = events.filter((e) => e.type === "checkout");
+    const staying = reservations.filter((r) => isStayingOn(r, iso));
+    days.push({
+      date: iso,
+      dayNum: d,
+      isToday: isSameDay(date, today),
+      checkinCount: checkins.length,
+      checkoutCount: checkouts.length,
+      stayingCount: staying.length,
+      eventName: "",
+    });
+  }
+
+  return {
+    year,
+    month,
+    days,
+    gridStartOffset,
+    weekdayHeaders: ["月", "火", "水", "木", "金", "土", "日"],
+  };
+}
+
+export function buildWeekCalendarView(
+  anchorDate: string,
+  reservations: CalendarReservation[],
+  assignmentsByReservation: Map<string, CalendarAssignment[]>
+): WeekCalendarView {
+  const anchor = parseReservationDate(anchorDate) || stripTime(new Date());
+  const day = anchor.getDay();
+  const diffToMon = day === 0 ? -6 : 1 - day;
+  const monday = new Date(anchor);
+  monday.setDate(anchor.getDate() + diffToMon);
+  const weekEndDate = new Date(monday);
+  weekEndDate.setDate(monday.getDate() + 6);
+  const weekStart = formatDateIso(monday);
+  const weekEnd = formatDateIso(weekEndDate);
+  const allEvents = buildCalendarEventsForRange(
+    reservations,
+    assignmentsByReservation,
+    weekStart,
+    weekEnd
+  );
+  const eventsByDate = indexEventsByDate(allEvents);
+  const today = stripTime(new Date());
+  const days: WeekCalendarView["days"] = [];
+
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    const iso = formatDateIso(d);
+    const events = eventsByDate[iso] || [];
+    const checkins = events.filter((e) => e.type === "checkin");
+    const checkouts = events.filter((e) => e.type === "checkout");
+    const staying = reservations.filter((r) => isStayingOn(r, iso));
+    days.push({
+      date: iso,
+      dateLabel: `${d.getMonth() + 1}/${d.getDate()}`,
+      weekday: weekdayJa(d),
+      isToday: isSameDay(d, today),
+      checkinCount: checkins.length,
+      checkoutCount: checkouts.length,
+      stayingCount: staying.length,
+      events,
+    });
+  }
+
+  return { weekStart, weekEnd, days };
+}
+
+export function buildDayCalendarView(
+  date: string,
+  reservations: CalendarReservation[],
+  assignmentsByReservation: Map<string, CalendarAssignment[]>,
+  todayRooms: TodayRoomBoardItem[]
+): DayCalendarView {
+  const d = parseReservationDate(date) || stripTime(new Date());
+  const iso = formatDateIso(d);
+  const dayMs = stripTime(d).getTime();
+
+  const checkinCards = reservations
+    .filter((r) => isActiveReservation(r) && r.check_in === iso)
+    .map((r) => toDayCard(r, assignmentsByReservation))
+    .sort((a, b) => {
+      const at = a.arrivalTime ?? "";
+      const bt = b.arrivalTime ?? "";
+      if (at !== bt) return at < bt ? -1 : 1;
+      return a.representativeName.localeCompare(b.representativeName, "ja");
+    });
+
+  const checkoutCards = reservations
+    .filter((r) => isActiveReservation(r) && r.check_out === iso)
+    .map((r) => toDayCard(r, assignmentsByReservation))
+    .sort((a, b) =>
+      a.representativeName.localeCompare(b.representativeName, "ja")
+    );
+
+  const staying = reservations
+    .filter((r) => isStayingOn(r, iso))
+    .map((r) => {
+      const ci = parseReservationDate(r.check_in);
+      let nightNumber = 1;
+      if (ci) {
+        nightNumber = Math.max(
+          1,
+          Math.round((dayMs - stripTime(ci).getTime()) / 86400000) + 1
+        );
+        const total =
+          r.nights ||
+          (r.check_in && r.check_out
+            ? daysBetweenCalendarDates(
+                parseReservationDate(r.check_in)!,
+                parseReservationDate(r.check_out)!
+              )
+            : 0);
+        if (total > 0) nightNumber = Math.min(nightNumber, total);
+      }
+      return toDayCard(r, assignmentsByReservation, nightNumber);
+    })
+    .sort((a, b) => {
+      if (a.checkIn !== b.checkIn) return a.checkIn < b.checkIn ? -1 : 1;
+      return a.representativeName.localeCompare(b.representativeName, "ja");
+    });
+
+  return {
+    date: iso,
+    dateLabel: `${formatDateJa(d)}（${weekdayJa(d)}）`,
+    checkinCards,
+    checkoutCards,
+    staying,
+    todayRooms,
+  };
+}
+
+export function defaultCalendarAnchor(): string {
+  return todayIso();
+}
+
+export function shiftIsoDate(iso: string, days: number): string {
+  const d = parseReservationDate(iso) || stripTime(new Date());
+  d.setDate(d.getDate() + days);
+  return formatDateIso(d);
+}
+
+export function shiftMonth(year: number, month: number, delta: number) {
+  const d = new Date(year, month - 1 + delta, 1);
+  return { year: d.getFullYear(), month: d.getMonth() + 1 };
+}

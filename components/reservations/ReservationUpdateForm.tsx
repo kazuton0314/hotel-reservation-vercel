@@ -1,13 +1,27 @@
 "use client";
 
 import { useActionState } from "react";
+import { FormSelectField } from "@/components/form/FormSelectField";
 import { updateReservationAction } from "@/lib/actions/reservations";
-
-const STATUS_OPTIONS = ["仮予約", "確定", "キャンセル"] as const;
-const PAYMENT_OPTIONS = ["未払い", "支払済", "一部支払"] as const;
+import { Button } from "@/components/ui/button";
+import { Input, Textarea } from "@/components/ui/input";
+import {
+  ARRIVAL_TIME_OPTIONS,
+  BBQ_OPTIONS,
+  CHANNEL_OPTIONS,
+  GROUP_TYPE_OPTIONS,
+  MEAL_OPTIONS,
+  PAYMENT_STATUS_OPTIONS,
+  PHONE_AVAILABLE_OPTIONS,
+  REFERRAL_OPTIONS,
+  RESERVATION_STATUS_OPTIONS,
+  TRANSPORT_OPTIONS,
+  TRAVEL_PURPOSE_OPTIONS,
+} from "@/lib/config/field-options";
 
 type Props = {
   reservationId: string;
+  updatedAt: string | null;
   status: string;
   channel: string | null;
   groupType: string | null;
@@ -28,16 +42,50 @@ type Props = {
   guestTotal: string | null;
   adultMale: string | null;
   adultFemale: string | null;
+  boyStudent: string | null;
+  girlStudent: string | null;
+  age3plus: string | null;
+  under3: string | null;
   arrivalTime: string | null;
   transport: string | null;
+  vehicleCount: string | null;
   meal: string | null;
   bbq: string | null;
   inquiry: string | null;
+  travelPurpose: string | null;
+  travelPurposeOther: string | null;
+  referral: string | null;
+  referralOther: string | null;
+  lastStay: string | null;
   internalMemo: string | null;
   paymentStatus: string | null;
 };
 
 const initialState = { ok: true } as const;
+
+function Fg({
+  label,
+  name,
+  defaultValue,
+  type = "text",
+}: {
+  label: string;
+  name: string;
+  defaultValue: string | null;
+  type?: string;
+}) {
+  return (
+    <div className="form-group">
+      <label htmlFor={name}>{label}</label>
+      <Input
+        id={name}
+        name={name}
+        type={type}
+        defaultValue={defaultValue ?? ""}
+      />
+    </div>
+  );
+}
 
 export function ReservationUpdateForm(props: Props) {
   const [state, formAction, isPending] = useActionState(
@@ -46,152 +94,176 @@ export function ReservationUpdateForm(props: Props) {
   );
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form action={formAction}>
       <input type="hidden" name="reservation_id" value={props.reservationId} />
+      <input
+        type="hidden"
+        name="expected_updated_at"
+        value={props.updatedAt ?? ""}
+      />
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className="block text-sm">
-          <span className="mb-1 block text-zinc-600">ステータス</span>
-          <select
-            name="status"
-            defaultValue={props.status}
-            className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2"
-          >
-            {STATUS_OPTIONS.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="block text-sm">
-          <span className="mb-1 block text-zinc-600">支払状況</span>
-          <select
-            name="payment_status"
-            defaultValue={props.paymentStatus ?? "未払い"}
-            className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2"
-          >
-            {PAYMENT_OPTIONS.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
+      <p className="form-section-label">基本</p>
+      <FormSelectField
+        id="f-status"
+        label="ステータス"
+        name="status"
+        options={RESERVATION_STATUS_OPTIONS}
+        defaultValue={props.status}
+        allowEmpty={false}
+      />
+      <FormSelectField
+        id="f-channel"
+        label="予約経路"
+        name="channel"
+        options={CHANNEL_OPTIONS}
+        defaultValue={props.channel}
+      />
+      <Fg label="姓" name="last_name" defaultValue={props.lastName} />
+      <Fg label="名" name="first_name" defaultValue={props.firstName} />
+      <Fg label="姓ふりがな" name="last_name_kana" defaultValue={props.lastNameKana} />
+      <Fg label="名ふりがな" name="first_name_kana" defaultValue={props.firstNameKana} />
+      <FormSelectField
+        label="グループ形態"
+        name="group_type"
+        options={GROUP_TYPE_OPTIONS}
+        defaultValue={props.groupType}
+      />
+      <Fg label="グループ名" name="group_name" defaultValue={props.groupName} />
+      <Fg label="メール" name="email" type="email" defaultValue={props.email} />
+      <Fg label="電話" name="phone" defaultValue={props.phone} />
+      <FormSelectField
+        label="電話可能時間"
+        name="phone_available"
+        options={PHONE_AVAILABLE_OPTIONS}
+        defaultValue={props.phoneAvailable}
+      />
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className="block text-sm">
-          <span className="mb-1 block text-zinc-600">姓</span>
-          <input
-            name="last_name"
-            defaultValue={props.lastName ?? ""}
-            className="w-full rounded-lg border border-zinc-300 px-3 py-2"
-          />
-        </label>
-        <label className="block text-sm">
-          <span className="mb-1 block text-zinc-600">名</span>
-          <input
-            name="first_name"
-            defaultValue={props.firstName ?? ""}
-            className="w-full rounded-lg border border-zinc-300 px-3 py-2"
-          />
-        </label>
-        <label className="block text-sm">
-          <span className="mb-1 block text-zinc-600">姓ふりがな</span>
-          <input
-            name="last_name_kana"
-            defaultValue={props.lastNameKana ?? ""}
-            className="w-full rounded-lg border border-zinc-300 px-3 py-2"
-          />
-        </label>
-        <label className="block text-sm">
-          <span className="mb-1 block text-zinc-600">名ふりがな</span>
-          <input
-            name="first_name_kana"
-            defaultValue={props.firstNameKana ?? ""}
-            className="w-full rounded-lg border border-zinc-300 px-3 py-2"
-          />
-        </label>
-      </div>
+      <p className="form-section-label">住所</p>
+      <Fg label="郵便番号" name="postal_code" defaultValue={props.postalCode} />
+      <Fg label="都道府県" name="prefecture" defaultValue={props.prefecture} />
+      <Fg label="市区町村" name="city" defaultValue={props.city} />
+      <Fg label="建物名・番地" name="address_line" defaultValue={props.addressLine} />
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className="block text-sm">
-          <span className="mb-1 block text-zinc-600">チェックイン</span>
-          <input
-            type="date"
-            name="check_in"
-            defaultValue={props.checkIn ?? ""}
-            className="w-full rounded-lg border border-zinc-300 px-3 py-2"
-          />
-        </label>
-        <label className="block text-sm">
-          <span className="mb-1 block text-zinc-600">チェックアウト</span>
-          <input
-            type="date"
-            name="check_out"
-            defaultValue={props.checkOut ?? ""}
-            className="w-full rounded-lg border border-zinc-300 px-3 py-2"
-          />
-        </label>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className="block text-sm">
-          <span className="mb-1 block text-zinc-600">メール</span>
-          <input
-            name="email"
-            type="email"
-            defaultValue={props.email ?? ""}
-            className="w-full rounded-lg border border-zinc-300 px-3 py-2"
-          />
-        </label>
-        <label className="block text-sm">
-          <span className="mb-1 block text-zinc-600">電話</span>
-          <input
-            name="phone"
-            defaultValue={props.phone ?? ""}
-            className="w-full rounded-lg border border-zinc-300 px-3 py-2"
-          />
-        </label>
-      </div>
-
-      <label className="block text-sm">
-        <span className="mb-1 block text-zinc-600">宿泊人数</span>
-        <input
-          name="guest_total"
-          defaultValue={props.guestTotal ?? ""}
-          className="w-full rounded-lg border border-zinc-300 px-3 py-2"
+      <p className="form-section-label">宿泊日・人数</p>
+      <div className="form-group">
+        <label htmlFor="f-checkin">チェックイン</label>
+        <Input
+          id="f-checkin"
+          type="date"
+          name="check_in"
+          defaultValue={props.checkIn ?? ""}
         />
-      </label>
+      </div>
+      <div className="form-group">
+        <label htmlFor="f-checkout">チェックアウト</label>
+        <Input
+          id="f-checkout"
+          type="date"
+          name="check_out"
+          defaultValue={props.checkOut ?? ""}
+        />
+      </div>
+      <Fg label="宿泊人数" name="guest_total" defaultValue={props.guestTotal} />
+      <Fg label="中学生以上男性" name="adult_male" defaultValue={props.adultMale} />
+      <Fg label="中学生以上女性" name="adult_female" defaultValue={props.adultFemale} />
+      <Fg label="小学生男" name="boy_student" defaultValue={props.boyStudent} />
+      <Fg label="小学生女" name="girl_student" defaultValue={props.girlStudent} />
+      <Fg label="3歳以上幼児" name="age_3plus" defaultValue={props.age3plus} />
+      <Fg label="3歳未満" name="under_3" defaultValue={props.under3} />
 
-      <label className="block text-sm">
-        <span className="mb-1 block text-zinc-600">内部メモ</span>
-        <textarea
+      <p className="form-section-label">交通・到着</p>
+      <FormSelectField
+        label="到着予定時間"
+        name="arrival_time"
+        options={ARRIVAL_TIME_OPTIONS}
+        defaultValue={props.arrivalTime}
+      />
+      <FormSelectField
+        label="交通手段"
+        name="transport"
+        options={TRANSPORT_OPTIONS}
+        defaultValue={props.transport}
+      />
+      <Fg label="車両台数" name="vehicle_count" defaultValue={props.vehicleCount} />
+
+      <p className="form-section-label">食事・BBQ</p>
+      <FormSelectField
+        label="お食事について"
+        name="meal"
+        options={MEAL_OPTIONS}
+        defaultValue={props.meal}
+      />
+      <FormSelectField
+        label="BBQレンタル"
+        name="bbq"
+        options={BBQ_OPTIONS}
+        defaultValue={props.bbq}
+      />
+      <FormSelectField
+        id="f-pay"
+        label="支払"
+        name="payment_status"
+        options={PAYMENT_STATUS_OPTIONS}
+        defaultValue={props.paymentStatus ?? "未払い"}
+        allowEmpty={false}
+      />
+
+      <p className="form-section-label">アンケート</p>
+      <div className="form-group">
+        <label htmlFor="f-inquiry">お問い合わせ内容</label>
+        <Textarea
+          id="f-inquiry"
+          name="inquiry"
+          rows={3}
+          defaultValue={props.inquiry ?? ""}
+        />
+      </div>
+      <FormSelectField
+        label="旅行の目的"
+        name="travel_purpose"
+        options={TRAVEL_PURPOSE_OPTIONS}
+        defaultValue={props.travelPurpose}
+      />
+      <Fg
+        label="旅行の目的（その他）"
+        name="travel_purpose_other"
+        defaultValue={props.travelPurposeOther}
+      />
+      <FormSelectField
+        label="きっかけ"
+        name="referral"
+        options={REFERRAL_OPTIONS}
+        defaultValue={props.referral}
+      />
+      <Fg label="きっかけ（その他）" name="referral_other" defaultValue={props.referralOther} />
+      <Fg label="前回ご宿泊時期" name="last_stay" defaultValue={props.lastStay} />
+
+      <p className="form-section-label">メモ</p>
+      <div className="form-group">
+        <label htmlFor="f-memo">内部メモ</label>
+        <Textarea
+          id="f-memo"
           name="internal_memo"
-          rows={4}
+          rows={3}
           defaultValue={props.internalMemo ?? ""}
-          className="w-full rounded-lg border border-zinc-300 px-3 py-2"
         />
-      </label>
+      </div>
 
       {state.ok === false ? (
-        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p className="detail-hint" style={{ color: "#b91c1c" }}>
           {state.message}
         </p>
       ) : state.ok === true && !isPending ? (
-        <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+        <p className="detail-hint" style={{ color: "#047857" }}>
           保存しました
         </p>
       ) : null}
 
-      <button
-        type="submit"
-        disabled={isPending}
-        className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
-      >
-        {isPending ? "保存中..." : "予約を更新"}
-      </button>
+      <div className="form-actions-sticky">
+        <Button type="submit" disabled={isPending}>
+          {isPending ? "保存中..." : "保存"}
+        </Button>
+      </div>
     </form>
   );
 }

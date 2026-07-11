@@ -1,9 +1,17 @@
-import { createClient } from "@/lib/supabase/server";
+import { unstable_cache } from "next/cache";
+import { CACHE_TAGS } from "@/lib/cache/tags";
+import { createReadClient } from "@/lib/supabase/read";
 
 export type RequestListItem = {
   request_id: string;
   status: string;
   representative_name: string | null;
+  last_name?: string | null;
+  first_name?: string | null;
+  name_kana?: string | null;
+  last_name_kana?: string | null;
+  first_name_kana?: string | null;
+  phone?: string | null;
   check_in: string | null;
   check_out: string | null;
   guest_total: string | null;
@@ -11,13 +19,16 @@ export type RequestListItem = {
   linked_reservation_id: string | null;
   is_archived: boolean;
   updated_at: string;
+  created_at: string;
+  sheet_created_at: string | null;
+  reply_email_sent: boolean;
+  received_ms: number;
+  updated_ms: number;
 };
 
 export type RequestListFilters = {
   status?: string;
-  includeArchived?: boolean;
-  scope?: "upcoming" | "all";
-  q?: string;
+  scope?: "upcoming" | "archive" | "past";
 };
 
 export const REQUEST_STATUS_OPTIONS = [
@@ -28,43 +39,55 @@ export const REQUEST_STATUS_OPTIONS = [
 ] as const;
 
 export async function getRequests(filters: RequestListFilters = {}) {
-  const supabase = await createClient();
+  const key = JSON.stringify(filters);
+  return unstable_cache(
+    () => getRequestsUncached(filters),
+    ["requests", key],
+    { tags: [CACHE_TAGS.requests], revalidate: 120 }
+  )();
+}
+
+async function getRequestsUncached(filters: RequestListFilters = {}) {
+  const supabase = await createReadClient();
+  const today = new Date().toISOString().slice(0, 10);
   let query = supabase
     .from("reservation_requests")
     .select(
-      "request_id, status, representative_name, check_in, check_out, guest_total, email, linked_reservation_id, is_archived, updated_at"
+      "request_id, status, representative_name, last_name, first_name, name_kana, last_name_kana, first_name_kana, check_in, check_out, guest_total, email, phone, linked_reservation_id, is_archived, updated_at, created_at, sheet_created_at, reply_email_sent"
     )
     .order("check_in", { ascending: true, nullsFirst: false });
 
-  if (!filters.includeArchived) {
-    query = query.eq("is_archived", false);
-  }
-
-  if (filters.status) {
-    query = query.eq("status", filters.status);
-  }
-
-  if (filters.scope === "upcoming") {
-    const today = new Date().toISOString().slice(0, 10);
-    query = query.gte("check_out", today);
-  }
-
-  if (filters.q) {
-    const escaped = filters.q.replace(/[%_]/g, "");
-    query = query.or(
-      `request_id.ilike.%${escaped}%,representative_name.ilike.%${escaped}%,email.ilike.%${escaped}%`
-    );
+  if (filters.scope === "archive" || filters.scope === "past") {
+    query = query.or(`is_archived.eq.true,check_out.lt.${today}`);
+  } else {
+    query = query.eq("is_archived", false).gte("check_out", today);
   }
 
   const { data, error } = await query;
+  let requests = (data ?? []).map((row) => {
+    const receivedSource = row.sheet_created_at || row.created_at;
+    return {
+      ...row,
+      received_ms: receivedSource ? new Date(receivedSource).getTime() : 0,
+      updated_ms: row.updated_at ? new Date(row.updated_at).getTime() : 0,
+    };
+  }) as RequestListItem[];
+
+  if (filters.status) {
+    requests = requests.filter((r) => {
+      const s = r.status === "本予約連携済" ? "承認済" : r.status;
+      return s === filters.status;
+    });
+  }
+
   return {
-    requests: (data ?? []) as RequestListItem[],
+    requests,
     error: error?.message ?? null,
   };
 }
 
 export async function getRequestById(id: string) {
-  const supabase = await createClient();
+  const supabase = await createReadClient();
   const { data, error } = await supabase
     .from("reservation_requests")
     .select(
@@ -90,7 +113,7 @@ export async function getRequestById(id: string) {
 }
 
 export async function getRequestStats() {
-  const supabase = await createClient();
+  const supabase = await createReadClient();
   const [active, pending, approved, rejected, linked] = await Promise.all([
     supabase
       .from("reservation_requests")

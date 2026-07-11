@@ -2,10 +2,43 @@
 
 import { useActionState } from "react";
 import { useRouter } from "next/navigation";
+import { FormSelectField } from "@/components/form/FormSelectField";
+import { DetailBack } from "@/components/detail/DetailBack";
+import { RoomGuestFields } from "@/components/reservations/RoomGuestFields";
+import { Button } from "@/components/ui/button";
+import { Input, Textarea } from "@/components/ui/input";
 import { createManualReservationAction } from "@/lib/actions/reservations";
+import {
+  ARRIVAL_TIME_OPTIONS,
+  BBQ_OPTIONS,
+  CHANNEL_OPTIONS,
+  GROUP_TYPE_OPTIONS,
+  MANUAL_RESERVATION_STATUS_OPTIONS,
+  MEAL_OPTIONS,
+  PHONE_AVAILABLE_OPTIONS,
+  REFERRAL_OPTIONS,
+  TRANSPORT_OPTIONS,
+  TRAVEL_PURPOSE_OPTIONS,
+} from "@/lib/config/field-options";
 
-const STATUS_OPTIONS = ["仮予約", "確定"] as const;
 const initialState = { ok: true } as { ok: true } | { ok: false; message: string };
+
+function Fg({
+  label,
+  name,
+  type = "text",
+}: {
+  label: string;
+  name: string;
+  type?: string;
+}) {
+  return (
+    <div className="form-group">
+      <label htmlFor={name}>{label}</label>
+      <Input id={name} name={name} type={type} />
+    </div>
+  );
+}
 
 export function ManualReservationForm() {
   const router = useRouter();
@@ -26,116 +59,140 @@ export function ManualReservationForm() {
   );
 
   return (
-    <form action={formAction} className="space-y-4">
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className="block text-sm">
-          <span className="mb-1 block text-zinc-600">姓 *</span>
-          <input
-            name="last_name"
-            required
-            className="w-full rounded-lg border border-zinc-300 px-3 py-2"
+    <>
+      <DetailBack href="/reservations" />
+      <form action={formAction}>
+        <div className="detail-block">
+          <h3>代表者</h3>
+          <Fg label="姓" name="last_name" />
+          <Fg label="名" name="first_name" />
+          <Fg label="姓ふりがな" name="last_name_kana" />
+          <Fg label="名ふりがな" name="first_name_kana" />
+          <FormSelectField
+            label="グループ形態"
+            name="group_type"
+            options={GROUP_TYPE_OPTIONS}
           />
-        </label>
-        <label className="block text-sm">
-          <span className="mb-1 block text-zinc-600">名</span>
-          <input
-            name="first_name"
-            className="w-full rounded-lg border border-zinc-300 px-3 py-2"
+          <Fg label="グループ名" name="group_name" />
+          <Fg label="メールアドレス" name="email" type="email" />
+          <Fg label="電話番号" name="phone" />
+          <FormSelectField
+            label="電話でご連絡可能な時間帯"
+            name="phone_available"
+            options={PHONE_AVAILABLE_OPTIONS}
           />
-        </label>
-        <label className="block text-sm sm:col-span-2">
-          <span className="mb-1 block text-zinc-600">
-            代表者名（団体名など。空欄時は姓名を使用）
-          </span>
-          <input
-            name="representative_name"
-            className="w-full rounded-lg border border-zinc-300 px-3 py-2"
+          <FormSelectField
+            id="ma-channel"
+            label="予約経路"
+            name="channel"
+            options={CHANNEL_OPTIONS}
+            defaultValue="代入力"
+            allowEmpty={false}
           />
-        </label>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className="block text-sm">
-          <span className="mb-1 block text-zinc-600">チェックイン *</span>
-          <input
-            type="date"
-            name="check_in"
-            required
-            className="w-full rounded-lg border border-zinc-300 px-3 py-2"
-          />
-        </label>
-        <label className="block text-sm">
-          <span className="mb-1 block text-zinc-600">チェックアウト *</span>
-          <input
-            type="date"
-            name="check_out"
-            required
-            className="w-full rounded-lg border border-zinc-300 px-3 py-2"
-          />
-        </label>
-        <label className="block text-sm">
-          <span className="mb-1 block text-zinc-600">ステータス</span>
-          <select
+          <FormSelectField
+            id="ma-status"
+            label="ステータス"
             name="status"
+            options={MANUAL_RESERVATION_STATUS_OPTIONS}
             defaultValue="確定"
-            className="w-full rounded-lg border border-zinc-300 px-3 py-2"
-          >
-            {STATUS_OPTIONS.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="block text-sm">
-          <span className="mb-1 block text-zinc-600">宿泊人数</span>
-          <input
-            name="guest_total"
-            className="w-full rounded-lg border border-zinc-300 px-3 py-2"
+            allowEmpty={false}
           />
-        </label>
-      </div>
+        </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className="block text-sm">
-          <span className="mb-1 block text-zinc-600">メール</span>
-          <input
-            name="email"
-            type="email"
-            className="w-full rounded-lg border border-zinc-300 px-3 py-2"
+        <div className="detail-block">
+          <h3>住所</h3>
+          <Fg label="郵便番号" name="postal_code" />
+          <Fg label="都道府県" name="prefecture" />
+          <Fg label="市区町村" name="city" />
+          <Fg label="建物名・番地" name="address_line" />
+        </div>
+
+        <div className="detail-block">
+          <h3>宿泊</h3>
+          <div className="form-group">
+            <label htmlFor="ma-checkin">チェックイン</label>
+            <Input id="ma-checkin" name="check_in" type="date" required />
+          </div>
+          <div className="form-group">
+            <label htmlFor="ma-checkout">チェックアウト</label>
+            <Input id="ma-checkout" name="check_out" type="date" required />
+          </div>
+          <RoomGuestFields
+            variant="reservation"
+            defaults={{
+              guestTotal: 0,
+              maleCount: 0,
+              femaleCount: 0,
+              boyStudent: 0,
+              girlStudent: 0,
+              age3plus: 0,
+              under3: 0,
+            }}
           />
-        </label>
-        <label className="block text-sm">
-          <span className="mb-1 block text-zinc-600">電話</span>
-          <input
-            name="phone"
-            className="w-full rounded-lg border border-zinc-300 px-3 py-2"
+          <FormSelectField
+            label="到着予定時間"
+            name="arrival_time"
+            options={ARRIVAL_TIME_OPTIONS}
           />
-        </label>
-      </div>
+        </div>
 
-      <label className="block text-sm">
-        <span className="mb-1 block text-zinc-600">内部メモ</span>
-        <textarea
-          name="internal_memo"
-          rows={3}
-          className="w-full rounded-lg border border-zinc-300 px-3 py-2"
-        />
-      </label>
+        <div className="detail-block">
+          <h3>食事・交通</h3>
+          <FormSelectField
+            label="お食事について"
+            name="meal"
+            options={MEAL_OPTIONS}
+          />
+          <FormSelectField
+            label="バーベキュー道具のレンタル"
+            name="bbq"
+            options={BBQ_OPTIONS}
+          />
+          <FormSelectField
+            label="交通手段"
+            name="transport"
+            options={TRANSPORT_OPTIONS}
+          />
+          <Fg label="車両台数" name="vehicle_count" />
+        </div>
 
-      {state.ok === false ? (
-        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
-          {state.message}
-        </p>
-      ) : null}
+        <div className="detail-block">
+          <h3>アンケート</h3>
+          <div className="form-group">
+            <label htmlFor="ma-inquiry">お問い合わせ内容</label>
+            <Textarea id="ma-inquiry" name="inquiry" rows={3} />
+          </div>
+          <FormSelectField
+            label="旅行の目的"
+            name="travel_purpose"
+            options={TRAVEL_PURPOSE_OPTIONS}
+          />
+          <Fg label="旅行の目的（その他）" name="travel_purpose_other" />
+          <FormSelectField
+            label="当施設を知ったきっかけ"
+            name="referral"
+            options={REFERRAL_OPTIONS}
+          />
+          <Fg label="きっかけ（その他）" name="referral_other" />
+          <Fg label="前回ご宿泊時期" name="last_stay" />
+        </div>
 
-      <button
-        type="submit"
-        disabled={isPending}
-        className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
-      >
-        {isPending ? "作成中..." : "手動予約を作成（MANUAL-MT）"}
-      </button>
-    </form>
+        <div className="detail-block">
+          <h3>運用</h3>
+          <div className="form-group">
+            <label htmlFor="ma-memo">内部メモ</label>
+            <Textarea id="ma-memo" name="internal_memo" rows={3} />
+          </div>
+          {state.ok === false ? (
+            <p className="detail-hint" style={{ color: "#b91c1c" }}>
+              {state.message}
+            </p>
+          ) : null}
+          <Button type="submit" disabled={isPending}>
+            {isPending ? "追加中…" : "予約を追加"}
+          </Button>
+        </div>
+      </form>
+    </>
   );
 }

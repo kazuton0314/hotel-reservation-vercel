@@ -1,0 +1,437 @@
+import { unstable_cache } from "next/cache";
+import { CACHE_TAGS } from "@/lib/cache/tags";
+import { createReadClient } from "@/lib/supabase/read";
+import { stripTime } from "@/lib/import/date-utils";
+import {
+  reservationHasAnyMailPending,
+  reservationNeedsCompanionInfo,
+} from "@/lib/services/mail-pending";
+import {
+  daysBetweenCalendarDates,
+  formatDateLabel,
+  isSameDay,
+  parseReservationDate,
+  todayIso,
+} from "@/lib/utils/date-label";
+
+const ACTIVE_STATUSES = ["仮予約", "確定"];
+const STAYING_STATUSES = ["仮予約", "確定"];
+
+type DbReservation = {
+  reservation_id: string;
+  representative_name: string | null;
+  status: string;
+  check_in: string | null;
+  check_out: string | null;
+  nights: number | null;
+  guest_total: string | null;
+  adult_male: string | null;
+  adult_female: string | null;
+  boy_student: string | null;
+  girl_student: string | null;
+  age_3plus: string | null;
+  under_3: string | null;
+  arrival_time: string | null;
+  meal: string | null;
+  bbq: string | null;
+  inquiry: string | null;
+  assignment_status: string | null;
+  companion_form_answered: boolean;
+  email: string | null;
+  completion_email_sent: boolean;
+  day11_email_sent: boolean;
+  day3_email_sent: boolean;
+  created_at: string | null;
+  sheet_created_at: string | null;
+  is_archived: boolean;
+};
+
+type DbAssignment = {
+  room_assignment_id: string;
+  reservation_id: string;
+  room_id: string | null;
+  room_name: string | null;
+  stay_start: string;
+  stay_end: string;
+  assigned_guest_count: number | null;
+  is_archived: boolean;
+};
+
+type DbRoom = {
+  room_id: string;
+  room_name: string;
+  sort_order: number;
+};
+
+export type DashboardListItem = {
+  reservationId: string;
+  representativeName: string | null;
+  status: string;
+  checkIn: string;
+  checkOut: string;
+  guestTotal: string | null;
+  adultMale: string | null;
+  adultFemale: string | null;
+  boyStudent: string | null;
+  girlStudent: string | null;
+  age3plus: string | null;
+  under3: string | null;
+  meal: string | null;
+  bbq: string | null;
+  inquiry: string | null;
+  arrivalTime: string | null;
+  assignmentStatus: string | null;
+  assignedRooms: string;
+  companionPending: boolean;
+  companionGuestRequired: boolean;
+  email: string | null;
+  completionEmailSent: boolean;
+  day11EmailSent: boolean;
+  day3EmailSent: boolean;
+  companionFormAnswered: boolean;
+  nightNumber?: number;
+};
+
+export type TodayRoomEvent = {
+  reservationId: string;
+  representativeName: string;
+  isCheckin: boolean;
+  isCheckout: boolean;
+  isStay: boolean;
+  nightNumber?: number;
+  nightsTotal?: number;
+  guestTotal: string | null;
+  adultMale: string | null;
+  adultFemale: string | null;
+  boyStudent: string | null;
+  girlStudent: string | null;
+  age3plus: string | null;
+  under3: string | null;
+  bbq: string | null;
+};
+
+export type TodayRoomBoardItem = {
+  roomId: string;
+  roomName: string;
+  events: TodayRoomEvent[];
+};
+
+export type DashboardSummary = {
+  date: string;
+  dateLabel: string;
+  lastSyncAt: string | null;
+  lastSyncStatus: string | null;
+  todayCheckinCount: number;
+  todayCheckoutCount: number;
+  stayingCount: number;
+  requestCount: number;
+  provisionalCount: number;
+  confirmedCount: number;
+  companionPendingCount: number;
+  reservationMailPendingCount: number;
+  unassignedCount: number;
+  todayCheckins: DashboardListItem[];
+  todayCheckouts: DashboardListItem[];
+  staying: DashboardListItem[];
+  todayRooms: TodayRoomBoardItem[];
+};
+
+function toListItem(
+  r: DbReservation,
+  assignmentsByReservation: Map<string, DbAssignment[]>,
+  refDate: Date
+): DashboardListItem {
+  const assignments = assignmentsByReservation.get(r.reservation_id) ?? [];
+  const assignedRooms =
+    assignments
+      .map((a) => a.room_name)
+      .filter(Boolean)
+      .join(" / ") || "";
+  const guestRequired =
+    (parseInt(String(r.guest_total ?? "").replace(/[^\d]/g, ""), 10) || 0) >= 2;
+
+  return {
+    reservationId: r.reservation_id,
+    representativeName: r.representative_name,
+    status: r.status,
+    checkIn: r.check_in ?? "",
+    checkOut: r.check_out ?? "",
+    guestTotal: r.guest_total,
+    adultMale: r.adult_male,
+    adultFemale: r.adult_female,
+    boyStudent: r.boy_student,
+    girlStudent: r.girl_student,
+    age3plus: r.age_3plus,
+    under3: r.under_3,
+    meal: r.meal,
+    bbq: r.bbq,
+    inquiry: r.inquiry,
+    arrivalTime: r.arrival_time,
+    assignmentStatus: r.assignment_status,
+    assignedRooms,
+    companionPending: reservationNeedsCompanionInfo(r, refDate),
+    companionGuestRequired: guestRequired,
+    email: r.email,
+    completionEmailSent: r.completion_email_sent,
+    day11EmailSent: r.day11_email_sent,
+    day3EmailSent: r.day3_email_sent,
+    companionFormAnswered: r.companion_form_answered,
+  };
+}
+
+function occNightFields(
+  r: DbReservation,
+  dayMs: number,
+  iso: string
+): { nightNumber?: number; nightsTotal?: number } {
+  const ci = parseReservationDate(r.check_in);
+  if (!ci) return {};
+  const checkOutIso = r.check_out ?? "";
+  if (iso && checkOutIso && iso === checkOutIso) return {};
+  const ciMs = stripTime(ci).getTime();
+  let nightNumber = Math.max(1, Math.round((dayMs - ciMs) / 86400000) + 1);
+  const total =
+    r.nights ||
+    (r.check_in && r.check_out
+      ? daysBetweenCalendarDates(
+          parseReservationDate(r.check_in)!,
+          parseReservationDate(r.check_out)!
+        )
+      : 0);
+  if (total > 0) nightNumber = Math.min(nightNumber, total);
+  return {
+    nightNumber,
+    nightsTotal: total > 0 ? total : nightNumber,
+  };
+}
+
+function buildTodayRoomsBoard(
+  rooms: DbRoom[],
+  assignments: DbAssignment[],
+  reservationsById: Map<string, DbReservation>,
+  iso: string,
+  dayMs: number
+): TodayRoomBoardItem[] {
+  return rooms.map((room) => {
+    const events: TodayRoomEvent[] = [];
+    for (const a of assignments) {
+      if (a.room_id !== room.room_id) continue;
+      const res = reservationsById.get(a.reservation_id);
+      if (res && (res.status === "キャンセル" || res.status === "不可")) continue;
+
+      const start = parseReservationDate(a.stay_start);
+      const end = parseReservationDate(a.stay_end);
+      if (!start || !end) continue;
+
+      const startMs = stripTime(start).getTime();
+      const endMs = stripTime(end).getTime();
+      const isStay = startMs <= dayMs && dayMs < endMs;
+      const isCheckin = a.stay_start === iso;
+      const isCheckout = a.stay_end === iso;
+      if (!isStay && !isCheckin && !isCheckout) continue;
+
+      const night = res ? occNightFields(res, dayMs, iso) : {};
+      events.push({
+        reservationId: a.reservation_id,
+        representativeName: res?.representative_name ?? "—",
+        isCheckin,
+        isCheckout,
+        isStay,
+        nightNumber: night.nightNumber,
+        nightsTotal: night.nightsTotal,
+        guestTotal: res?.guest_total ?? null,
+        adultMale: res?.adult_male ?? null,
+        adultFemale: res?.adult_female ?? null,
+        boyStudent: res?.boy_student ?? null,
+        girlStudent: res?.girl_student ?? null,
+        age3plus: res?.age_3plus ?? null,
+        under3: res?.under_3 ?? null,
+        bbq: res?.bbq ?? null,
+      });
+    }
+
+    return {
+      roomId: room.room_id,
+      roomName: room.room_name,
+      events,
+    };
+  });
+}
+
+export async function getDashboardSummary(): Promise<{
+  dashboard: DashboardSummary | null;
+  error: string | null;
+}> {
+  return unstable_cache(
+    getDashboardSummaryUncached,
+    ["dashboard-summary"],
+    { tags: [CACHE_TAGS.dashboard], revalidate: 60 }
+  )();
+}
+
+async function getDashboardSummaryUncached(): Promise<{
+  dashboard: DashboardSummary | null;
+  error: string | null;
+}> {
+  const supabase = await createReadClient();
+  const iso = todayIso();
+  const refDate = stripTime(new Date());
+  const dayMs = refDate.getTime();
+
+  const [
+    { data: reservations, error: resError },
+    { data: assignments, error: assignError },
+    { data: rooms, error: roomsError },
+    { data: requests, error: reqError },
+    { data: syncRuns },
+  ] = await Promise.all([
+    supabase
+      .from("reservations")
+      .select(
+        "reservation_id, representative_name, status, check_in, check_out, nights, guest_total, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3, arrival_time, meal, bbq, inquiry, assignment_status, companion_form_answered, email, completion_email_sent, day11_email_sent, day3_email_sent, created_at, sheet_created_at, is_archived"
+      )
+      .eq("is_archived", false),
+    supabase
+      .from("room_assignments")
+      .select(
+        "room_assignment_id, reservation_id, room_id, room_name, stay_start, stay_end, assigned_guest_count, is_archived"
+      )
+      .eq("is_archived", false),
+    supabase
+      .from("rooms")
+      .select("room_id, room_name, sort_order")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true }),
+    supabase
+      .from("reservation_requests")
+      .select("request_id, status")
+      .eq("is_archived", false),
+    supabase
+      .from("sync_runs")
+      .select("status, started_at")
+      .order("started_at", { ascending: false })
+      .limit(1),
+  ]);
+
+  if (resError) return { dashboard: null, error: resError.message };
+  if (assignError) return { dashboard: null, error: assignError.message };
+  if (roomsError) return { dashboard: null, error: roomsError.message };
+  if (reqError) return { dashboard: null, error: reqError.message };
+
+  const all = (reservations ?? []) as DbReservation[];
+  const allAssignments = (assignments ?? []) as DbAssignment[];
+  const assignmentsByReservation = new Map<string, DbAssignment[]>();
+  for (const a of allAssignments) {
+    const list = assignmentsByReservation.get(a.reservation_id) ?? [];
+    list.push(a);
+    assignmentsByReservation.set(a.reservation_id, list);
+  }
+  const reservationsById = new Map(all.map((r) => [r.reservation_id, r]));
+
+  const todayCheckins = all
+    .filter((r) => {
+      const ci = parseReservationDate(r.check_in);
+      return (
+        ci &&
+        isSameDay(ci, refDate) &&
+        ACTIVE_STATUSES.includes(r.status)
+      );
+    })
+    .map((r) => toListItem(r, assignmentsByReservation, refDate))
+    .sort((a, b) => {
+      const at = a.arrivalTime ?? "";
+      const bt = b.arrivalTime ?? "";
+      if (at !== bt) return at < bt ? -1 : 1;
+      return (a.representativeName ?? "").localeCompare(
+        b.representativeName ?? "",
+        "ja"
+      );
+    });
+
+  const todayCheckouts = all
+    .filter((r) => {
+      const co = parseReservationDate(r.check_out);
+      return (
+        co &&
+        isSameDay(co, refDate) &&
+        ACTIVE_STATUSES.includes(r.status)
+      );
+    })
+    .map((r) => toListItem(r, assignmentsByReservation, refDate))
+    .sort((a, b) =>
+      (a.representativeName ?? "").localeCompare(b.representativeName ?? "", "ja")
+    );
+
+  const staying = all
+    .filter((r) => {
+      const ci = parseReservationDate(r.check_in);
+      const co = parseReservationDate(r.check_out);
+      if (!ci || !co) return false;
+      if (ci.getTime() >= dayMs || co.getTime() <= dayMs) return false;
+      return STAYING_STATUSES.includes(r.status);
+    })
+    .map((r) => {
+      const item = toListItem(r, assignmentsByReservation, refDate);
+      const ci = parseReservationDate(r.check_in)!;
+      item.nightNumber = Math.max(
+        1,
+        Math.round((dayMs - stripTime(ci).getTime()) / 86400000) + 1
+      );
+      return item;
+    })
+    .sort((a, b) => {
+      if (a.checkIn !== b.checkIn) return a.checkIn < b.checkIn ? -1 : 1;
+      return (a.representativeName ?? "").localeCompare(
+        b.representativeName ?? "",
+        "ja"
+      );
+    });
+
+  const unassignedCount = all.filter(
+    (r) => r.status === "確定" && r.assignment_status === "未割当"
+  ).length;
+  const provisionalCount = all.filter((r) => r.status === "仮予約").length;
+  const confirmedCount = all.filter((r) => r.status === "確定").length;
+  const requestCount = (requests ?? []).filter((r) => r.status === "リクエスト")
+    .length;
+  const companionPendingCount = all.filter(
+    (r) => r.status === "確定" && reservationNeedsCompanionInfo(r, refDate)
+  ).length;
+  const reservationMailPendingCount = all.filter((r) =>
+    reservationHasAnyMailPending(r, refDate)
+  ).length;
+
+  const todayRooms = buildTodayRoomsBoard(
+    (rooms ?? []) as DbRoom[],
+    allAssignments,
+    reservationsById,
+    iso,
+    dayMs
+  );
+  const latestSync = (syncRuns?.[0] ?? null) as
+    | { status: string | null; started_at: string | null }
+    | null;
+
+  return {
+    dashboard: {
+      date: iso,
+      dateLabel: formatDateLabel(refDate),
+      lastSyncAt: latestSync?.started_at ?? null,
+      lastSyncStatus: latestSync?.status ?? null,
+      todayCheckinCount: todayCheckins.length,
+      todayCheckoutCount: todayCheckouts.length,
+      stayingCount: staying.length,
+      requestCount,
+      provisionalCount,
+      confirmedCount,
+      companionPendingCount,
+      reservationMailPendingCount,
+      unassignedCount,
+      todayCheckins,
+      todayCheckouts,
+      staying,
+      todayRooms,
+    },
+    error: null,
+  };
+}

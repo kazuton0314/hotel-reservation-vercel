@@ -1,7 +1,11 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { revalidateReservationDetail } from "@/lib/cache/revalidate";
+import {
+  normalizeCompanionAgeInput,
+  validateCompanionAge,
+} from "@/lib/utils/companion-age";
+import { createStaffClient } from "@/lib/supabase/server";
 
 type ActionResult = { ok: true } | { ok: false; message: string };
 
@@ -22,7 +26,13 @@ export async function addCompanionAction(
     return { ok: false, message: "性別が不正です。" };
   }
 
-  const supabase = await createClient();
+  const ageRaw = String(formData.get("age") ?? "").trim();
+  if (ageRaw) {
+    const ageError = validateCompanionAge(ageRaw);
+    if (ageError) return { ok: false, message: ageError };
+  }
+
+  const supabase = await createStaffClient();
   const { data: reservation, error: resError } = await supabase
     .from("reservations")
     .select("reservation_id, access_key")
@@ -49,7 +59,7 @@ export async function addCompanionAction(
     entry_no: nextEntryNo,
     name,
     name_kana: String(formData.get("name_kana") ?? "").trim() || null,
-    age: String(formData.get("age") ?? "").trim() || null,
+    age: ageRaw ? normalizeCompanionAgeInput(ageRaw) : null,
     gender: gender || null,
     source: "手動",
     updated_at: nowIso,
@@ -65,7 +75,7 @@ export async function addCompanionAction(
     })
     .eq("reservation_id", reservationId);
 
-  revalidatePath(`/reservations/${encodeURIComponent(reservationId)}`);
+  revalidateReservationDetail(reservationId);
   return { ok: true };
 }
 
@@ -80,7 +90,7 @@ export async function deleteCompanionAction(
     return { ok: false, message: "IDが不足しています。" };
   }
 
-  const supabase = await createClient();
+  const supabase = await createStaffClient();
   const { error } = await supabase.from("companions").delete().eq("id", id);
   if (error) return { ok: false, message: error.message };
 
@@ -99,6 +109,6 @@ export async function deleteCompanionAction(
       .eq("reservation_id", reservationId);
   }
 
-  revalidatePath(`/reservations/${encodeURIComponent(reservationId)}`);
+  revalidateReservationDetail(reservationId);
   return { ok: true };
 }

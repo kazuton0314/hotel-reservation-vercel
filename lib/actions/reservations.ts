@@ -1,7 +1,18 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { after } from "next/server";
+
+import {
+  revalidateCustomers,
+  revalidateReservationDetail,
+  revalidateReservationsList,
+} from "@/lib/cache/revalidate";
+import { upsertCustomerFromReservation } from "@/lib/services/customer-index";
 import { DEFAULTS } from "@/lib/config/forms";
+import {
+  PAYMENT_STATUS_OPTIONS,
+  RESERVATION_STATUS_OPTIONS,
+} from "@/lib/config/field-options";
 import {
   buildAddress,
   calculateNights,
@@ -9,26 +20,23 @@ import {
   parseDateValue,
 } from "@/lib/import/date-utils";
 import { nextManualReservationId } from "@/lib/import/id-generation";
-import { createClient } from "@/lib/supabase/server";
+import { createStaffClient, createAdminClient } from "@/lib/supabase/server";
 import { generateAccessKey } from "@/lib/utils/access-key";
+import { updateRowWithLock } from "@/lib/utils/optimistic-lock";
+import { deleteGCalEventIfAny, syncReservationToGCal } from "@/lib/services/gcal-sync";
+import { syncRoomAssignmentGuestBreakdown } from "@/lib/services/room-assignment-guest-sync";
 
 type ActionResult =
-  | { ok: true; reservationId?: string }
-  | { ok: false; message: string };
-
-export const RESERVATION_STATUS_OPTIONS = [
-  "仮予約",
-  "確定",
-  "キャンセル",
-] as const;
-
-export const PAYMENT_STATUS_OPTIONS = ["未払い", "支払済", "一部支払"] as const;
+  | { ok: true; reservationId?: string; updatedAt?: string }
+  | { ok: false; message: string; conflict?: boolean };
 
 export async function updateReservationAction(
   _prev: ActionResult,
   formData: FormData
 ): Promise<ActionResult> {
   const reservationId = String(formData.get("reservation_id") ?? "").trim();
+  const expectedUpdatedAt =
+    String(formData.get("expected_updated_at") ?? "").trim() || null;
   if (!reservationId) {
     return { ok: false, message: "予約IDが不足しています。" };
   }
@@ -43,7 +51,7 @@ export async function updateReservationAction(
     return { ok: false, message: "ステータスが不正です。" };
   }
 
-  const supabase = await createClient();
+  const supabase = await createStaffClient();
   const { data: current, error: currentError } = await supabase
     .from("reservations")
     .select("*")
@@ -118,13 +126,33 @@ export async function updateReservationAction(
     adult_female: String(
       formData.get("adult_female") ?? current.adult_female ?? ""
     ),
+    boy_student: String(formData.get("boy_student") ?? current.boy_student ?? ""),
+    girl_student: String(
+      formData.get("girl_student") ?? current.girl_student ?? ""
+    ),
+    age_3plus: String(formData.get("age_3plus") ?? current.age_3plus ?? ""),
+    under_3: String(formData.get("under_3") ?? current.under_3 ?? ""),
     arrival_time: String(
       formData.get("arrival_time") ?? current.arrival_time ?? ""
     ),
     transport: String(formData.get("transport") ?? current.transport ?? ""),
+    vehicle_count: String(
+      formData.get("vehicle_count") ?? current.vehicle_count ?? ""
+    ),
     meal: String(formData.get("meal") ?? current.meal ?? ""),
     bbq: String(formData.get("bbq") ?? current.bbq ?? ""),
     inquiry: String(formData.get("inquiry") ?? current.inquiry ?? ""),
+    travel_purpose: String(
+      formData.get("travel_purpose") ?? current.travel_purpose ?? ""
+    ),
+    travel_purpose_other: String(
+      formData.get("travel_purpose_other") ?? current.travel_purpose_other ?? ""
+    ),
+    referral: String(formData.get("referral") ?? current.referral ?? ""),
+    referral_other: String(
+      formData.get("referral_other") ?? current.referral_other ?? ""
+    ),
+    last_stay: String(formData.get("last_stay") ?? current.last_stay ?? ""),
     internal_memo: String(
       formData.get("internal_memo") ?? current.internal_memo ?? ""
     ),
@@ -140,17 +168,53 @@ export async function updateReservationAction(
     payload.nights = calculateNights(checkIn, checkOut);
   }
 
-  const { error } = await supabase
+  const updatedResult = await updateRowWithLock<Record<string, unknown>>({
+    supabase,
+    table: "reservations",
+    idColumn: "reservation_id",
+    idValue: reservationId,
+    expectedUpdatedAt,
+    patch: payload,
+  });
+  if (!updatedResult.ok) {
+    return {
+      ok: false,
+      message: updatedResult.message,
+      conflict: updatedResult.conflict,
+    };
+  }
+
+  const { data: updated } = await supabase
     .from("reservations")
-    .update(payload)
-    .eq("reservation_id", reservationId);
+    .select(
+      "reservation_id, customer_id, representative_name, name_kana, email, phone, check_in, check_out, status, is_archived"
+    )
+    .eq("reservation_id", reservationId)
+    .maybeSingle();
+  if (updated) {
+    await upsertCustomerFromReservation(supabase, updated);
+    revalidateCustomers();
+  }
 
-  if (error) return { ok: false, message: error.message };
+  await syncRoomAssignmentGuestBreakdown(supabase, reservationId, {
+    adult_male: payload.adult_male,
+    adult_female: payload.adult_female,
+    boy_student: payload.boy_student,
+    girl_student: payload.girl_student,
+    age_3plus: payload.age_3plus,
+    under_3: payload.under_3,
+  });
 
-  revalidatePath("/reservations");
-  revalidatePath(`/reservations/${encodeURIComponent(reservationId)}`);
-  revalidatePath("/");
-  return { ok: true };
+  after(async () => {
+    const admin = createAdminClient();
+    await syncReservationToGCal(admin, reservationId);
+  });
+
+  revalidateReservationDetail(reservationId);
+  return {
+    ok: true,
+    updatedAt: String(updatedResult.data.updated_at ?? payload.updated_at ?? ""),
+  };
 }
 
 export async function updateMailFlagsAction(
@@ -180,7 +244,7 @@ export async function updateMailFlagsAction(
     }
   }
 
-  const supabase = await createClient();
+  const supabase = await createStaffClient();
   const { error } = await supabase
     .from("reservations")
     .update(payload)
@@ -188,8 +252,85 @@ export async function updateMailFlagsAction(
 
   if (error) return { ok: false, message: error.message };
 
-  revalidatePath(`/reservations/${encodeURIComponent(reservationId)}`);
+  revalidateReservationDetail(reservationId);
   return { ok: true };
+}
+
+const MAIL_KIND_FIELD: Record<string, { flag: string; at: string }> = {
+  予約確定: { flag: "completion_email_sent", at: "completion_email_sent_at" },
+  "11日前": { flag: "day11_email_sent", at: "day11_email_sent_at" },
+  "3日前": { flag: "day3_email_sent", at: "day3_email_sent_at" },
+};
+
+export async function setMailKindSentAction(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const reservationId = String(formData.get("reservation_id") ?? "").trim();
+  const mailKind = String(formData.get("mail_kind") ?? "").trim();
+  const sent = formData.get("sent") === "true";
+  if (!reservationId) return { ok: false, message: "予約IDが不足しています。" };
+
+  const field = MAIL_KIND_FIELD[mailKind];
+  if (!field) return { ok: false, message: "メール種別が不正です。" };
+
+  const nowIso = new Date().toISOString();
+  const supabase = await createStaffClient();
+  const { error } = await supabase
+    .from("reservations")
+    .update({
+      [field.flag]: sent,
+      [field.at]: sent ? nowIso : null,
+      updated_at: nowIso,
+    })
+    .eq("reservation_id", reservationId);
+  if (error) return { ok: false, message: error.message };
+
+  revalidateReservationDetail(reservationId);
+  return { ok: true };
+}
+
+export async function quickReservationStatusAction(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const reservationId = String(formData.get("reservation_id") ?? "").trim();
+  const status = String(formData.get("status") ?? "").trim();
+  const expectedUpdatedAt =
+    String(formData.get("expected_updated_at") ?? "").trim() || null;
+  if (!reservationId) return { ok: false, message: "予約IDが不足しています。" };
+  if (
+    !RESERVATION_STATUS_OPTIONS.includes(
+      status as (typeof RESERVATION_STATUS_OPTIONS)[number]
+    )
+  ) {
+    return { ok: false, message: "ステータスが不正です。" };
+  }
+
+  const supabase = await createStaffClient();
+  const nowIso = new Date().toISOString();
+  const result = await updateRowWithLock<Record<string, unknown>>({
+    supabase,
+    table: "reservations",
+    idColumn: "reservation_id",
+    idValue: reservationId,
+    expectedUpdatedAt,
+    patch: { status, updated_at: nowIso },
+  });
+
+  if (!result.ok) {
+    return {
+      ok: false,
+      message: result.message,
+      conflict: result.conflict,
+    };
+  }
+
+  revalidateReservationDetail(reservationId);
+  return {
+    ok: true,
+    updatedAt: String(result.data.updated_at ?? nowIso),
+  };
 }
 
 export async function createManualReservationAction(
@@ -222,7 +363,7 @@ export async function createManualReservationAction(
   }
 
   const status = String(formData.get("status") ?? "確定").trim();
-  const supabase = await createClient();
+  const supabase = await createStaffClient();
   const reservationId = await nextManualReservationId(supabase);
   const nowIso = new Date().toISOString();
   const lastNameKana = String(formData.get("last_name_kana") ?? "").trim();
@@ -263,21 +404,22 @@ export async function createManualReservationAction(
     guest_total: String(formData.get("guest_total") ?? "").trim() || null,
     adult_male: String(formData.get("adult_male") ?? "").trim() || null,
     adult_female: String(formData.get("adult_female") ?? "").trim() || null,
-    boy_student: null,
-    girl_student: null,
-    age_3plus: null,
-    under_3: null,
+    boy_student: String(formData.get("boy_student") ?? "").trim() || null,
+    girl_student: String(formData.get("girl_student") ?? "").trim() || null,
+    age_3plus: String(formData.get("age_3plus") ?? "").trim() || null,
+    under_3: String(formData.get("under_3") ?? "").trim() || null,
     arrival_time: String(formData.get("arrival_time") ?? "").trim() || null,
     transport: String(formData.get("transport") ?? "").trim() || null,
-    vehicle_count: null,
+    vehicle_count: String(formData.get("vehicle_count") ?? "").trim() || null,
     meal: String(formData.get("meal") ?? "").trim() || null,
     bbq: String(formData.get("bbq") ?? "").trim() || null,
     inquiry: String(formData.get("inquiry") ?? "").trim() || null,
-    travel_purpose: null,
-    travel_purpose_other: null,
-    referral: null,
-    referral_other: null,
-    last_stay: null,
+    travel_purpose: String(formData.get("travel_purpose") ?? "").trim() || null,
+    travel_purpose_other:
+      String(formData.get("travel_purpose_other") ?? "").trim() || null,
+    referral: String(formData.get("referral") ?? "").trim() || null,
+    referral_other: String(formData.get("referral_other") ?? "").trim() || null,
+    last_stay: String(formData.get("last_stay") ?? "").trim() || null,
     assignment_status: DEFAULTS.assignmentStatus,
     companion_form_answered: false,
     completion_email_sent: false,
@@ -301,8 +443,16 @@ export async function createManualReservationAction(
   const { error } = await supabase.from("reservations").insert(record);
   if (error) return { ok: false, message: error.message };
 
-  revalidatePath("/reservations");
-  revalidatePath("/");
+  await upsertCustomerFromReservation(supabase, {
+    ...record,
+    is_archived: false,
+  });
+  after(async () => {
+    const admin = createAdminClient();
+    await syncReservationToGCal(admin, reservationId);
+  });
+  revalidateCustomers();
+  revalidateReservationsList();
   return { ok: true, reservationId };
 }
 
@@ -317,7 +467,13 @@ export async function archiveReservationAction(
     return { ok: false, message: "予約IDが不足しています。" };
   }
 
-  const supabase = await createClient();
+  const supabase = await createStaffClient();
+  const { data: current } = await supabase
+    .from("reservations")
+    .select("gcal_event_id")
+    .eq("reservation_id", reservationId)
+    .maybeSingle();
+
   const nowIso = new Date().toISOString();
   const { error } = await supabase
     .from("reservations")
@@ -330,8 +486,17 @@ export async function archiveReservationAction(
 
   if (error) return { ok: false, message: error.message };
 
-  revalidatePath("/reservations");
-  revalidatePath(`/reservations/${encodeURIComponent(reservationId)}`);
-  revalidatePath("/");
+  if (archive) {
+    after(async () => {
+      await deleteGCalEventIfAny(current?.gcal_event_id ?? null);
+    });
+  } else {
+    after(async () => {
+      const admin = createAdminClient();
+      await syncReservationToGCal(admin, reservationId);
+    });
+  }
+
+  revalidateReservationDetail(reservationId);
   return { ok: true };
 }

@@ -38,3 +38,14 @@ export function createAdminClient() {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 }
+
+/** スタッフ操作（Server Actions）。SKIP_AUTH 開発時は service role にフォールバック */
+export async function createStaffClient() {
+  if (
+    process.env.SKIP_AUTH === "true" &&
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+  ) {
+    return createAdminClient();
+  }
+  return createClient();
+}

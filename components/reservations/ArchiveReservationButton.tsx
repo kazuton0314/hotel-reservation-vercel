@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { archiveReservationAction } from "@/lib/actions/reservations";
+import { Button } from "@/components/ui/button";
 
 type Props = {
   reservationId: string;
@@ -20,27 +21,25 @@ export function ArchiveReservationButton({
   );
 
   return (
-    <form action={formAction} className="mt-6">
+    <form action={formAction} className="detail-block">
       <input type="hidden" name="reservation_id" value={reservationId} />
       <input type="hidden" name="archive" value={isArchived ? "false" : "true"} />
       {state.ok === false ? (
-        <p className="mb-2 text-sm text-red-700">{state.message}</p>
+        <p className="detail-hint" style={{ color: "#b91c1c" }}>
+          {state.message}
+        </p>
       ) : null}
-      <button
+      <Button
         type="submit"
         disabled={isPending}
-        className={`rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-60 ${
-          isArchived
-            ? "border border-zinc-300 text-zinc-700"
-            : "border border-red-200 bg-red-50 text-red-800"
-        }`}
+        variant={isArchived ? "secondary" : "danger"}
       >
         {isPending
-          ? "処理中..."
+          ? "処理中…"
           : isArchived
             ? "アーカイブから復元"
             : "アーカイブへ移動"}
-      </button>
+      </Button>
     </form>
   );
 }
