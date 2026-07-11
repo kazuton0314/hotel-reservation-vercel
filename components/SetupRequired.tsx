@@ -1,10 +1,10 @@
 export function SetupRequired() {
   return (
-    <section className="rounded-2xl border border-amber-200 bg-amber-50 p-6">
-      <h1 className="text-xl font-bold text-zinc-900">環境変数の設定が必要です</h1>
-      <p className="mt-3 text-sm leading-6 text-zinc-700">
-        プロジェクト直下に <code className="rounded bg-white px-1">.env.local</code>{" "}
-        を作成し、Supabase の URL とキーを設定してください。
+    <section className="detail-block">
+      <h3>環境変数の設定が必要です</h3>
+      <p className="form-hint">
+        プロジェクト直下に <code>.env.local</code> を作成し、Supabase の URL
+        とキーを設定してください。
       </p>
     </section>
   );
@@ -12,9 +12,11 @@ export function SetupRequired() {
 
 export function ConnectionError({ message }: { message: string }) {
   return (
-    <section className="rounded-2xl border border-red-200 bg-red-50 p-6">
-      <h2 className="text-lg font-semibold text-red-900">接続エラー</h2>
-      <p className="mt-2 text-sm text-red-800">{message}</p>
+    <section className="detail-block">
+      <h3>接続エラー</h3>
+      <p className="detail-hint" style={{ color: "#b91c1c" }}>
+        {message}
+      </p>
     </section>
   );
 }

@@ -20,8 +20,8 @@
 
 - Sheets API で**回答スプシを直接**読み取る（IMPORTRANGE 中間シートは使わない）
 - 取込済み管理は `form_import_log` テーブル（GAS の P/Q・AM/AN 列の代替）
-- 5 分ごとに Vercel Cron が `/api/cron/sync-forms` を実行
-- 手動: `npm run sync:forms`
+- Vercel Hobby では **1日1回** Cron（`0 0 * * *` UTC ≒ 9:00 JST）が `/api/cron/sync-forms` を実行
+- 手動: 設定 → 同期ステータス、または `npm run sync:forms`
 
 ### 2. 予約管理DB CSV（一度だけ）
 
@@ -35,13 +35,31 @@
 | `06_…_アーカイブ` | `requests-archive` |
 | `04_部屋割り` | `room-assignments-active` |
 | `08_部屋割り_アーカイブ` | `room-assignments-archive` |
+| `05_同行者情報` | `companions` |
 
 ```powershell
 # スプシ: ファイル → ダウンロード → CSV
 npm run import:csv -- reservations-active ./data/03_予約台帳.csv
+npm run import:csv -- companions ./data/05_同行者情報.csv
 ```
 
 CSV 投入後、`import_sequences` が台帳の最大 ID から連番を同期します。
+必要に応じて以下を実行してください。
+
+```powershell
+# 事後リンク（リクエスト↔本予約）
+npm run link:records
+
+# 顧客リスト再構築
+npm run rebuild:customers
+```
+
+## 重複レコードの扱い（本番フォーム切替時）
+
+- フォーム同期では、**同一人物（氏名＋連絡先）かつ同一日程**を重複候補として扱います。
+- 既存の確定予約がある場合は既存 `reservation_id` を優先し、二重作成を抑止します。
+- 既存リクエストがある場合は既存 `request_id` を優先し、`linked_reservation_id` 連携を維持します。
+- 既存データの整合は `npm run link:records` で後追い修復できます。
 
 ## サービスアカウントの共有先
 

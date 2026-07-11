@@ -1,0 +1,1 @@
+export const MAX_COMPANION_ENTRIES = 50;

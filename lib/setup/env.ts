@@ -1,4 +1,5 @@
 import { FORM_SOURCES } from "@/lib/config/forms";
+import { getMailSendConfigStatus } from "@/lib/services/mail-send";
 
 export type SetupCheckId =
   | "supabase_url"
@@ -8,7 +9,9 @@ export type SetupCheckId =
   | "google_sa_key"
   | "booking_spreadsheet"
   | "request_spreadsheet"
-  | "cron_secret";
+  | "cron_secret"
+  | "mail_smtp"
+  | "mail_from";
 
 export type SetupCheck = {
   id: SetupCheckId;
@@ -85,6 +88,43 @@ export function getSetupChecks(): SetupCheck[] {
       label: "CRON_SECRET",
       ok: Boolean(process.env.CRON_SECRET?.trim()),
       detail: process.env.CRON_SECRET ? "設定済み" : "未設定（Vercel 本番時）",
+    },
+    {
+      id: "mail_smtp",
+      label: "メール送信",
+      ok: (() => {
+        const mail = getMailSendConfigStatus();
+        return mail.ready;
+      })(),
+      detail: (() => {
+        const mail = getMailSendConfigStatus();
+        if (mail.ready && mail.provider === "smtp") {
+          const host = process.env.SMTP_HOST?.trim();
+          const port = process.env.SMTP_PORT ?? 587;
+          const vercelNote =
+            process.env.VERCEL === "1"
+              ? "（Vercel: さくらSMTPはIP制限で失敗しやすい → resend 推奨）"
+              : "";
+          return `SMTP ${host}:${port}（差出人: ${mail.fromHeader}）${vercelNote}`;
+        }
+        if (mail.ready && mail.provider === "resend") {
+          return `Resend（差出人: ${mail.fromHeader}）`;
+        }
+        if (mail.missing.length) {
+          return `不足: ${mail.missing.join(", ")}`;
+        }
+        return "未設定（MAIL_PROVIDER=smtp または resend）";
+      })(),
+      userAction:
+        "ローカル: さくら SMTP。Vercel 本番: MAIL_PROVIDER=resend + RESEND_API_KEY + ドメイン認証",
+    },
+    {
+      id: "mail_from",
+      label: "差出人（MAIL_FROM）",
+      ok: Boolean(getMailSendConfigStatus().fromHeader),
+      detail: getMailSendConfigStatus().fromHeader || "未設定",
+      userAction:
+        "MAIL_FROM=表示名 <address@domain> または MAIL_FROM_ADDRESS + MAIL_FROM_NAME",
     },
   ];
 }

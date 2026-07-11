@@ -71,7 +71,7 @@ export function buildCheckOutDate(
     return checkOut;
   }
 
-  let year = checkIn.getFullYear();
+  const year = checkIn.getFullYear();
   let checkOut = validDate(year, month, day);
   if (!checkOut) return null;
 

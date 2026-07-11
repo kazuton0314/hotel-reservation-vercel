@@ -1,52 +1,78 @@
 import Link from "next/link";
 import type { ReservationListItem } from "@/lib/queries/reservations";
-
-const STATUS_COLORS: Record<string, string> = {
-  確定: "bg-blue-100 text-blue-800",
-  仮予約: "bg-amber-100 text-amber-800",
-  キャンセル: "bg-zinc-200 text-zinc-600",
-};
+import { ReservationListStatusActions } from "@/components/reservations/ReservationListStatusActions";
+import { ReservationTaskChips } from "@/components/reservations/ReservationTaskChips";
+import { formatReceivedDate } from "@/lib/services/reservation-list-filter";
+import { formatDisplayName } from "@/lib/utils/display-name";
+import { formatGuestCompact } from "@/lib/utils/guest-display";
 
 export function ReservationListRow({ item }: { item: ReservationListItem }) {
-  const statusClass =
-    STATUS_COLORS[item.status] ?? "bg-zinc-100 text-zinc-700";
+  const compact = formatGuestCompact({
+    guest_total: item.guest_total,
+    adult_male: item.adult_male,
+    adult_female: item.adult_female,
+    boy_student: item.boy_student,
+    girl_student: item.girl_student,
+    age_3plus: item.age_3plus,
+    under_3: item.under_3,
+  });
+  const received = formatReceivedDate(item.received_ms);
+  const displayName = formatDisplayName(item.representative_name);
 
   return (
     <Link
       href={`/reservations/${encodeURIComponent(item.reservation_id)}`}
-      className="block rounded-xl border border-zinc-200 bg-white p-4 shadow-sm transition hover:border-zinc-300"
+      prefetch
+      className="card list-card reservation-row-card block"
     >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="font-semibold">
-            {item.representative_name || "（代表者名なし）"}
-          </p>
-          <p className="mt-0.5 text-xs text-zinc-500">{item.reservation_id}</p>
+      <div className="row-card-head">
+        <p className="card-title list-card-title">{displayName}</p>
+        <div className="row-card-badges">
+          <ReservationListStatusActions
+            reservationId={item.reservation_id}
+            status={item.status}
+            updatedAt={item.updated_at}
+          />
         </div>
-        <span
-          className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${statusClass}`}
-        >
-          {item.status}
-        </span>
       </div>
-      <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-        <div>
-          <dt className="text-zinc-500">チェックイン</dt>
-          <dd>{item.check_in ?? "—"}</dd>
-        </div>
-        <div>
-          <dt className="text-zinc-500">チェックアウト</dt>
-          <dd>{item.check_out ?? "—"}</dd>
-        </div>
-        <div>
-          <dt className="text-zinc-500">人数</dt>
-          <dd>{item.guest_total || "—"}</dd>
-        </div>
-        <div>
-          <dt className="text-zinc-500">部屋割</dt>
-          <dd>{item.assignment_status || "—"}</dd>
-        </div>
-      </dl>
+      <p className="card-sub">
+        {item.reservation_id} / {item.check_in}〜{item.check_out}
+        {received ? ` / 受付 ${received}` : ""}
+      </p>
+      <ReservationTaskChips
+        item={{
+          status: item.status,
+          email: item.email,
+          check_in: item.check_in,
+          check_out: item.check_out,
+          created_at: item.created_at,
+          sheet_created_at: item.sheet_created_at,
+          assignment_status: item.assignment_status,
+          companion_required: item.companion_required,
+          companion_pending: item.companion_pending,
+          completion_email_sent: item.completion_email_sent,
+          day11_email_sent: item.day11_email_sent,
+          day3_email_sent: item.day3_email_sent,
+          companion_form_answered: !item.companion_pending,
+          guest_total: item.guest_total,
+          adult_male: item.adult_male,
+          adult_female: item.adult_female,
+          boy_student: item.boy_student,
+          girl_student: item.girl_student,
+          age_3plus: item.age_3plus,
+          under_3: item.under_3,
+        }}
+      />
+      {compact && compact !== "—" ? (
+        <p className="card-meta">
+          <span className="meta-guests">{compact}</span>
+        </p>
+      ) : null}
+      {item.assigned_rooms ? (
+        <p className="card-row">
+          <strong>部屋:</strong> {item.assigned_rooms}
+        </p>
+      ) : null}
     </Link>
   );
 }

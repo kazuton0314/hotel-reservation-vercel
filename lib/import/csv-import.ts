@@ -11,7 +11,8 @@ export type CsvImportTarget =
   | "requests-active"
   | "requests-archive"
   | "room-assignments-active"
-  | "room-assignments-archive";
+  | "room-assignments-archive"
+  | "companions";
 
 function parseCsv(content: string): string[][] {
   const rows: string[][] = [];
@@ -128,6 +129,80 @@ export async function importCsvFile(
     }
 
     await syncSequencesFromLedger(supabase);
+    return { imported, skipped };
+  }
+
+  if (target === "companions") {
+    const headers = records.length > 0 ? Object.keys(records[0]) : [];
+    const idx = headerIndex(headers);
+    const batch: Record<string, unknown>[] = [];
+    const touchedReservations = new Set<string>();
+
+    for (const record of records) {
+      const values = headers.map((h) => record[h]);
+      const reservationId = String(
+        getCell(values, idx, "予約ID") ?? getCell(values, idx, "reservation_id") ?? ""
+      ).trim();
+      const name = String(
+        getCell(values, idx, "氏名") ?? getCell(values, idx, "名前") ?? getCell(values, idx, "name") ?? ""
+      ).trim();
+      if (!reservationId || !name) {
+        skipped++;
+        continue;
+      }
+
+      const rawEntryNo =
+        getCell(values, idx, "No") ??
+        getCell(values, idx, "連番") ??
+        getCell(values, idx, "entry_no") ??
+        null;
+      const entryNoParsed = parseInt(String(rawEntryNo ?? ""), 10);
+      const entryNo = Number.isFinite(entryNoParsed) ? entryNoParsed : batch.length + 1;
+      const answeredAtRaw =
+        getCell(values, idx, "回答日時") ??
+        getCell(values, idx, "answered_at") ??
+        new Date().toISOString();
+      const answeredAt = new Date(String(answeredAtRaw));
+      const answeredAtIso = Number.isNaN(answeredAt.getTime())
+        ? new Date().toISOString()
+        : answeredAt.toISOString();
+
+      batch.push({
+        reservation_id: reservationId,
+        access_key:
+          String(getCell(values, idx, "外部受付キー") ?? getCell(values, idx, "access_key") ?? "").trim() || null,
+        entry_no: entryNo,
+        name,
+        name_kana: String(
+          getCell(values, idx, "ふりがな") ?? getCell(values, idx, "name_kana") ?? ""
+        ).trim() || null,
+        age: String(getCell(values, idx, "年齢") ?? getCell(values, idx, "age") ?? "").trim() || null,
+        gender: String(getCell(values, idx, "性別") ?? getCell(values, idx, "gender") ?? "").trim() || null,
+        source: "CSV",
+        answered_at: answeredAtIso,
+        updated_at: new Date().toISOString(),
+      });
+      touchedReservations.add(reservationId);
+    }
+
+    const chunkSize = 100;
+    for (let i = 0; i < batch.length; i += chunkSize) {
+      const chunk = batch.slice(i, i + chunkSize);
+      const { error } = await supabase
+        .from("companions")
+        .upsert(chunk, { onConflict: "reservation_id,entry_no" });
+      if (error) throw error;
+      imported += chunk.length;
+    }
+
+    if (touchedReservations.size > 0) {
+      const nowIso = new Date().toISOString();
+      await supabase
+        .from("reservations")
+        .update({ companion_form_answered: true, updated_at: nowIso })
+        .in("reservation_id", [...touchedReservations]);
+    }
+
     return { imported, skipped };
   }
 
