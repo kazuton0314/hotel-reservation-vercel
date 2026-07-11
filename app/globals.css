@@ -424,6 +424,44 @@ body {
   background: #f0fdf4;
 }
 
+/* タスクチップ — 色だけで状態を示す（一覧・ホーム・詳細共通） */
+.task-chip {
+  font-size: 0.58rem;
+  font-weight: 700;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  padding: 1px 6px;
+  line-height: 1.35;
+}
+.task-chip-done {
+  border-color: #86efac;
+  color: #166534;
+  background: #f0fdf4;
+}
+.task-chip-action {
+  border-color: #fdba74;
+  color: #c2410c;
+  background: #fff7ed;
+}
+.task-chip-wait {
+  border-color: var(--border);
+  color: var(--muted);
+  background: var(--surface-muted);
+}
+.task-chip-skip {
+  border-color: var(--border);
+  color: var(--muted);
+  background: var(--surface-muted);
+  opacity: 0.55;
+}
+.task-chip-blocked {
+  border-color: var(--border);
+  color: var(--muted);
+  background: var(--surface-muted);
+  border-style: dashed;
+  opacity: 0.85;
+}
+
 .badge {
   display: inline-block;
   font-size: 0.68rem;
@@ -1598,7 +1636,7 @@ body {
 .form-group select,
 .form-group textarea {
   border-radius: 12px;
-  border-color: #d6e2db;
+  border: 1px solid #d6e2db;
   box-shadow: inset 0 1px 2px rgba(16, 24, 40, 0.03);
 }
 
@@ -1892,6 +1930,24 @@ html[data-theme="dark"] .status-pill.warn {
   background: #3d2a10;
 }
 
+html[data-theme="dark"] .task-chip-done {
+  background: #1a3d2e;
+  color: #86efac;
+  border-color: #166534;
+}
+html[data-theme="dark"] .task-chip-action {
+  background: #3d2a10;
+  color: #fdba74;
+  border-color: #9a3412;
+}
+html[data-theme="dark"] .task-chip-wait,
+html[data-theme="dark"] .task-chip-skip,
+html[data-theme="dark"] .task-chip-blocked {
+  background: var(--surface-header);
+  color: var(--muted);
+  border-color: var(--border);
+}
+
 html[data-theme="dark"] .meta-badge.meta-bbq {
   background: #4a2c14;
   color: #fdba74;
@@ -2029,5 +2085,24 @@ html[data-theme="dark"] .occ-nights {
 .form-group textarea {
   background: var(--card);
   color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 8px 12px;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  box-shadow: inset 0 1px 2px rgba(16, 24, 40, 0.03);
+}
+
+.ui-input:focus-visible,
+.form-group input:focus-visible,
+.form-group select:focus-visible,
+.form-group textarea:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  outline-offset: 1px;
+}
+
+select.ui-input {
+  cursor: pointer;
+  padding-right: 28px;
 }
 

@@ -4,10 +4,10 @@ import { formatDateIso, parseDateValue } from "@/lib/import/date-utils";
 import { generateAccessKey } from "@/lib/utils/access-key";
 import { buildCompanionFormUrl } from "@/lib/utils/companion-form-url";
 import { formatBbqDisplayLabel } from "@/lib/utils/occ-display";
+import { resolveMailFromHeader } from "@/lib/services/mail-send";
 
 const FACILITY_NAME = process.env.FACILITY_NAME ?? "みどりの時計台";
 const STUDIO_BOOKING_URL = process.env.STUDIO_BOOKING_FORM_URL ?? "";
-const MAIL_FROM = process.env.MAIL_FROM ?? "";
 
 function joinName(last: string | null | undefined, first: string | null | undefined) {
   return [last, first].filter(Boolean).join(" ").trim();
@@ -60,11 +60,12 @@ async function ensureReservationAccessKey(
 }
 
 function baseContext(): MailEntityContext {
+  const fromHeader = resolveMailFromHeader();
   return {
     facilityName: FACILITY_NAME,
     studioBookingUrl: STUDIO_BOOKING_URL,
     companionFormUrl: "",
-    mailFrom: extractMailAddress(MAIL_FROM),
+    mailFrom: extractMailAddress(fromHeader),
   };
 }
 

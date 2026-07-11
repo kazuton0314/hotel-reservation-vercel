@@ -148,7 +148,11 @@ export function ReservationMailSection(props: Props) {
             <article key={item.kind} className="mail-action-card" data-mail-kind={item.kind}>
               <div className="mail-action-card-head">
                 <span className="mail-action-card-title">{item.kind}</span>
-                <MailKindBadge status={st} />
+                <MailKindBadge
+                  status={st}
+                  hasEmail={Boolean(props.email)}
+                  reservationStatus={props.status}
+                />
               </div>
               {sentAt ? <p className="form-hint">{sentAt}</p> : null}
               {st.reason && st.notRequired ? (

@@ -50,13 +50,52 @@ export function resolveMailProvider(): MailProvider | null {
   return null;
 }
 
+export type MailSendConfigStatus = {
+  ready: boolean;
+  provider: MailProvider | null;
+  fromHeader: string;
+  missing: string[];
+};
+
+/** セットアップ画面・エラーメッセージ用の SMTP 設定診断 */
+export function getMailSendConfigStatus(): MailSendConfigStatus {
+  const provider = resolveMailProvider();
+  const fromHeader = resolveMailFromHeader();
+  const missing: string[] = [];
+
+  if (!provider) {
+    missing.push("MAIL_PROVIDER=smtp または SMTP_HOST");
+    return { ready: false, provider: null, fromHeader, missing };
+  }
+
+  if (provider === "resend") {
+    if (!process.env.RESEND_API_KEY?.trim()) missing.push("RESEND_API_KEY");
+    if (!process.env.MAIL_FROM?.trim()) missing.push("MAIL_FROM");
+    return {
+      ready: missing.length === 0,
+      provider,
+      fromHeader,
+      missing,
+    };
+  }
+
+  if (!process.env.SMTP_HOST?.trim()) missing.push("SMTP_HOST");
+  if (!process.env.SMTP_USER?.trim()) missing.push("SMTP_USER");
+  if (!process.env.SMTP_PASS?.trim()) missing.push("SMTP_PASS");
+  if (!fromHeader) {
+    missing.push("MAIL_FROM または MAIL_FROM_ADDRESS + MAIL_FROM_NAME");
+  }
+
+  return {
+    ready: missing.length === 0,
+    provider,
+    fromHeader,
+    missing,
+  };
+}
+
 function smtpConfigured() {
-  return Boolean(
-    process.env.SMTP_HOST?.trim() &&
-      process.env.SMTP_USER?.trim() &&
-      process.env.SMTP_PASS?.trim() &&
-      resolveMailFromHeader()
-  );
+  return getMailSendConfigStatus().ready && resolveMailProvider() === "smtp";
 }
 
 type ImapSentSettings = {
@@ -293,7 +332,22 @@ export async function sendMailViaResend(
 
 /** MAIL_PROVIDER または環境変数から SMTP / Resend を自動選択 */
 export async function sendMail(input: SendMailInput): Promise<SendMailResult> {
-  const provider = resolveMailProvider();
+  const config = getMailSendConfigStatus();
+  const provider = config.provider;
+  if (!provider) {
+    return {
+      ok: false,
+      skipped: true,
+      message: `メール送信は未設定です（Vercel の Environment Variables に設定してください: ${config.missing.join(", ")}）`,
+    };
+  }
+  if (!config.ready) {
+    return {
+      ok: false,
+      skipped: true,
+      message: `メール送信の設定が不足しています: ${config.missing.join(", ")}`,
+    };
+  }
   if (provider === "smtp") return sendMailViaSmtp(input);
   if (provider === "resend") return sendMailViaResend(input);
   return {

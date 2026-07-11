@@ -1,4 +1,5 @@
 import { FORM_SOURCES } from "@/lib/config/forms";
+import { getMailSendConfigStatus } from "@/lib/services/mail-send";
 
 export type SetupCheckId =
   | "supabase_url"
@@ -91,21 +92,34 @@ export function getSetupChecks(): SetupCheck[] {
     {
       id: "mail_smtp",
       label: "メール SMTP（さくら等）",
-      ok: Boolean(
-        process.env.SMTP_HOST?.trim() &&
-          process.env.SMTP_USER?.trim() &&
-          process.env.SMTP_PASS?.trim()
-      ),
-      detail: process.env.SMTP_HOST
-        ? `${process.env.SMTP_HOST}:${process.env.SMTP_PORT ?? 587}`
-        : "未設定",
-      userAction: "さくらのSMTPサーバ・メールアドレス・パスワードを .env.local に",
+      ok: (() => {
+        const mail = getMailSendConfigStatus();
+        return mail.provider === "smtp" && mail.ready;
+      })(),
+      detail: (() => {
+        const mail = getMailSendConfigStatus();
+        if (mail.provider === "smtp" && mail.ready) {
+          const host = process.env.SMTP_HOST?.trim();
+          const port = process.env.SMTP_PORT ?? 587;
+          return `${host}:${port}（差出人: ${mail.fromHeader}）`;
+        }
+        if (mail.missing.length) {
+          return `不足: ${mail.missing.join(", ")}`;
+        }
+        return process.env.SMTP_HOST
+          ? `${process.env.SMTP_HOST}:${process.env.SMTP_PORT ?? 587}`
+          : "未設定";
+      })(),
+      userAction:
+        "Vercel → Settings → Environment Variables に SMTP_* / MAIL_FROM_* を登録し Redeploy",
     },
     {
       id: "mail_from",
-      label: "MAIL_FROM",
-      ok: Boolean(process.env.MAIL_FROM?.trim()),
-      detail: process.env.MAIL_FROM ? "設定済み" : "未設定",
+      label: "差出人（MAIL_FROM）",
+      ok: Boolean(getMailSendConfigStatus().fromHeader),
+      detail: getMailSendConfigStatus().fromHeader || "未設定",
+      userAction:
+        "MAIL_FROM=表示名 <address@domain> または MAIL_FROM_ADDRESS + MAIL_FROM_NAME",
     },
   ];
 }

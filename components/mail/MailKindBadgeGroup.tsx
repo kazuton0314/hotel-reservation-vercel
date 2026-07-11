@@ -1,41 +1,19 @@
 import type { MailKindStatus } from "@/lib/utils/mail-kind-status";
+import { mailKindChipState } from "@/lib/utils/task-chip";
+import { TaskChip } from "@/components/list/TaskChip";
 
-/** GAS reservationMailKindBadgeHtml_ 相当 */
-export function MailKindBadge({ status }: { status: MailKindStatus }) {
-  const title = status.sentAtStr ? status.sentAtStr : undefined;
-  if (status.reason && status.notRequired) {
-    return (
-      <span className="badge badge-muted badge-mail-kind" title={title}>
-        {status.label}不要
-      </span>
-    );
-  }
-  if (status.sent) {
-    return (
-      <span className="badge badge-ok badge-mail-kind" title={title}>
-        {status.label}済
-      </span>
-    );
-  }
-  if (status.pending) {
-    return (
-      <span className="badge badge-warn badge-mail-kind" title={title}>
-        {status.label}未送付
-      </span>
-    );
-  }
-  if (status.notRequired) {
-    return (
-      <span className="badge badge-muted badge-mail-kind" title={title}>
-        {status.label}—
-      </span>
-    );
-  }
-  return (
-    <span className="badge badge-default badge-mail-kind" title={title}>
-      {status.label}—
-    </span>
-  );
+/** 詳細画面のメール種別チップ（一覧と同じ色体系） */
+export function MailKindBadge({
+  status,
+  hasEmail = true,
+  reservationStatus = "確定",
+}: {
+  status: MailKindStatus;
+  hasEmail?: boolean;
+  reservationStatus?: string;
+}) {
+  const chip = mailKindChipState(status, hasEmail, reservationStatus);
+  return <TaskChip label={status.label} state={chip.state} title={chip.title} />;
 }
 
 type Props = {
@@ -44,15 +22,25 @@ type Props = {
     day11: MailKindStatus;
     day3: MailKindStatus;
   };
+  hasEmail?: boolean;
+  reservationStatus?: string;
 };
 
-/** GAS reservationListMailBadgesHtml_ 相当 — 3種すべて表示 */
-export function MailKindBadgeGroup({ statuses }: Props) {
+export function MailKindBadgeGroup({
+  statuses,
+  hasEmail = true,
+  reservationStatus = "確定",
+}: Props) {
   const items = [statuses.confirmation, statuses.day11, statuses.day3];
   return (
     <span className="badge-group badge-group-mail">
       {items.map((st) => (
-        <MailKindBadge key={st.kind} status={st} />
+        <MailKindBadge
+          key={st.kind}
+          status={st}
+          hasEmail={hasEmail}
+          reservationStatus={reservationStatus}
+        />
       ))}
     </span>
   );

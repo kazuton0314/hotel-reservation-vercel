@@ -40,10 +40,6 @@ export function LoginForm({ nextPath }: { nextPath: string }) {
       <Button type="submit" disabled={pending}>
         {pending ? "ログイン中…" : "ログイン"}
       </Button>
-      <p className="form-hint" style={{ marginTop: 12 }}>
-        Supabase Auth で作成したスタッフアカウントでログインしてください。
-        ローカル開発のみ認証スキップ: <code>SKIP_AUTH=true</code>
-      </p>
     </form>
   );
 }

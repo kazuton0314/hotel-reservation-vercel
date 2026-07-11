@@ -89,6 +89,8 @@ export type DashboardListItem = {
   day11EmailSent: boolean;
   day3EmailSent: boolean;
   companionFormAnswered: boolean;
+  createdAt: string | null;
+  sheetCreatedAt: string | null;
   nightNumber?: number;
 };
 
@@ -176,6 +178,8 @@ function toListItem(
     day11EmailSent: r.day11_email_sent,
     day3EmailSent: r.day3_email_sent,
     companionFormAnswered: r.companion_form_answered,
+    createdAt: r.created_at,
+    sheetCreatedAt: r.sheet_created_at,
   };
 }
 
