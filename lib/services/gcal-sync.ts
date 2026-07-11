@@ -63,14 +63,17 @@ export function isGCalConfigured(): boolean {
   );
 }
 
-function isGCalTarget(row: Pick<ReservationRow, "status" | "check_out" | "is_archived">) {
-  if (row.is_archived) return false;
+/** 仮予約・確定はアーカイブ済み・過去分もカレンダーに残す（キャンセルのみ除外） */
+function isGCalTarget(
+  row: Pick<ReservationRow, "status" | "check_in" | "check_out">
+) {
   if (row.status !== "仮予約" && row.status !== "確定") return false;
-  if (!row.check_out) return false;
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - 30);
-  const co = new Date(`${row.check_out}T00:00:00`);
-  return co.getTime() >= cutoff.getTime();
+  if (!row.check_in || !row.check_out) return false;
+  return true;
+}
+
+function shouldRemoveFromGCal(row: Pick<ReservationRow, "status">) {
+  return row.status === "キャンセル";
 }
 
 function formatAssignedRoomsLabel(
@@ -138,8 +141,7 @@ async function loadRoomNames(
   const { data } = await supabase
     .from("room_assignments")
     .select("room_name")
-    .eq("reservation_id", reservationId)
-    .eq("is_archived", false);
+    .eq("reservation_id", reservationId);
   return formatAssignedRoomsLabel(data ?? []);
 }
 
@@ -163,8 +165,8 @@ export async function syncReservationToGCal(
 
   const calendar = createCalendarClient();
 
-  if (!isGCalTarget(row) || !row.check_in || !row.check_out) {
-    if (row.gcal_event_id) {
+  if (!isGCalTarget(row)) {
+    if (shouldRemoveFromGCal(row) && row.gcal_event_id) {
       try {
         await calendar.events.delete({
           calendarId,
@@ -220,22 +222,16 @@ export async function syncReservationToGCal(
   }
 }
 
-/** アクティブ予約を一括同期（Cron / 手動用） */
+/** 仮予約・確定を一括同期（アーカイブ済み・過去分を含む。初回投入後の sync:gcal 用） */
 export async function syncAllActiveReservationsToGCal(
   supabase: SupabaseClient
 ): Promise<{ synced: number; errors: string[] }> {
   if (!isGCalConfigured()) return { synced: 0, errors: [] };
 
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - 30);
-  const cutoffStr = cutoff.toISOString().slice(0, 10);
-
   const { data, error } = await supabase
     .from("reservations")
     .select("reservation_id")
-    .eq("is_archived", false)
-    .in("status", ["仮予約", "確定"])
-    .gte("check_out", cutoffStr);
+    .in("status", ["仮予約", "確定"]);
 
   if (error) throw error;
 
@@ -249,7 +245,7 @@ export async function syncAllActiveReservationsToGCal(
   return { synced, errors };
 }
 
-/** 予約削除・アーカイブ前に GCal イベントを削除 */
+/** 連携仮予約の差し戻しなど、DB から予約を消すときだけ GCal イベントを削除 */
 export async function deleteGCalEventIfAny(gcalEventId: string | null) {
   const calendarId = getCalendarId();
   if (!calendarId || !gcalEventId || !isGCalConfigured()) return;

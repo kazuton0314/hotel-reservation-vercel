@@ -63,15 +63,26 @@ export function parseMailFrom(): ParsedMailFrom {
 
 function formatSmtpErrorMessage(error: unknown): string {
   const raw = error instanceof Error ? error.message : String(error);
-  if (/550|5\.7\.1/i.test(raw)) {
+  if (/550|5\.7\.1|554/i.test(raw)) {
     const authUser = process.env.SMTP_USER?.trim();
-    return [
-      "送信元アドレスがメールサーバーに拒否されました（550）。",
-      authUser
-        ? `さくらSMTPでは From を認証ユーザー（${authUser}）と一致させてください。`
-        : "SMTP_USER と MAIL_FROM_ADDRESS を同じアドレスにしてください。",
-      `詳細: ${raw}`,
-    ].join(" ");
+    const onVercel = process.env.VERCEL === "1";
+    const lines = [
+      "メールサーバーが送信を拒否しました（550）。",
+    ];
+    if (onVercel) {
+      lines.push(
+        "ローカルでは送れるが Vercel だけ失敗する場合、さくらSMTPがクラウド（AWS 等）の IP からの接続を拒否している可能性が高いです（国外IPフィルター等）。",
+        "Vercel 本番では MAIL_PROVIDER=resend と RESEND_API_KEY の利用を推奨します。"
+      );
+    } else {
+      lines.push(
+        authUser
+          ? `さくらSMTPでは From アドレスを認証ユーザー（${authUser}）と一致させてください。`
+          : "SMTP_USER と MAIL_FROM_ADDRESS を同じアドレスにしてください。"
+      );
+    }
+    lines.push(`詳細: ${raw}`);
+    return lines.join(" ");
   }
   return raw;
 }
@@ -353,15 +364,15 @@ export async function sendMailViaSmtp(
 export async function sendMailViaResend(
   input: SendMailInput
 ): Promise<SendMailResult> {
-  const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.MAIL_FROM;
+  const apiKey = process.env.RESEND_API_KEY?.trim();
+  const from = resolveMailFromHeader();
 
   if (!apiKey || !from) {
     return {
       ok: false,
       skipped: true,
       message:
-        "メール送信は未設定です（RESEND_API_KEY / MAIL_FROM を設定してください）。",
+        "メール送信は未設定です（RESEND_API_KEY と MAIL_FROM または MAIL_FROM_ADDRESS + MAIL_FROM_NAME を設定してください）。",
     };
   }
 

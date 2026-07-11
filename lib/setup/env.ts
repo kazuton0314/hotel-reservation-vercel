@@ -91,27 +91,32 @@ export function getSetupChecks(): SetupCheck[] {
     },
     {
       id: "mail_smtp",
-      label: "メール SMTP（さくら等）",
+      label: "メール送信",
       ok: (() => {
         const mail = getMailSendConfigStatus();
-        return mail.provider === "smtp" && mail.ready;
+        return mail.ready;
       })(),
       detail: (() => {
         const mail = getMailSendConfigStatus();
-        if (mail.provider === "smtp" && mail.ready) {
+        if (mail.ready && mail.provider === "smtp") {
           const host = process.env.SMTP_HOST?.trim();
           const port = process.env.SMTP_PORT ?? 587;
-          return `${host}:${port}（差出人: ${mail.fromHeader}）`;
+          const vercelNote =
+            process.env.VERCEL === "1"
+              ? "（Vercel: さくらSMTPはIP制限で失敗しやすい → resend 推奨）"
+              : "";
+          return `SMTP ${host}:${port}（差出人: ${mail.fromHeader}）${vercelNote}`;
+        }
+        if (mail.ready && mail.provider === "resend") {
+          return `Resend（差出人: ${mail.fromHeader}）`;
         }
         if (mail.missing.length) {
           return `不足: ${mail.missing.join(", ")}`;
         }
-        return process.env.SMTP_HOST
-          ? `${process.env.SMTP_HOST}:${process.env.SMTP_PORT ?? 587}`
-          : "未設定";
+        return "未設定（MAIL_PROVIDER=smtp または resend）";
       })(),
       userAction:
-        "Vercel → Settings → Environment Variables に SMTP_* / MAIL_FROM_* を登録し Redeploy",
+        "ローカル: さくら SMTP。Vercel 本番: MAIL_PROVIDER=resend + RESEND_API_KEY + ドメイン認証",
     },
     {
       id: "mail_from",

@@ -24,7 +24,7 @@ Google カレンダーが未設定です。
 
   const supabase = createAdminClient();
   const result = await syncAllActiveReservationsToGCal(supabase);
-  console.log(`GCal同期: ${result.synced} 件`);
+  console.log(`GCal同期: ${result.synced} 件（アーカイブ済み・過去分を含む）`);
   if (result.errors.length) {
     console.log("エラー:");
     for (const e of result.errors) console.log(`  - ${e}`);

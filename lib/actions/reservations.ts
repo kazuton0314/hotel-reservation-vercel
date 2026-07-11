@@ -23,7 +23,7 @@ import { nextManualReservationId } from "@/lib/import/id-generation";
 import { createStaffClient, createAdminClient } from "@/lib/supabase/server";
 import { generateAccessKey } from "@/lib/utils/access-key";
 import { updateRowWithLock } from "@/lib/utils/optimistic-lock";
-import { deleteGCalEventIfAny, syncReservationToGCal } from "@/lib/services/gcal-sync";
+import { syncReservationToGCal } from "@/lib/services/gcal-sync";
 import { syncRoomAssignmentGuestBreakdown } from "@/lib/services/room-assignment-guest-sync";
 
 type ActionResult =
@@ -468,11 +468,6 @@ export async function archiveReservationAction(
   }
 
   const supabase = await createStaffClient();
-  const { data: current } = await supabase
-    .from("reservations")
-    .select("gcal_event_id")
-    .eq("reservation_id", reservationId)
-    .maybeSingle();
 
   const nowIso = new Date().toISOString();
   const { error } = await supabase
@@ -486,11 +481,7 @@ export async function archiveReservationAction(
 
   if (error) return { ok: false, message: error.message };
 
-  if (archive) {
-    after(async () => {
-      await deleteGCalEventIfAny(current?.gcal_event_id ?? null);
-    });
-  } else {
+  if (!archive) {
     after(async () => {
       const admin = createAdminClient();
       await syncReservationToGCal(admin, reservationId);
