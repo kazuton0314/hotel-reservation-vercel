@@ -111,11 +111,11 @@ async function searchCustomersUncached(criteria: CustomerSearchCriteria) {
     const { data: reservations } = await supabase
       .from("reservations")
       .select("customer_id, representative_name, name_kana, email, phone, reservation_id")
-      .eq("is_archived", false)
       .ilike("reservation_id", `%${escapeIlike(criteria.reservationId)}%`);
 
     for (const r of reservations ?? []) {
       const key = buildCustomerKey(r);
+      if (!key) continue;
       const { data: byKey } = await supabase
         .from("customers")
         .select(
@@ -144,6 +144,7 @@ async function searchCustomersUncached(criteria: CustomerSearchCriteria) {
         .in("reservation_id", ids);
       for (const r of reservations ?? []) {
         const key = buildCustomerKey(r);
+        if (!key) continue;
         const { data: byKey } = await supabase
           .from("customers")
           .select(
@@ -194,7 +195,7 @@ async function getCustomerDetailUncached(openId: string) {
 
   let customer: DbCustomer | null = null;
 
-  if (id.startsWith("cid:") || id.startsWith("email:") || id.startsWith("phone:") || id.startsWith("name:")) {
+  if (id.startsWith("cid:") || id.startsWith("email:") || id.startsWith("phone:") || id.startsWith("name:") || id.includes("|")) {
     const { data } = await supabase
       .from("customers")
       .select(
@@ -232,7 +233,6 @@ async function getCustomerDetailUncached(openId: string) {
     .from("reservations")
     .select("reservation_id, check_in, check_out, status, channel, is_archived")
     .eq("customer_id", customer.customer_id)
-    .eq("is_archived", false)
     .order("check_in", { ascending: false });
 
   if (error) return { detail: null, error: error.message };
