@@ -1,6 +1,7 @@
 import { unstable_cache } from "next/cache";
 import { CACHE_TAGS } from "@/lib/cache/tags";
 import { createReadClient } from "@/lib/supabase/read";
+import { todayIso } from "@/lib/utils/date-label";
 
 export type RequestListItem = {
   request_id: string;
@@ -49,7 +50,7 @@ export async function getRequests(filters: RequestListFilters = {}) {
 
 async function getRequestsUncached(filters: RequestListFilters = {}) {
   const supabase = await createReadClient();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayIso();
   let query = supabase
     .from("reservation_requests")
     .select(

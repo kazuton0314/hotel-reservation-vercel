@@ -67,8 +67,8 @@ function reservationDaysUntilCheckIn(
   return daysBetweenCalendarDates(stripTime(refDate), checkIn);
 }
 
-function isConfirmedWithEmail(r: ReservationMailRow): boolean {
-  return Boolean(r.email) && r.status === "確定";
+function isConfirmedReservation(r: ReservationMailRow): boolean {
+  return r.status === "確定";
 }
 
 export function buildReservationMailKindStatus(
@@ -78,7 +78,7 @@ export function buildReservationMailKindStatus(
 ): MailKindStatus {
   const lead = reservationBookingLeadDays(r);
   const daysUntil = reservationDaysUntilCheckIn(r, refDate);
-  const confirmed = isConfirmedWithEmail(r);
+  const confirmed = isConfirmedReservation(r);
 
   if (kind === "予約確定") {
     const sent = r.completion_email_sent;
@@ -87,7 +87,7 @@ export function buildReservationMailKindStatus(
       label: "予約確定",
       applicable: confirmed,
       notRequired: !confirmed,
-      pending: Boolean(r.email) && !sent && ["仮予約", "確定"].includes(r.status),
+      pending: !sent && ["仮予約", "確定"].includes(r.status),
       sent,
       sentAtStr: formatSentAt(r.completion_email_sent_at),
       reason: "",

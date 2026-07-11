@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { ListPagination } from "@/components/list/ListPagination";
+import { useListSearch } from "@/components/list/ListSearchProvider";
 import { RequestListRow } from "@/components/requests/RequestListRow";
 import type { RequestListItem } from "@/lib/queries/requests";
 import {
@@ -26,8 +27,9 @@ type Props = {
 
 export function RequestsListResults({ requests, scope }: Props) {
   const searchParams = useSearchParams();
-  const q = searchParams.get("q") ?? undefined;
-  const checkIn = searchParams.get("checkIn") ?? undefined;
+  const { keyword, checkIn } = useListSearch();
+  const q = keyword.trim() || undefined;
+  const checkInFilter = checkIn.trim() || undefined;
   const sort =
     searchParams.get("sort") || searchParams.get("dir")
       ? parseListSort(searchParams.get("sort"), searchParams.get("dir"))
@@ -40,10 +42,10 @@ export function RequestsListResults({ requests, scope }: Props) {
     const searched = filterListBySearch(
       requests.map((item) => ({ ...item, id: item.request_id })),
       q,
-      checkIn
+      checkInFilter
     );
     return sortListItems(searched, sort);
-  }, [requests, q, checkIn, sort]);
+  }, [requests, q, checkInFilter, sort]);
 
   const paged = useMemo(
     () => paginateItems(sorted, page, DEFAULT_LIST_PAGE_SIZE),

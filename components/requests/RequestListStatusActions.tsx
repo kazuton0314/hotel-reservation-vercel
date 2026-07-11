@@ -1,6 +1,7 @@
 "use client";
 
 import { useOptimistic, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { quickRequestStatusAction } from "@/lib/actions/requests";
 import { RequestApproveDialog } from "@/components/requests/RequestApproveDialog";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ export function RequestListStatusActions({
   status,
   updatedAt,
 }: Props) {
+  const router = useRouter();
   const [optimisticStatus, setOptimisticStatus] = useOptimistic(status);
   const [pending, startTransition] = useTransition();
   const [approveOpen, setApproveOpen] = useState(false);
@@ -52,6 +54,7 @@ export function RequestListStatusActions({
         return;
       }
       showSuccessToast("ステータスを更新しました");
+      router.refresh();
     });
   }
 

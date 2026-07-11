@@ -1,13 +1,16 @@
 import { parseDateValue, stripTime } from "@/lib/import/date-utils";
 
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"] as const;
+const BUSINESS_TIMEZONE = "Asia/Tokyo";
 
+/** 業務上の「今日」（JST 基準・サーバー UTC でも正しい日付） */
 export function todayIso(): string {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: BUSINESS_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
 }
 
 export function formatDateJa(date: Date): string {

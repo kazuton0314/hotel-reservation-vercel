@@ -7,6 +7,7 @@ import {
 } from "@/lib/services/mail-pending";
 import { effectiveGuestCountForCompanion } from "@/lib/utils/guest-display";
 import { idPrefixIlikePattern, isIdLikeQuery } from "@/lib/utils/id-search";
+import { todayIso } from "@/lib/utils/date-label";
 
 export type ReservationListItem = {
   reservation_id: string;
@@ -195,7 +196,7 @@ export async function getReservations(filters: ReservationFilters = {}) {
 
 async function getReservationsUncached(filters: ReservationFilters = {}) {
   const supabase = await createReadClient();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayIso();
   const refDate = new Date();
 
   let query = supabase
@@ -324,7 +325,7 @@ export async function getRoomAssignmentsByReservationId(reservationId: string) {
 
 export async function getReservationStats() {
   const supabase = await createReadClient();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayIso();
 
   const [active, upcoming, unassigned, requestsPending, mailPending] =
     await Promise.all([

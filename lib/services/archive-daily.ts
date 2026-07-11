@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { todayIso } from "@/lib/utils/date-label";
 
 export type ArchiveDailyResult = {
   reservations: number;
@@ -10,7 +11,7 @@ export type ArchiveDailyResult = {
 export async function runDailyArchive(
   supabase: SupabaseClient
 ): Promise<ArchiveDailyResult> {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayIso();
   const nowIso = new Date().toISOString();
 
   const [resResult, reqResult] = await Promise.all([

@@ -12,7 +12,7 @@ export function MailKindBadge({
   hasEmail?: boolean;
   reservationStatus?: string;
 }) {
-  const chip = mailKindChipState(status, hasEmail, reservationStatus);
+  const chip = mailKindChipState(status, reservationStatus);
   return <TaskChip label={status.label} state={chip.state} title={chip.title} />;
 }
 

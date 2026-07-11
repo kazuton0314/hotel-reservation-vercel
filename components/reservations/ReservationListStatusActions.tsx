@@ -1,6 +1,7 @@
 "use client";
 
 import { useOptimistic, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { quickReservationStatusAction } from "@/lib/actions/reservations";
 import { ReservationStatusBadge } from "@/components/list/ReservationListBadges";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,7 @@ export function ReservationListStatusActions({
   status,
   updatedAt,
 }: Props) {
+  const router = useRouter();
   const [optimisticStatus, setOptimisticStatus] = useOptimistic(status);
   const [pending, startTransition] = useTransition();
 
@@ -36,6 +38,7 @@ export function ReservationListStatusActions({
         return;
       }
       showSuccessToast("ステータスを更新しました");
+      router.refresh();
     });
   }
 

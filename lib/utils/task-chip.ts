@@ -9,11 +9,10 @@ import type { MailKindStatus } from "@/lib/utils/mail-kind-status";
  *
  * | 色 | 意味 |
  * |----|------|
- * | 緑 done | 完了（送信済・割当済・同行者入力済） |
+ * | 緑 done | 完了（確認済・割当済・同行者入力済） |
  * | 橙 action | 今すぐ対応が必要 |
- * | 灰 wait | 対象だが送信時期前（11日前/3日前のウィンドウ前） |
+ * | 灰 wait | 対象だが確認時期前（11日前/3日前のウィンドウ前） |
  * | 灰薄 skip | 業務上不要（リード不足・同行者不要・非確定など） |
- * | 灰点線 blocked | メールなしで送れない |
  */
 export type TaskChipState = "done" | "action" | "wait" | "skip" | "blocked";
 
@@ -41,7 +40,6 @@ export function assignmentChipState(
 
 export function mailKindChipState(
   st: MailKindStatus,
-  hasEmail: boolean,
   reservationStatus: string
 ): { state: TaskChipState; title: string } {
   const label = st.label;
@@ -49,60 +47,64 @@ export function mailKindChipState(
   if (st.sent) {
     return {
       state: "done",
-      title: st.sentAtStr ? `${label}メール送信済（${st.sentAtStr}）` : `${label}メール送信済`,
+      title: st.sentAtStr
+        ? `${label}確認済（${st.sentAtStr}）`
+        : `${label}確認済`,
     };
-  }
-
-  if (!hasEmail) {
-    if (reservationStatus === "確定" && (st.applicable || st.kind === "予約確定")) {
-      return { state: "blocked", title: "メールアドレス未登録のため送信できません" };
-    }
-    if (st.notRequired) {
-      return { state: "skip", title: st.reason || `${label}メールは不要です` };
-    }
-    return { state: "skip", title: "メールアドレス未登録" };
   }
 
   if (st.notRequired) {
     const reason =
       st.reason ||
       (st.kind === "11日前"
-        ? "チェックインまで11日未満の予約のため11日前メールは不要"
+        ? "チェックインまで11日未満のため不要"
         : st.kind === "3日前"
-          ? "送信条件を満たさないため3日前メールは不要"
-          : `${label}メールは不要です`);
+          ? "送信条件を満たさないため不要"
+          : `${label}は不要です`);
     return { state: "skip", title: reason };
   }
 
   if (st.pending) {
-    return { state: "action", title: `${label}メールが未送信です` };
+    return {
+      state: "action",
+      title: `${label}の確認が未完了です（電話・メール等）`,
+    };
   }
 
   if (st.applicable) {
-    return { state: "wait", title: `${label}メールの送信時期前です` };
+    return { state: "wait", title: `${label}の確認時期前です` };
   }
 
-  return { state: "skip", title: st.reason || `${label}メールは対象外です` };
+  if (reservationStatus !== "確定") {
+    return { state: "skip", title: "確定予約のみ対象です" };
+  }
+
+  return { state: "skip", title: st.reason || `${label}は対象外です` };
 }
 
-const REQUEST_REPLY_STATUSES = new Set(["承認済", "却下", "本予約連携済"]);
+const REQUEST_CONFIRM_STATUSES = new Set(["承認済", "却下", "本予約連携済"]);
 
-/** リクエスト一覧の返信メールチップ（本予約のメール種別チップと同じ位置づけ） */
+/** リクエスト一覧の確認チップ（本予約のメール種別チップと同じ位置づけ） */
+export function requestConfirmChipState(
+  status: string,
+  confirmed: boolean
+): { state: TaskChipState; title: string } | null {
+  if (!REQUEST_CONFIRM_STATUSES.has(status)) return null;
+
+  if (confirmed) {
+    return { state: "done", title: "リクエスト確認済" };
+  }
+  return {
+    state: "action",
+    title: "リクエスト確認が未完了です（電話・メール等）",
+  };
+}
+
+/** @deprecated requestConfirmChipState を使用 */
 export function requestReplyChipState(
   status: string,
-  hasEmail: boolean,
+  _hasEmail: boolean,
   replyEmailSent: boolean
 ): { state: TaskChipState; title: string } | null {
-  if (!REQUEST_REPLY_STATUSES.has(status)) return null;
-
-  if (replyEmailSent) {
-    return { state: "done", title: "返信メール送信済" };
-  }
-  if (!hasEmail) {
-    return {
-      state: "blocked",
-      title: "メールアドレス未登録のため送信できません",
-    };
-  }
-  return { state: "action", title: "返信メールが未送信です" };
+  return requestConfirmChipState(status, replyEmailSent);
 }

@@ -1,5 +1,5 @@
 import { TaskChip } from "@/components/list/TaskChip";
-import { requestReplyChipState } from "@/lib/utils/task-chip";
+import { requestConfirmChipState } from "@/lib/utils/task-chip";
 
 type Props = {
   status: string;
@@ -8,14 +8,13 @@ type Props = {
 };
 
 /** リクエストカードのタスクチップ行（本予約の ReservationTaskChips と同じ配置） */
-export function RequestTaskChips({ status, email, replyEmailSent }: Props) {
-  const hasEmail = Boolean(email?.trim());
-  const chip = requestReplyChipState(status, hasEmail, replyEmailSent);
+export function RequestTaskChips({ status, replyEmailSent }: Props) {
+  const chip = requestConfirmChipState(status, replyEmailSent);
   if (!chip) return null;
 
   return (
     <div className="status-groups compact">
-      <TaskChip label="返信" state={chip.state} title={chip.title} />
+      <TaskChip label="リクエスト確認" state={chip.state} title={chip.title} />
     </div>
   );
 }
