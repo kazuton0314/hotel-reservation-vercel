@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { ListPagination } from "@/components/list/ListPagination";
+import { useListSearch } from "@/components/list/ListSearchProvider";
 import { ReservationListRow } from "@/components/reservations/ReservationListRow";
 import type { ReservationListItem } from "@/lib/queries/reservations";
 import { applyReservationListFilter } from "@/lib/services/reservation-list-filter";
@@ -27,8 +28,9 @@ type Props = {
 
 export function ReservationsListResults({ reservations, scope }: Props) {
   const searchParams = useSearchParams();
-  const q = searchParams.get("q") ?? undefined;
-  const checkIn = searchParams.get("checkIn") ?? undefined;
+  const { keyword, checkIn } = useListSearch();
+  const q = keyword.trim() || undefined;
+  const checkInFilter = checkIn.trim() || undefined;
   const filterField = searchParams.get("filterField") ?? undefined;
   const filterValue = searchParams.get("filterValue") ?? undefined;
   const sort = parseListSort(
@@ -48,10 +50,10 @@ export function ReservationsListResults({ reservations, scope }: Props) {
     const searched = filterListBySearch(
       filtered.map((item) => ({ ...item, id: item.reservation_id })),
       q,
-      checkIn
+      checkInFilter
     );
     return sortListItems(searched, sort);
-  }, [reservations, filterField, filterValue, q, checkIn, sort]);
+  }, [reservations, filterField, filterValue, q, checkInFilter, sort]);
 
   const paged = useMemo(
     () => paginateItems(sorted, page, DEFAULT_LIST_PAGE_SIZE),

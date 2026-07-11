@@ -53,6 +53,7 @@ async function CalendarContent({
 
   return (
     <CalendarView
+      key={`${mode}-${year}-${month}-${anchor}`}
       mode={mode}
       year={year}
       month={month}

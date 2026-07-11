@@ -39,7 +39,6 @@ const MAIL_KINDS = [
 export function ReservationTaskChips({ item }: { item: ReservationTaskChipSource }) {
   if (item.status !== "確定") return null;
 
-  const hasEmail = Boolean(item.email?.trim());
   const mailStatuses = reservationMailStatuses({
     status: item.status,
     email: item.email,
@@ -70,7 +69,7 @@ export function ReservationTaskChips({ item }: { item: ReservationTaskChipSource
       <TaskChip label="部屋割" state={assignment.state} title={assignment.title} />
       {MAIL_KINDS.map(({ key, label }) => {
         const st = mailStatuses[key];
-        const chip = mailKindChipState(st, hasEmail, item.status);
+        const chip = mailKindChipState(st, item.status);
         return (
           <TaskChip key={key} label={label} state={chip.state} title={chip.title} />
         );

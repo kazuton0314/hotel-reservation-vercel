@@ -89,20 +89,15 @@ function MonthView({
   const prev = shiftMonth(year, month, -1);
   const next = shiftMonth(year, month, 1);
   const monthValue = `${year}-${String(month).padStart(2, "0")}`;
+  const prevHref = calendarHref("month", prev.year, prev.month, "");
+  const nextHref = calendarHref("month", next.year, next.month, "");
 
   return (
     <>
       <div className="cal-nav">
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          onClick={() =>
-            router.push(calendarHref("month", prev.year, prev.month, ""))
-          }
-        >
+        <Link href={prevHref} className="btn btn-secondary btn-sm cal-nav-btn">
           ←
-        </Button>
+        </Link>
         <div className="nav-date-picker">
           <label htmlFor="cal-month-input" className="nav-date-label">
             {year}年{month}月
@@ -122,16 +117,9 @@ function MonthView({
             }}
           />
         </div>
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          onClick={() =>
-            router.push(calendarHref("month", next.year, next.month, ""))
-          }
-        >
+        <Link href={nextHref} className="btn btn-secondary btn-sm cal-nav-btn">
           →
-        </Button>
+        </Link>
       </div>
       <div className="cal-month-wrap">
         <div className="cal-grid-head">
@@ -196,25 +184,20 @@ function WeekView({
   anchor: string;
 }) {
   const router = useRouter();
+  const prevHref = calendarHref("week", 0, 0, shiftIsoDate(anchor, -7));
+  const nextHref = calendarHref("week", 0, 0, shiftIsoDate(anchor, 7));
 
   useEffect(() => {
-    router.prefetch(calendarHref("week", 0, 0, shiftIsoDate(anchor, -7)));
-    router.prefetch(calendarHref("week", 0, 0, shiftIsoDate(anchor, 7)));
-  }, [anchor, router]);
+    router.prefetch(prevHref);
+    router.prefetch(nextHref);
+  }, [anchor, nextHref, prevHref, router]);
 
   return (
     <>
       <div className="cal-nav">
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          onClick={() =>
-            router.push(calendarHref("week", 0, 0, shiftIsoDate(anchor, -7)))
-          }
-        >
+        <Link href={prevHref} className="btn btn-secondary btn-sm cal-nav-btn">
           ←
-        </Button>
+        </Link>
         <div className="nav-date-picker">
           <label htmlFor="cal-week-input" className="nav-date-label">
             {data.weekStart} 〜
@@ -231,16 +214,9 @@ function WeekView({
             }}
           />
         </div>
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          onClick={() =>
-            router.push(calendarHref("week", 0, 0, shiftIsoDate(anchor, 7)))
-          }
-        >
+        <Link href={nextHref} className="btn btn-secondary btn-sm cal-nav-btn">
           →
-        </Button>
+        </Link>
       </div>
       <div className="week-days">
         {data.days.map((day) => (
@@ -287,20 +263,15 @@ function WeekView({
 
 function DayView({ data, anchor }: { data: DayCalendarView; anchor: string }) {
   const router = useRouter();
+  const prevHref = calendarHref("day", 0, 0, shiftIsoDate(anchor, -1));
+  const nextHref = calendarHref("day", 0, 0, shiftIsoDate(anchor, 1));
 
   return (
     <>
       <div className="cal-nav">
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          onClick={() =>
-            router.push(calendarHref("day", 0, 0, shiftIsoDate(anchor, -1)))
-          }
-        >
+        <Link href={prevHref} className="btn btn-secondary btn-sm cal-nav-btn">
           ←
-        </Button>
+        </Link>
         <div className="nav-date-picker">
           <label htmlFor="cal-day-input" className="nav-date-label">
             {data.dateLabel}
@@ -317,16 +288,9 @@ function DayView({ data, anchor }: { data: DayCalendarView; anchor: string }) {
             }}
           />
         </div>
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          onClick={() =>
-            router.push(calendarHref("day", 0, 0, shiftIsoDate(anchor, 1)))
-          }
-        >
+        <Link href={nextHref} className="btn btn-secondary btn-sm cal-nav-btn">
           →
-        </Button>
+        </Link>
       </div>
 
       <div className="section-title">部屋割（{data.dateLabel}）</div>

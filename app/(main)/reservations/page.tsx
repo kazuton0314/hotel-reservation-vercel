@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { ListSearchBar } from "@/components/list/ListSearchBar";
+import { ListSearchProvider } from "@/components/list/ListSearchProvider";
 import {
   ReservationListFilterBar,
   type ListFilterFieldDef,
@@ -146,42 +147,44 @@ async function ReservationsContent({
       <ReservationsListManualAdd />
       <ListScopeBar kind="reservation" scope={scope} />
       <Suspense fallback={null}>
-        <ListSearchBar />
-      </Suspense>
-      <ListStatusTabs
-        className="tabs tabs-3 list-filter-tabs"
-        activeId={period}
-        tabs={[
-          {
-            id: "provisional",
-            label: "仮予約",
-            paramKey: "period",
-            paramValue: "provisional",
-          },
-          {
-            id: "confirmed",
-            label: "確定",
-            paramKey: "period",
-            paramValue: "confirmed",
-            emphasis: "primary",
-          },
-          {
-            id: "cancelled",
-            label: "キャンセル",
-            paramKey: "period",
-            paramValue: "cancelled",
-          },
-        ]}
-      />
-      <ReservationListFilterBar
-        fields={filterFields}
-        activeField={params.filterField}
-        activeValue={params.filterValue}
-      />
-      <Suspense
-        fallback={<div className="inline-loading">一覧を読み込み中…</div>}
-      >
-        <ReservationsListResults reservations={reservations} scope={scope} />
+        <ListSearchProvider>
+          <ListSearchBar />
+          <ListStatusTabs
+            className="tabs tabs-3 list-filter-tabs"
+            activeId={period}
+            tabs={[
+              {
+                id: "provisional",
+                label: "仮予約",
+                paramKey: "period",
+                paramValue: "provisional",
+              },
+              {
+                id: "confirmed",
+                label: "確定",
+                paramKey: "period",
+                paramValue: "confirmed",
+                emphasis: "primary",
+              },
+              {
+                id: "cancelled",
+                label: "キャンセル",
+                paramKey: "period",
+                paramValue: "cancelled",
+              },
+            ]}
+          />
+          <ReservationListFilterBar
+            fields={filterFields}
+            activeField={params.filterField}
+            activeValue={params.filterValue}
+          />
+          <Suspense
+            fallback={<div className="inline-loading">一覧を読み込み中…</div>}
+          >
+            <ReservationsListResults reservations={reservations} scope={scope} />
+          </Suspense>
+        </ListSearchProvider>
       </Suspense>
     </>
   );

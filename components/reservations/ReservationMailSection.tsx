@@ -50,14 +50,7 @@ export function ReservationMailSection(props: Props) {
     initialState
   );
 
-  if (!props.email) {
-    return (
-      <div className="detail-block" id="reservation-mails-block">
-        <h3>メール</h3>
-        <p className="detail-hint">メールアドレスが未登録のため送信できません</p>
-      </div>
-    );
-  }
+  const hasEmail = Boolean(props.email?.trim());
 
   const mailRow = {
     status: props.status,
@@ -87,47 +80,9 @@ export function ReservationMailSection(props: Props) {
   ];
 
   function openCompose(kind: string) {
+    if (!hasEmail) return;
     setComposeKind(kind);
     setComposeOpen(true);
-  }
-
-  if (props.status === "仮予約") {
-    const sentAtStr = formatSentAt(props.completionEmailSentAt);
-    return (
-      <div className="detail-block" id="mail-action-block">
-        <h3>メール</h3>
-        <div className="mail-action-card">
-          <div className="mail-action-card-head">
-            <span className="mail-action-card-title">仮予約メール</span>
-            <span className={`mail-pill ${props.completionEmailSent ? "mail-pill-sent" : "mail-pill-pending"}`}>
-              {props.completionEmailSent ? "送付済" : "未送付"}
-            </span>
-          </div>
-          {sentAtStr ? <p className="form-hint">{sentAtStr}</p> : null}
-          <div className="mail-action-card-actions">
-            <Button
-              type="button"
-              size="sm"
-              className="mail-action-primary"
-              onClick={() => openCompose("仮予約")}
-            >
-              メールを作成
-            </Button>
-          </div>
-        </div>
-        <MailComposeModal
-          open={composeOpen}
-          onClose={() => setComposeOpen(false)}
-          to={props.email ?? ""}
-          title="仮予約メール"
-          templates={props.mailTemplates}
-          entityType="reservation"
-          entityId={props.reservationId}
-          mailKind="仮予約"
-          placeholderContext={props.placeholderContext}
-        />
-      </div>
-    );
   }
 
   function submitFlag(kind: MailKind, sent: boolean) {
@@ -138,9 +93,78 @@ export function ReservationMailSection(props: Props) {
     formAction(fd);
   }
 
+  if (props.status === "仮予約") {
+    const sentAtStr = formatSentAt(props.completionEmailSentAt);
+    return (
+      <div className="detail-block" id="mail-action-block">
+        <h3>確認</h3>
+        {!hasEmail ? (
+          <p className="detail-hint">メール未登録（電話等で確認した場合は「確認済」にしてください）</p>
+        ) : null}
+        <div className="mail-action-card">
+          <div className="mail-action-card-head">
+            <span className="mail-action-card-title">仮予約連絡</span>
+            <span className={`mail-pill ${props.completionEmailSent ? "mail-pill-sent" : "mail-pill-pending"}`}>
+              {props.completionEmailSent ? "確認済" : "未確認"}
+            </span>
+          </div>
+          {sentAtStr ? <p className="form-hint">{sentAtStr}</p> : null}
+          <div className="mail-action-card-actions">
+            {hasEmail ? (
+              <Button
+                type="button"
+                size="sm"
+                className="mail-action-primary"
+                onClick={() => openCompose("仮予約")}
+              >
+                メールを作成
+              </Button>
+            ) : null}
+            <div className="mail-action-secondary-row">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                disabled={pending || props.completionEmailSent}
+                onClick={() => submitFlag("予約確定", true)}
+              >
+                確認済
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                disabled={pending || !props.completionEmailSent}
+                onClick={() => submitFlag("予約確定", false)}
+              >
+                未確認に戻す
+              </Button>
+            </div>
+          </div>
+        </div>
+        {hasEmail ? (
+          <MailComposeModal
+            open={composeOpen}
+            onClose={() => setComposeOpen(false)}
+            to={props.email ?? ""}
+            title="仮予約メール"
+            templates={props.mailTemplates}
+            entityType="reservation"
+            entityId={props.reservationId}
+            mailKind="仮予約"
+            placeholderContext={props.placeholderContext}
+          />
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <div className="detail-block" id="reservation-mails-block">
-      <h3>メール</h3>
+      <h3>確認</h3>
+      {!hasEmail ? (
+        <p className="detail-hint">メール未登録（電話等で確認した場合は「確認済」にしてください）</p>
+      ) : null}
       <div className="mail-kind-stack">
         {kinds.map((item) => {
           const st = buildReservationMailKindStatus(mailRow, item.kind);
@@ -166,15 +190,17 @@ export function ReservationMailSection(props: Props) {
                 <p className="form-hint">{st.reason}</p>
               ) : null}
               <div className="mail-action-card-actions">
-                <Button
-                  type="button"
-                  size="sm"
-                  className="mail-action-primary"
-                  disabled={st.notRequired && !st.sent}
-                  onClick={() => openCompose(item.kind)}
-                >
-                  メールを作成
-                </Button>
+                {hasEmail ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="mail-action-primary"
+                    disabled={st.notRequired && !st.sent}
+                    onClick={() => openCompose(item.kind)}
+                  >
+                    メールを作成
+                  </Button>
+                ) : null}
                 <div className="mail-action-secondary-row">
                   <Button
                     type="button"
@@ -183,7 +209,7 @@ export function ReservationMailSection(props: Props) {
                     disabled={pending || st.sent}
                     onClick={() => submitFlag(item.kind, true)}
                   >
-                    送付済
+                    確認済
                   </Button>
                   <Button
                     type="button"
@@ -192,7 +218,7 @@ export function ReservationMailSection(props: Props) {
                     disabled={pending || !st.sent}
                     onClick={() => submitFlag(item.kind, false)}
                   >
-                    未送付に戻す
+                    未確認に戻す
                   </Button>
                 </div>
               </div>
@@ -205,17 +231,19 @@ export function ReservationMailSection(props: Props) {
           {state.message}
         </p>
       ) : null}
-      <MailComposeModal
-        open={composeOpen}
-        onClose={() => setComposeOpen(false)}
-        to={props.email ?? ""}
-        title={composeKind ? `${composeKind}メール` : "メール作成"}
-        templates={props.mailTemplates}
-        entityType="reservation"
-        entityId={props.reservationId}
-        mailKind={composeKind}
-        placeholderContext={props.placeholderContext}
-      />
+      {hasEmail ? (
+        <MailComposeModal
+          open={composeOpen}
+          onClose={() => setComposeOpen(false)}
+          to={props.email ?? ""}
+          title={composeKind ? `${composeKind}メール` : "メール作成"}
+          templates={props.mailTemplates}
+          entityType="reservation"
+          entityId={props.reservationId}
+          mailKind={composeKind}
+          placeholderContext={props.placeholderContext}
+        />
+      ) : null}
     </div>
   );
 }

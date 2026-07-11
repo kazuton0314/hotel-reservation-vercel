@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { RefreshButton } from "@/components/RefreshButton";
 import { SettingsMenu } from "@/components/SettingsMenu";
 import { signOutAction } from "@/lib/actions/auth";
 
@@ -67,6 +68,7 @@ export function AppShell({
           <span className="btn-header-back hidden" aria-hidden />
           <h1 id="page-title">{title}</h1>
           <div className="header-actions">
+            <RefreshButton />
             <SettingsMenu />
             <form action={signOutAction}>
               <Button
