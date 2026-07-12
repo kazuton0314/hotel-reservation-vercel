@@ -25,7 +25,7 @@ export async function sendComposeMailAction(
   const entityType = String(formData.get("entity_type") ?? "general").trim();
   const entityId = String(formData.get("entity_id") ?? "").trim();
   const templateId = String(formData.get("template_id") ?? "").trim() || undefined;
-  const mailKind = String(formData.get("mail_kind") ?? "").trim();
+  void String(formData.get("mail_kind") ?? "").trim();
 
   if (!to) return { ok: false, message: "宛先メールアドレスがありません。" };
   if (!subjectRaw) return { ok: false, message: "件名を入力してください。" };
@@ -87,51 +87,12 @@ export async function sendComposeMailAction(
     console.error("mail_logs insert failed:", logError.message);
   }
 
-  const now = new Date().toISOString();
-
-  if (entityType === "reservation" && entityId && mailKind) {
-    const patch: Record<string, unknown> = { updated_at: now };
-    if (mailKind === "予約確定" || mailKind === "仮予約") {
-      patch.completion_email_sent = true;
-      patch.completion_email_sent_at = now;
-    } else if (mailKind === "11日前") {
-      patch.day11_email_sent = true;
-      patch.day11_email_sent_at = now;
-    } else if (mailKind === "3日前") {
-      patch.day3_email_sent = true;
-      patch.day3_email_sent_at = now;
-    }
-    if (Object.keys(patch).length > 1) {
-      const { error: updateError } = await supabase
-        .from("reservations")
-        .update(patch)
-        .eq("reservation_id", entityId);
-      if (updateError) {
-        return {
-          ok: false,
-          message: `送信は成功しましたが送付済フラグの更新に失敗しました: ${updateError.message}`,
-        };
-      }
+  if (entityId && entityType !== "general") {
+    if (entityType === "reservation") {
       revalidateReservationDetail(entityId);
+    } else if (entityType === "request") {
+      revalidateRequestDetail(entityId);
     }
-  }
-
-  if (entityType === "request" && entityId) {
-    const { error: updateError } = await supabase
-      .from("reservation_requests")
-      .update({
-        reply_email_sent: true,
-        reply_email_sent_at: now,
-        updated_at: now,
-      })
-      .eq("request_id", entityId);
-    if (updateError) {
-      return {
-        ok: false,
-        message: `送信は成功しましたが送付済フラグの更新に失敗しました: ${updateError.message}`,
-      };
-    }
-    revalidateRequestDetail(entityId);
   }
 
   return result;

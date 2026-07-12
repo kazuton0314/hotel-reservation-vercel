@@ -1,9 +1,14 @@
 import { stripTime } from "@/lib/import/date-utils";
 import {
   daysBetweenCalendarDates,
+  businessToday,
   parseReservationDate,
 } from "@/lib/utils/date-label";
 import { effectiveGuestCountForCompanion } from "@/lib/utils/guest-display";
+import {
+  reservationHasActiveConfirmationTask,
+  type ReservationTaskRow,
+} from "@/lib/services/reservation-active-tasks";
 
 const ACTIVE_STATUSES = ["仮予約", "確定"];
 
@@ -85,19 +90,17 @@ function reservationNeedsDay3Email(
 
 export function reservationHasAnyMailPending(
   r: ReservationMailRow,
-  refDate: Date = new Date()
+  refDate: Date = businessToday()
 ): boolean {
-  if (!r.email || r.status !== "確定") return false;
-  return (
-    reservationNeedsCompletionEmail(r) ||
-    reservationNeedsDay11Email(r, refDate) ||
-    reservationNeedsDay3Email(r, refDate)
+  return reservationHasActiveConfirmationTask(
+    r as ReservationTaskRow,
+    refDate
   );
 }
 
 export function reservationNeedsCompanionInfo(
   r: ReservationMailRow,
-  referenceDate: Date = new Date()
+  referenceDate: Date = businessToday()
 ): boolean {
   if (!ACTIVE_STATUSES.includes(r.status)) return false;
   if (r.companion_form_answered) return false;

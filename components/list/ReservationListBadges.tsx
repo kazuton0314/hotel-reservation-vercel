@@ -1,6 +1,7 @@
+import { CONTACT_LABELS } from "@/lib/config/contact-confirm-labels";
+
 export function ReservationStatusBadge({ status }: { status: string }) {
-  let cls = "badge badge-status";
-  if (status === "仮予約") cls += " badge-provisional badge-status-provisional";
+  let cls = "badge badge-status";  if (status === "仮予約") cls += " badge-provisional badge-status-provisional";
   else if (status === "確定") cls += " badge-confirmed badge-status-confirmed";
   else if (status === "キャンセル") cls += " badge-cancelled badge-status-cancelled";
   return <span className={cls}>{status}</span>;
@@ -60,7 +61,7 @@ export function ReservationConfirmedBadges({
       />
       <AssignmentStatusBadge status={assignmentStatus} />
       {mailStatuses && hasMailTodo(mailStatuses) ? (
-        <span className="badge badge-todo badge-todo-warn">メール未</span>
+        <span className="badge badge-todo badge-todo-warn">{CONTACT_LABELS.badgePending}</span>
       ) : null}
     </span>
   );

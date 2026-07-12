@@ -1,5 +1,6 @@
 import {
   daysBetweenCalendarDates,
+  businessToday,
   parseReservationDate,
 } from "@/lib/utils/date-label";
 import { effectiveGuestCountForCompanion } from "@/lib/utils/guest-display";
@@ -74,7 +75,7 @@ function isConfirmedReservation(r: ReservationMailRow): boolean {
 export function buildReservationMailKindStatus(
   r: ReservationMailRow,
   kind: "予約確定" | "11日前" | "3日前",
-  refDate: Date = new Date()
+  refDate: Date = businessToday()
 ): MailKindStatus {
   const lead = reservationBookingLeadDays(r);
   const daysUntil = reservationDaysUntilCheckIn(r, refDate);
@@ -211,7 +212,7 @@ export function reservationMailStatuses(
   day11: MailKindStatus;
   day3: MailKindStatus;
 } {
-  const d = refDate ?? new Date();
+  const d = refDate ?? businessToday();
   return {
     confirmation: buildReservationMailKindStatus(r, "予約確定", d),
     day11: buildReservationMailKindStatus(r, "11日前", d),

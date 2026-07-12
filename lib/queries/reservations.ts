@@ -2,9 +2,10 @@ import { unstable_cache } from "next/cache";
 import { CACHE_TAGS } from "@/lib/cache/tags";
 import { createReadClient } from "@/lib/supabase/read";
 import {
-  reservationHasAnyMailPending,
-  reservationNeedsCompanionInfo,
-} from "@/lib/services/mail-pending";
+  reservationHasActiveCompanionTask,
+  reservationHasActiveConfirmationTask,
+} from "@/lib/services/reservation-active-tasks";
+import { reservationNeedsCompanionInfo } from "@/lib/services/mail-pending";
 import { effectiveGuestCountForCompanion } from "@/lib/utils/guest-display";
 import { idPrefixIlikePattern, isIdLikeQuery } from "@/lib/utils/id-search";
 import { todayIso } from "@/lib/utils/date-label";
@@ -181,7 +182,7 @@ function mapReservationListItem(
     assignments,
     companion_pending: companionPending,
     companion_required: guestRequired,
-    any_mail_pending: reservationHasAnyMailPending(row, refDate),
+    any_mail_pending: reservationHasActiveConfirmationTask(row, refDate),
   };
 }
 
@@ -218,7 +219,7 @@ async function getReservationsUncached(filters: ReservationFilters = {}) {
   }
 
   if (filters.assignment === "unassigned") {
-    query = query.eq("assignment_status", "未割当");
+    query = query.eq("assignment_status", "未割当").eq("status", "確定");
   }
 
   const { data, error } = await query;
@@ -229,10 +230,14 @@ async function getReservationsUncached(filters: ReservationFilters = {}) {
   let rows = (data ?? []) as DbListRow[];
 
   if (filters.mailPending) {
-    rows = rows.filter((row) => reservationHasAnyMailPending(row, refDate));
+    rows = rows.filter((row) =>
+      reservationHasActiveConfirmationTask(row, refDate)
+    );
   }
   if (filters.companionPending) {
-    rows = rows.filter((row) => reservationNeedsCompanionInfo(row, refDate));
+    rows = rows.filter((row) =>
+      reservationHasActiveCompanionTask(row, refDate)
+    );
   }
 
   const ids = rows.map((r) => r.reservation_id);

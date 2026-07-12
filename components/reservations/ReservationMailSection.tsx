@@ -3,8 +3,8 @@
 import { useActionState, useState } from "react";
 import { setMailKindSentAction } from "@/lib/actions/reservations";
 import { MailComposeModal } from "@/components/mail/MailComposeModal";
-import { MailKindBadge } from "@/components/mail/MailKindBadgeGroup";
 import { Button } from "@/components/ui/button";
+import { CONTACT_LABELS } from "@/lib/config/contact-confirm-labels";
 import type { MailTemplate } from "@/lib/config/mail-templates";
 import type { MailEntityContext } from "@/lib/services/mail-placeholders";
 import { buildReservationMailKindStatus } from "@/lib/utils/mail-kind-status";
@@ -42,9 +42,69 @@ function formatSentAt(value: string | null) {
   return new Date(value).toLocaleString("ja-JP");
 }
 
+function ConfirmRow({
+  label,
+  sent,
+  sentAt,
+  notRequired,
+  hint,
+  pending,
+  onConfirm,
+  onUnconfirm,
+}: {
+  label: string;
+  sent: boolean;
+  sentAt: string | null;
+  notRequired: boolean;
+  hint?: string;
+  pending: boolean;
+  onConfirm: () => void;
+  onUnconfirm: () => void;
+}) {
+  const pillClass =
+    notRequired && !sent
+      ? "mail-pill-skip"
+      : sent
+        ? "mail-pill-sent"
+        : "mail-pill-pending";
+  const pillLabel =
+    notRequired && !sent ? "不要" : sent ? CONTACT_LABELS.done : CONTACT_LABELS.pending;
+  const title = sentAt || hint || undefined;
+
+  return (
+    <div className="confirm-row">
+      <span className="confirm-row-label">{label}</span>
+      <span className={`mail-pill ${pillClass}`} title={title}>
+        {pillLabel}
+      </span>
+      <div className="confirm-row-actions">
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          disabled={pending || sent || (notRequired && !sent)}
+          onClick={onConfirm}
+        >
+          {CONTACT_LABELS.done}
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          disabled={pending || !sent}
+          title={CONTACT_LABELS.revertTitle}
+          onClick={onUnconfirm}
+        >
+          戻す
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function ReservationMailSection(props: Props) {
+  const isProvisional = props.status === "仮予約";
   const [composeOpen, setComposeOpen] = useState(false);
-  const [composeKind, setComposeKind] = useState<string>("");
   const [state, formAction, pending] = useActionState(
     setMailKindSentAction,
     initialState
@@ -73,18 +133,6 @@ export function ReservationMailSection(props: Props) {
     under_3: props.under3,
   };
 
-  const kinds: { kind: MailKind }[] = [
-    { kind: "予約確定" },
-    { kind: "11日前" },
-    { kind: "3日前" },
-  ];
-
-  function openCompose(kind: string) {
-    if (!hasEmail) return;
-    setComposeKind(kind);
-    setComposeOpen(true);
-  }
-
   function submitFlag(kind: MailKind, sent: boolean) {
     const fd = new FormData();
     fd.set("reservation_id", props.reservationId);
@@ -93,154 +141,99 @@ export function ReservationMailSection(props: Props) {
     formAction(fd);
   }
 
-  if (props.status === "仮予約") {
-    const sentAtStr = formatSentAt(props.completionEmailSentAt);
-    return (
-      <div className="detail-block" id="mail-action-block">
-        <h3>確認</h3>
-        {!hasEmail ? (
-          <p className="detail-hint">メール未登録（電話等で確認した場合は「確認済」にしてください）</p>
-        ) : null}
-        <div className="mail-action-card">
-          <div className="mail-action-card-head">
-            <span className="mail-action-card-title">仮予約連絡</span>
-            <span className={`mail-pill ${props.completionEmailSent ? "mail-pill-sent" : "mail-pill-pending"}`}>
-              {props.completionEmailSent ? "確認済" : "未確認"}
-            </span>
-          </div>
-          {sentAtStr ? <p className="form-hint">{sentAtStr}</p> : null}
-          <div className="mail-action-card-actions">
-            {hasEmail ? (
-              <Button
-                type="button"
-                size="sm"
-                className="mail-action-primary"
-                onClick={() => openCompose("仮予約")}
-              >
-                メールを作成
-              </Button>
-            ) : null}
-            <div className="mail-action-secondary-row">
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                disabled={pending || props.completionEmailSent}
-                onClick={() => submitFlag("予約確定", true)}
-              >
-                確認済
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                disabled={pending || !props.completionEmailSent}
-                onClick={() => submitFlag("予約確定", false)}
-              >
-                未確認に戻す
-              </Button>
-            </div>
-          </div>
-        </div>
-        {hasEmail ? (
-          <MailComposeModal
-            open={composeOpen}
-            onClose={() => setComposeOpen(false)}
-            to={props.email ?? ""}
-            title="仮予約メール"
-            templates={props.mailTemplates}
-            entityType="reservation"
-            entityId={props.reservationId}
-            mailKind="仮予約"
-            placeholderContext={props.placeholderContext}
-          />
-        ) : null}
-      </div>
-    );
-  }
+  const rows = isProvisional
+    ? [
+        {
+          key: "provisional",
+          label: "仮予約連絡",
+          kind: "予約確定" as MailKind,
+          sent: props.completionEmailSent,
+          sentAt: props.completionEmailSentAt,
+          notRequired: false,
+          hint: undefined,
+        },
+      ]
+    : (
+        [
+          {
+            key: "confirmation",
+            label: "予約確定",
+            kind: "予約確定" as MailKind,
+            sent: props.completionEmailSent,
+            sentAt: props.completionEmailSentAt,
+          },
+          {
+            key: "day11",
+            label: "11日前",
+            kind: "11日前" as MailKind,
+            sent: props.day11EmailSent,
+            sentAt: props.day11EmailSentAt,
+          },
+          {
+            key: "day3",
+            label: "3日前",
+            kind: "3日前" as MailKind,
+            sent: props.day3EmailSent,
+            sentAt: props.day3EmailSentAt,
+          },
+        ] as const
+      ).map((row) => {
+        const st = buildReservationMailKindStatus(mailRow, row.kind);
+        return {
+          ...row,
+          notRequired: st.notRequired,
+          hint: st.reason || undefined,
+        };
+      });
 
   return (
-    <div className="detail-block" id="reservation-mails-block">
-      <h3>確認</h3>
-      {!hasEmail ? (
-        <p className="detail-hint">メール未登録（電話等で確認した場合は「確認済」にしてください）</p>
-      ) : null}
-      <div className="mail-kind-stack">
-        {kinds.map((item) => {
-          const st = buildReservationMailKindStatus(mailRow, item.kind);
-          const sentAt = formatSentAt(
-            item.kind === "予約確定"
-              ? props.completionEmailSentAt
-              : item.kind === "11日前"
-                ? props.day11EmailSentAt
-                : props.day3EmailSentAt
-          );
-          return (
-            <article key={item.kind} className="mail-action-card" data-mail-kind={item.kind}>
-              <div className="mail-action-card-head">
-                <span className="mail-action-card-title">{item.kind}</span>
-                <MailKindBadge
-                  status={st}
-                  hasEmail={Boolean(props.email)}
-                  reservationStatus={props.status}
-                />
-              </div>
-              {sentAt ? <p className="form-hint">{sentAt}</p> : null}
-              {st.reason && st.notRequired ? (
-                <p className="form-hint">{st.reason}</p>
-              ) : null}
-              <div className="mail-action-card-actions">
-                {hasEmail ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="mail-action-primary"
-                    disabled={st.notRequired && !st.sent}
-                    onClick={() => openCompose(item.kind)}
-                  >
-                    メールを作成
-                  </Button>
-                ) : null}
-                <div className="mail-action-secondary-row">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    disabled={pending || st.sent}
-                    onClick={() => submitFlag(item.kind, true)}
-                  >
-                    確認済
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    disabled={pending || !st.sent}
-                    onClick={() => submitFlag(item.kind, false)}
-                  >
-                    未確認に戻す
-                  </Button>
-                </div>
-              </div>
-            </article>
-          );
-        })}
+    <div
+      className="detail-block confirm-section"
+      id={isProvisional ? "mail-action-block" : "reservation-mails-block"}
+    >
+      <div className="confirm-section-head">
+        <h3>{CONTACT_LABELS.sectionTitle}</h3>
+        {hasEmail ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={() => setComposeOpen(true)}
+          >
+            メール作成
+          </Button>
+        ) : null}
       </div>
+
+      <div className="confirm-rows">
+        {rows.map((row) => (
+          <ConfirmRow
+            key={row.key}
+            label={row.label}
+            sent={row.sent}
+            sentAt={formatSentAt(row.sentAt)}
+            notRequired={row.notRequired}
+            hint={row.hint}
+            pending={pending}
+            onConfirm={() => submitFlag(row.kind, true)}
+            onUnconfirm={() => submitFlag(row.kind, false)}
+          />
+        ))}
+      </div>
+
       {state.ok === false ? (
-        <p className="detail-hint" style={{ color: "#b91c1c" }}>
-          {state.message}
-        </p>
+        <p className="detail-hint confirm-section-error">{state.message}</p>
       ) : null}
+
       {hasEmail ? (
         <MailComposeModal
           open={composeOpen}
           onClose={() => setComposeOpen(false)}
           to={props.email ?? ""}
-          title={composeKind ? `${composeKind}メール` : "メール作成"}
+          title="メール作成"
           templates={props.mailTemplates}
           entityType="reservation"
           entityId={props.reservationId}
-          mailKind={composeKind}
           placeholderContext={props.placeholderContext}
         />
       ) : null}

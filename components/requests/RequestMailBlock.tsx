@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { updateRequestReplyMailAction } from "@/lib/actions/requests";
 import { MailComposeModal } from "@/components/mail/MailComposeModal";
 import { Button } from "@/components/ui/button";
+import { CONTACT_LABELS } from "@/lib/config/contact-confirm-labels";
 import type { MailEntityContext } from "@/lib/services/mail-placeholders";
 
 type Props = {
@@ -49,32 +50,32 @@ export function RequestMailBlock({
   const sentAtStr = formatSentAt(replyEmailSentAt);
 
   return (
-    <div className="detail-block" id="mail-action-block">
-      <h3>確認</h3>
-      {!hasEmail ? (
-        <p className="detail-hint">メール未登録（電話等で確認した場合は「確認済」にしてください）</p>
-      ) : null}
-      <div className="mail-action-card">
-        <div className="mail-action-card-head">
-          <span className="mail-action-card-title">リクエスト確認</span>
-          <span className={`mail-pill ${replyEmailSent ? "mail-pill-sent" : "mail-pill-pending"}`}>
-            {replyEmailSent ? "確認済" : "未確認"}
+    <div className="detail-block confirm-section" id="mail-action-block">
+      <div className="confirm-section-head">
+        <h3>{CONTACT_LABELS.requestSectionTitle}</h3>
+        {hasEmail ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={() => setComposeOpen(true)}
+          >
+            メール作成
+          </Button>
+        ) : null}
+      </div>
+
+      <div className="confirm-rows">
+        <div className="confirm-row">
+          <span className="confirm-row-label">{CONTACT_LABELS.requestRowLabel}</span>
+          <span
+            className={`mail-pill ${replyEmailSent ? "mail-pill-sent" : "mail-pill-pending"}`}
+            title={sentAtStr || undefined}
+          >
+            {replyEmailSent ? CONTACT_LABELS.done : CONTACT_LABELS.pending}
           </span>
-        </div>
-        {sentAtStr ? <p className="form-hint">{sentAtStr}</p> : null}
-        <div className="mail-action-card-actions">
-          {hasEmail ? (
-            <Button
-              type="button"
-              size="sm"
-              className="mail-action-primary"
-              onClick={() => setComposeOpen(true)}
-            >
-              メールを作成
-            </Button>
-          ) : null}
-          <div className="mail-action-secondary-row">
-            <form action={formAction} className="mail-action-form">
+          <div className="confirm-row-actions">
+            <form action={formAction} className="confirm-row-form">
               <input type="hidden" name="request_id" value={requestId} />
               <input
                 type="hidden"
@@ -87,10 +88,10 @@ export function RequestMailBlock({
                 size="sm"
                 disabled={pending || replyEmailSent}
               >
-                確認済
+                {CONTACT_LABELS.done}
               </Button>
             </form>
-            <form action={formAction} className="mail-action-form">
+            <form action={formAction} className="confirm-row-form">
               <input type="hidden" name="request_id" value={requestId} />
               <input type="hidden" name="reply_email_sent" value="false" />
               <Button
@@ -98,8 +99,9 @@ export function RequestMailBlock({
                 variant="secondary"
                 size="sm"
                 disabled={pending || !replyEmailSent}
+                title={CONTACT_LABELS.revertTitle}
               >
-                未確認に戻す
+                戻す
               </Button>
             </form>
           </div>
@@ -119,9 +121,7 @@ export function RequestMailBlock({
       ) : null}
 
       {state.ok === false ? (
-        <p className="detail-hint" style={{ color: "#b91c1c" }}>
-          {state.message}
-        </p>
+        <p className="detail-hint confirm-section-error">{state.message}</p>
       ) : null}
     </div>
   );

@@ -384,9 +384,6 @@ export function MailTemplatesView({
                 className="mail-merge-editor-body"
               />
             </div>
-            <p className="form-hint">
-              差し込みはラベルチップとして表示されます。旧形式の {"{{変数名}}"} も読み込み時に自動変換されます。
-            </p>
             <div className="mail-modal-actions">
               <Button
                 type="button"

@@ -1,4 +1,5 @@
 import type { MailKindStatus } from "@/lib/utils/mail-kind-status";
+import { CONTACT_LABELS } from "@/lib/config/contact-confirm-labels";
 
 /**
  * タスクチップの表示思想（一覧・ホーム・詳細で共通）
@@ -9,9 +10,9 @@ import type { MailKindStatus } from "@/lib/utils/mail-kind-status";
  *
  * | 色 | 意味 |
  * |----|------|
- * | 緑 done | 完了（確認済・割当済・同行者入力済） |
+ * | 緑 done | 完了（連絡済・割当済・同行者入力済） |
  * | 橙 action | 今すぐ対応が必要 |
- * | 灰 wait | 対象だが確認時期前（11日前/3日前のウィンドウ前） |
+ * | 灰 wait | 対象だが連絡時期前（11日前/3日前のウィンドウ前） |
  * | 灰薄 skip | 業務上不要（リード不足・同行者不要・非確定など） |
  */
 export type TaskChipState = "done" | "action" | "wait" | "skip" | "blocked";
@@ -48,8 +49,8 @@ export function mailKindChipState(
     return {
       state: "done",
       title: st.sentAtStr
-        ? `${label}確認済（${st.sentAtStr}）`
-        : `${label}確認済`,
+        ? `${label}${CONTACT_LABELS.done}（${st.sentAtStr}）`
+        : `${label}${CONTACT_LABELS.done}`,
     };
   }
 
@@ -67,12 +68,12 @@ export function mailKindChipState(
   if (st.pending) {
     return {
       state: "action",
-      title: `${label}の確認が未完了です（電話・メール等）`,
+      title: `${label}の連絡が未了です（電話・メール等）`,
     };
   }
 
   if (st.applicable) {
-    return { state: "wait", title: `${label}の確認時期前です` };
+    return { state: "wait", title: `${label}の連絡時期前です` };
   }
 
   if (reservationStatus !== "確定") {
@@ -92,11 +93,11 @@ export function requestConfirmChipState(
   if (!REQUEST_CONFIRM_STATUSES.has(status)) return null;
 
   if (confirmed) {
-    return { state: "done", title: "リクエスト確認済" };
+    return { state: "done", title: CONTACT_LABELS.requestDoneTitle };
   }
   return {
     state: "action",
-    title: "リクエスト確認が未完了です（電話・メール等）",
+    title: CONTACT_LABELS.requestPendingTitle,
   };
 }
 

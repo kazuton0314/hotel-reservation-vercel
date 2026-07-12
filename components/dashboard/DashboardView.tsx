@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import type { DashboardSummary } from "@/lib/queries/dashboard";
+import { CONTACT_LABELS } from "@/lib/config/contact-confirm-labels";
 import { Button } from "@/components/ui/button";
 import {
   DashboardEmpty,
@@ -43,10 +44,12 @@ function StatButton({
 function StatTodoButton({
   value,
   label,
+  title,
   onClick,
 }: {
   value: number;
   label: string;
+  title?: string;
   onClick: () => void;
 }) {
   const urgent = value > 0 ? " stat-todo-urgent" : "";
@@ -55,6 +58,7 @@ function StatTodoButton({
       type="button"
       variant="secondary"
       className={`stat stat-todo${urgent}`}
+      title={title}
       onClick={onClick}
     >
       <div className="num">{value}</div>
@@ -94,12 +98,12 @@ export function DashboardView({ dashboard: d }: Props) {
         <StatButton
           value={d.provisionalCount}
           label="仮予約"
-          onClick={() => go("/reservations?status=仮予約")}
+          onClick={() => go("/reservations?period=provisional")}
         />
         <StatButton
           value={d.confirmedCount}
           label="確定"
-          onClick={() => go("/reservations?status=確定")}
+          onClick={() => go("/reservations?period=confirmed")}
         />
       </div>
 
@@ -107,17 +111,32 @@ export function DashboardView({ dashboard: d }: Props) {
         <StatTodoButton
           value={d.companionPendingCount}
           label="同行者未回答"
-          onClick={() => go("/reservations?status=確定&companion=pending")}
+          onClick={() =>
+            go(
+              "/reservations?period=confirmed&filterField=companionInfo&filterValue=" +
+                encodeURIComponent("未回答")
+            )
+          }
         />
         <StatTodoButton
           value={d.reservationMailPendingCount}
-          label="メール未送付"
-          onClick={() => go("/reservations?status=確定&mail=pending")}
+          label={CONTACT_LABELS.todoLabel}
+          title={CONTACT_LABELS.todoHint}
+          onClick={() =>
+            go(
+              "/reservations?period=confirmed&filterField=completionEmail&filterValue=" +
+                encodeURIComponent(CONTACT_LABELS.filterPending)
+            )
+          }
         />
         <StatTodoButton
           value={d.unassignedCount}
           label="部屋未割当"
-          onClick={() => go("/reservations?status=確定&assignment=unassigned")}
+          onClick={() =>
+            go(
+              "/reservations?period=confirmed&filterField=roomId&filterValue=__unassigned__"
+            )
+          }
         />
       </div>
 

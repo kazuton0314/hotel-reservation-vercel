@@ -3,12 +3,15 @@ import { CACHE_TAGS } from "@/lib/cache/tags";
 import { createReadClient } from "@/lib/supabase/read";
 import { stripTime } from "@/lib/import/date-utils";
 import {
-  reservationHasAnyMailPending,
-  reservationNeedsCompanionInfo,
-} from "@/lib/services/mail-pending";
+  reservationHasActiveAssignmentTask,
+  reservationHasActiveCompanionTask,
+  reservationHasActiveConfirmationTask,
+} from "@/lib/services/reservation-active-tasks";
+import { reservationNeedsCompanionInfo } from "@/lib/services/mail-pending";
 import {
   daysBetweenCalendarDates,
   formatDateLabel,
+  businessToday,
   isSameDay,
   parseReservationDate,
   todayIso,
@@ -279,7 +282,7 @@ async function getDashboardSummaryUncached(): Promise<{
 }> {
   const supabase = await createReadClient();
   const iso = todayIso();
-  const refDate = stripTime(new Date());
+  const refDate = businessToday();
   const dayMs = refDate.getTime();
 
   const [
@@ -391,18 +394,18 @@ async function getDashboardSummaryUncached(): Promise<{
       );
     });
 
-  const unassignedCount = all.filter(
-    (r) => r.status === "確定" && r.assignment_status === "未割当"
+  const unassignedCount = all.filter((r) =>
+    reservationHasActiveAssignmentTask(r)
   ).length;
   const provisionalCount = all.filter((r) => r.status === "仮予約").length;
   const confirmedCount = all.filter((r) => r.status === "確定").length;
   const requestCount = (requests ?? []).filter((r) => r.status === "リクエスト")
     .length;
-  const companionPendingCount = all.filter(
-    (r) => r.status === "確定" && reservationNeedsCompanionInfo(r, refDate)
+  const companionPendingCount = all.filter((r) =>
+    reservationHasActiveCompanionTask(r, refDate)
   ).length;
   const reservationMailPendingCount = all.filter((r) =>
-    reservationHasAnyMailPending(r, refDate)
+    reservationHasActiveConfirmationTask(r, refDate)
   ).length;
 
   const todayRooms = buildTodayRoomsBoard(

@@ -5,9 +5,11 @@ import {
   buildCheckOutDate,
   calculateNights,
   formatDateIso,
+  isCheckInWithinBookingHorizon,
   joinName,
   parseDateValue,
 } from "@/lib/import/date-utils";
+import { businessToday } from "@/lib/utils/date-label";
 import {
   asPhoneString,
   asTextField,
@@ -183,7 +185,8 @@ export function mapStudioFormRow(
   row: SheetRow,
   headers: string[],
   reservationId: string,
-  now: Date
+  now: Date,
+  options: { validateBookingHorizon?: boolean } = {}
 ): ReservationInsert {
   const idx = headerIndex(headers);
   const v = row.values;
@@ -201,7 +204,7 @@ export function mapStudioFormRow(
     g(v, idx, "チェックイン年"),
     g(v, idx, "チェックイン月"),
     g(v, idx, "チェックイン日"),
-    now
+    businessToday()
   );
   const checkOut = checkIn
     ? buildCheckOutDate(
@@ -214,6 +217,14 @@ export function mapStudioFormRow(
 
   if (!checkIn || !checkOut) {
     throw new Error(`チェックイン/チェックアウト日を組み立てできません（行${row.sheetRow}）`);
+  }
+  if (
+    options.validateBookingHorizon !== false &&
+    !isCheckInWithinBookingHorizon(checkIn, businessToday())
+  ) {
+    throw new Error(
+      `チェックインが受付可能範囲外（1年以上先または過去日・行${row.sheetRow}）`
+    );
   }
 
   const postal = asTextField(g(v, idx, "郵便番号"));

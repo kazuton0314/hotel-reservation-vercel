@@ -1,26 +1,36 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { FORM_SOURCES } from "@/lib/config/forms";
 import {
+  findDuplicateRequest,
+  findDuplicateReservation,
+  findRequestByImportRowId,
+  findReservationByImportRowId,
+  loadAllRequestsForImport,
+  loadAllReservationsForImport,
+  logRequestFormImport,
+  logStudioFormImport,
+  type RequestImportRecord,
+  type ReservationImportRecord,
+} from "@/lib/import/form-import-index";
+import {
   nextStudioRequestId,
   nextStudioReservationId,
 } from "@/lib/import/id-generation";
 import {
   bookingEntryMatchesForLink,
-  contactMatches,
   isRequestOpenForLink,
-  nameMatches,
-  stayMatches,
 } from "@/lib/import/match-utils";
+import { linkExistingRequestsAndReservations } from "@/lib/import/post-link";
 import {
   isRequestRowImportable,
   mapRequestFormRow,
+  type RequestInsert,
 } from "@/lib/import/request-mapper";
 import {
   isStudioRowImportable,
   mapStudioFormRow,
 } from "@/lib/import/reservation-mapper";
 import type { ReservationInsert } from "@/lib/import/reservation-mapper";
-import { linkExistingRequestsAndReservations } from "@/lib/import/post-link";
 import { syncReservationToGCal } from "@/lib/services/gcal-sync";
 import { fetchSheetRows } from "@/lib/sheets/client";
 import type { SheetRow } from "@/lib/sheets/client";
@@ -29,6 +39,7 @@ export type ImportResult = {
   imported: number;
   skipped: number;
   skippedAlreadyLogged: number;
+  skippedAlreadyInDb: number;
   skippedNotImportable: number;
   errors: string[];
   totalRows: number;
@@ -39,31 +50,7 @@ export type ImportFormRowsOptions = {
   force?: boolean;
 };
 
-type MinimalRequest = {
-  request_id: string;
-  access_key: string | null;
-  status: string;
-  check_in: string | null;
-  check_out: string | null;
-  last_name: string | null;
-  first_name: string | null;
-  email: string | null;
-  phone: string | null;
-  linked_reservation_id: string | null;
-};
-
-type MinimalReservation = {
-  reservation_id: string;
-  access_key: string | null;
-  status: string;
-  check_in: string | null;
-  check_out: string | null;
-  last_name: string | null;
-  first_name: string | null;
-  email: string | null;
-  phone: string | null;
-  request_id: string | null;
-};
+type ActiveReservation = ReservationImportRecord;
 
 async function loadImportedRows(
   supabase: SupabaseClient,
@@ -77,34 +64,34 @@ async function loadImportedRows(
   return new Set((data ?? []).map((r) => r.source_row));
 }
 
-async function loadActiveRequests(
+async function loadActiveReservationsForMatching(
   supabase: SupabaseClient
-): Promise<MinimalRequest[]> {
-  const { data, error } = await supabase
-    .from("reservation_requests")
-    .select(
-      "request_id, access_key, status, check_in, check_out, last_name, first_name, email, phone, linked_reservation_id"
-    )
-    .eq("is_archived", false);
-  if (error) throw error;
-  return (data ?? []) as MinimalRequest[];
-}
-
-async function loadActiveReservations(
-  supabase: SupabaseClient
-): Promise<MinimalReservation[]> {
+): Promise<ActiveReservation[]> {
   const { data, error } = await supabase
     .from("reservations")
     .select(
-      "reservation_id, access_key, status, check_in, check_out, last_name, first_name, email, phone, request_id"
+      "reservation_id, import_row_id, access_key, status, check_in, check_out, last_name, first_name, email, phone, request_id, is_archived"
     )
     .eq("is_archived", false);
   if (error) throw error;
-  return (data ?? []) as MinimalReservation[];
+  return (data ?? []) as ActiveReservation[];
+}
+
+async function loadActiveRequestsForMatching(
+  supabase: SupabaseClient
+): Promise<RequestImportRecord[]> {
+  const { data, error } = await supabase
+    .from("reservation_requests")
+    .select(
+      "request_id, import_row_id, access_key, status, check_in, check_out, last_name, first_name, email, phone, linked_reservation_id, reject_reason, internal_memo, reply_email_sent, reply_email_sent_at, sheet_created_at, is_archived"
+    )
+    .eq("is_archived", false);
+  if (error) throw error;
+  return (data ?? []) as RequestImportRecord[];
 }
 
 function findMatchingProvisionalReservation(
-  reservations: MinimalReservation[],
+  reservations: ActiveReservation[],
   record: ReservationInsert
 ) {
   return reservations.find((r) => {
@@ -114,7 +101,7 @@ function findMatchingProvisionalReservation(
 }
 
 function findMatchingRequestForStudio(
-  requests: MinimalRequest[],
+  requests: RequestImportRecord[],
   record: ReservationInsert
 ) {
   return requests.find((req) => {
@@ -123,36 +110,35 @@ function findMatchingRequestForStudio(
   });
 }
 
-function findDuplicateRequest(
-  requests: MinimalRequest[],
-  row: {
-    last_name: string | null;
-    first_name: string | null;
-    email: string | null;
-    phone: string | null;
-    check_in: string | null;
-    check_out: string | null;
-  }
-) {
-  return requests.find((req) => {
-    if (!isRequestOpenForLink(req.status) && req.status !== "本予約連携済") {
-      return false;
-    }
-    if (!nameMatches(req.last_name, req.first_name, row.last_name, row.first_name)) {
-      return false;
-    }
-    if (!contactMatches(req.email, req.phone, row.email, row.phone)) return false;
-    return stayMatches(req.check_in, req.check_out, row.check_in, row.check_out);
-  });
-}
-
 function findDuplicateConfirmedReservation(
-  reservations: MinimalReservation[],
+  reservations: ActiveReservation[],
   record: ReservationInsert
 ) {
   return reservations.find((r) => {
     if (r.status !== "確定") return false;
     return bookingEntryMatchesForLink(r, record);
+  });
+}
+
+function pushRequestCache(requests: RequestImportRecord[], record: RequestInsert) {
+  requests.push({
+    request_id: record.request_id,
+    import_row_id: record.import_row_id,
+    access_key: record.access_key,
+    status: record.status,
+    check_in: record.check_in,
+    check_out: record.check_out,
+    last_name: record.last_name,
+    first_name: record.first_name,
+    email: record.email,
+    phone: record.phone,
+    linked_reservation_id: null,
+    reject_reason: null,
+    internal_memo: null,
+    reply_email_sent: false,
+    reply_email_sent_at: null,
+    sheet_created_at: record.sheet_created_at,
+    is_archived: false,
   });
 }
 
@@ -197,9 +183,10 @@ export async function importRequestFormRows(
   const now = new Date();
   let imported = 0;
   let skippedAlreadyLogged = 0;
+  let skippedAlreadyInDb = 0;
   let skippedNotImportable = 0;
   const errors: string[] = [];
-  const requests = await loadActiveRequests(supabase);
+  const requests = await loadAllRequestsForImport(supabase);
 
   for (const row of rows) {
     if (!options.force && importedRows.has(row.sheetRow)) {
@@ -212,44 +199,40 @@ export async function importRequestFormRows(
     }
 
     try {
-      const requestId = await nextStudioRequestId(supabase);
-      const record = mapRequestFormRow(row, headers, requestId, now);
+      const existingByRow = findRequestByImportRowId(requests, row.sheetRow);
+      if (existingByRow) {
+        await logRequestFormImport(
+          supabase,
+          row.sheetRow,
+          existingByRow.request_id
+        );
+        skippedAlreadyInDb++;
+        continue;
+      }
 
-      const duplicate = findDuplicateRequest(requests, record);
-      const targetId = duplicate?.request_id ?? requestId;
+      const draftId = `DRAFT-${row.sheetRow}`;
+      const incoming = mapRequestFormRow(row, headers, draftId, now, {
+        validateBookingHorizon: false,
+      });
+
+      const duplicate = findDuplicateRequest(requests, incoming);
+      if (duplicate) {
+        await logRequestFormImport(supabase, row.sheetRow, duplicate.request_id);
+        skippedAlreadyInDb++;
+        continue;
+      }
+
+      const requestId = await nextStudioRequestId(supabase);
+      const record: RequestInsert = { ...incoming, request_id: requestId };
 
       const { error: upsertError } = await supabase
         .from("reservation_requests")
-        .upsert(
-          { ...record, request_id: targetId },
-          { onConflict: "request_id" }
-        );
+        .upsert(record, { onConflict: "request_id" });
       if (upsertError) throw upsertError;
 
-      const { error: logError } = await supabase.from("form_import_log").upsert(
-        {
-          source: "request",
-          source_row: row.sheetRow,
-          request_id: targetId,
-        },
-        { onConflict: "source,source_row" }
-      );
-      if (logError) throw logError;
+      await logRequestFormImport(supabase, row.sheetRow, requestId);
 
-      if (!duplicate) {
-        requests.push({
-          request_id: targetId,
-          access_key: record.access_key,
-          status: record.status,
-          check_in: record.check_in,
-          check_out: record.check_out,
-          last_name: record.last_name,
-          first_name: record.first_name,
-          email: record.email,
-          phone: record.phone,
-          linked_reservation_id: null,
-        });
-      }
+      pushRequestCache(requests, record);
       imported++;
     } catch (e) {
       errors.push(`行${row.sheetRow}: ${e instanceof Error ? e.message : String(e)}`);
@@ -258,8 +241,9 @@ export async function importRequestFormRows(
 
   return {
     imported,
-    skipped: skippedAlreadyLogged + skippedNotImportable,
+    skipped: skippedAlreadyLogged + skippedAlreadyInDb + skippedNotImportable,
     skippedAlreadyLogged,
+    skippedAlreadyInDb,
     skippedNotImportable,
     errors,
     totalRows: rows.length,
@@ -289,10 +273,12 @@ export async function importStudioFormRows(
   const now = new Date();
   let imported = 0;
   let skippedAlreadyLogged = 0;
+  let skippedAlreadyInDb = 0;
   let skippedNotImportable = 0;
   const errors: string[] = [];
-  const requests = await loadActiveRequests(supabase);
-  const reservations = await loadActiveReservations(supabase);
+  const allReservations = await loadAllReservationsForImport(supabase);
+  const activeReservations = await loadActiveReservationsForMatching(supabase);
+  const activeRequests = await loadActiveRequestsForMatching(supabase);
 
   for (const row of rows) {
     if (!options.force && importedRows.has(row.sheetRow)) {
@@ -305,11 +291,34 @@ export async function importStudioFormRows(
     }
 
     try {
+      const existingByRow = findReservationByImportRowId(allReservations, row.sheetRow);
+      if (existingByRow) {
+        await logStudioFormImport(
+          supabase,
+          row.sheetRow,
+          existingByRow.reservation_id
+        );
+        skippedAlreadyInDb++;
+        continue;
+      }
+
+      const draftId = `DRAFT-${row.sheetRow}`;
+      const incoming = mapStudioFormRow(row, headers, draftId, now, {
+        validateBookingHorizon: false,
+      });
+
+      const duplicate = findDuplicateReservation(allReservations, incoming);
+      if (duplicate) {
+        await logStudioFormImport(supabase, row.sheetRow, duplicate.reservation_id);
+        skippedAlreadyInDb++;
+        continue;
+      }
+
       const reservationId = await nextStudioReservationId(supabase);
       let record = mapStudioFormRow(row, headers, reservationId, now);
 
       const matchedProvisional = findMatchingProvisionalReservation(
-        reservations,
+        activeReservations,
         record
       );
       if (matchedProvisional) {
@@ -321,7 +330,7 @@ export async function importStudioFormRows(
         };
       }
 
-      const matchedRequest = findMatchingRequestForStudio(requests, record);
+      const matchedRequest = findMatchingRequestForStudio(activeRequests, record);
       if (matchedRequest) {
         record = {
           ...record,
@@ -331,7 +340,7 @@ export async function importStudioFormRows(
       }
 
       const duplicateConfirmed = findDuplicateConfirmedReservation(
-        reservations,
+        activeReservations,
         record
       );
       if (duplicateConfirmed) {
@@ -367,18 +376,11 @@ export async function importStudioFormRows(
         if (requestUpdateError) throw requestUpdateError;
       }
 
-      const { error: logError } = await supabase.from("form_import_log").upsert(
-        {
-          source: "studio",
-          source_row: row.sheetRow,
-          reservation_id: record.reservation_id,
-        },
-        { onConflict: "source,source_row" }
-      );
-      if (logError) throw logError;
+      await logStudioFormImport(supabase, row.sheetRow, record.reservation_id);
 
-      reservations.push({
+      activeReservations.push({
         reservation_id: record.reservation_id,
+        import_row_id: record.import_row_id,
         access_key: record.access_key,
         status: "確定",
         check_in: record.check_in,
@@ -388,6 +390,21 @@ export async function importStudioFormRows(
         email: record.email,
         phone: record.phone,
         request_id: record.request_id,
+        is_archived: false,
+      });
+      allReservations.push({
+        reservation_id: record.reservation_id,
+        import_row_id: record.import_row_id,
+        access_key: record.access_key,
+        status: "確定",
+        check_in: record.check_in,
+        check_out: record.check_out,
+        last_name: record.last_name,
+        first_name: record.first_name,
+        email: record.email,
+        phone: record.phone,
+        request_id: record.request_id,
+        is_archived: false,
       });
       imported++;
     } catch (e) {
@@ -397,8 +414,9 @@ export async function importStudioFormRows(
 
   return {
     imported,
-    skipped: skippedAlreadyLogged + skippedNotImportable,
+    skipped: skippedAlreadyLogged + skippedAlreadyInDb + skippedNotImportable,
     skippedAlreadyLogged,
+    skippedAlreadyInDb,
     skippedNotImportable,
     errors,
     totalRows: rows.length,
@@ -423,6 +441,7 @@ export type SyncFormsResult = {
   studio: ImportResult;
   postLink: {
     linked: number;
+    repaired: number;
     skipped: number;
     errors: string[];
   };
