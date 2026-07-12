@@ -9,7 +9,6 @@ import { REQUEST_STATUS_EDIT_OPTIONS } from "@/lib/config/field-options";
 type Props = {
   requestId: string;
   status: string;
-  rejectReason: string | null;
   internalMemo: string | null;
   linkedReservationId: string | null;
 };
@@ -87,21 +86,6 @@ export function RequestUpdateForm(props: Props) {
             承認と同時に仮予約を作成する
           </label>
         </div>
-      ) : null}
-
-      {selectedStatus === "却下" || props.rejectReason ? (
-        <>
-          <p className="form-section-label">却下理由</p>
-          <div className="form-group">
-            <label htmlFor="reject-reason-edit">却下理由</label>
-            <Textarea
-              id="reject-reason-edit"
-              name="reject_reason"
-              rows={3}
-              defaultValue={props.rejectReason ?? ""}
-            />
-          </div>
-        </>
       ) : null}
 
       <p className="form-section-label">メモ</p>

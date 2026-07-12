@@ -12,7 +12,6 @@ import {
 import { LinkReservationPicker } from "@/components/requests/LinkReservationPicker";
 import { RequestApproveDialog } from "@/components/requests/RequestApproveDialog";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/input";
 import { showErrorToast, showSuccessToast } from "@/lib/utils/toast";
 
 type LinkCandidate = {
@@ -54,9 +53,7 @@ export function RequestDetailActions({
     initialState
   );
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [rejectOpen, setRejectOpen] = useState(false);
   const [approveOpen, setApproveOpen] = useState(false);
-  const [rejectReason, setRejectReason] = useState("");
   const [quickError, setQuickError] = useState<string | null>(null);
 
   const busy =
@@ -73,17 +70,12 @@ export function RequestDetailActions({
   const showApprovedNoLink =
     (status === "承認済" || status === "本予約連携済") && !linkedReservationId;
 
-  function submitQuick(
-    nextStatus: string,
-    reason?: string,
-    createProvisional = false
-  ) {
+  function submitQuick(nextStatus: string, createProvisional = false) {
     startQuick(async () => {
       setQuickError(null);
       const fd = new FormData();
       fd.set("request_id", requestId);
       fd.set("status", nextStatus);
-      if (reason) fd.set("reject_reason", reason);
       if (createProvisional) fd.set("create_provisional", "true");
       if (updatedAt) fd.set("expected_updated_at", updatedAt);
       const result = await quickRequestStatusAction({ ok: true }, fd);
@@ -94,7 +86,6 @@ export function RequestDetailActions({
       }
       showSuccessToast("ステータスを更新しました");
       setApproveOpen(false);
-      setRejectOpen(false);
       router.refresh();
     });
   }
@@ -116,7 +107,7 @@ export function RequestDetailActions({
               type="button"
               variant="danger"
               disabled={busy}
-              onClick={() => setRejectOpen(true)}
+              onClick={() => submitQuick("却下")}
             >
               却下
             </Button>
@@ -217,42 +208,9 @@ export function RequestDetailActions({
           onClose={() => setApproveOpen(false)}
           onApprove={(createProvisional) => {
             setApproveOpen(false);
-            submitQuick("承認済", undefined, createProvisional);
+            submitQuick("承認済", createProvisional);
           }}
         />
-      ) : null}
-
-      {rejectOpen ? (
-        <div className="detail-status-edit">
-          <label htmlFor="reject-reason">却下理由</label>
-          <Textarea
-            id="reject-reason"
-            rows={3}
-            value={rejectReason}
-            onChange={(e) => setRejectReason(e.target.value)}
-          />
-          <div className="detail-actions detail-actions-inline" style={{ marginTop: 8 }}>
-            <Button
-              type="button"
-              variant="danger"
-              size="sm"
-              disabled={busy || !rejectReason.trim()}
-              onClick={() => {
-                submitQuick("却下", rejectReason.trim());
-              }}
-            >
-              却下を確定
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={() => setRejectOpen(false)}
-            >
-              キャンセル
-            </Button>
-          </div>
-        </div>
       ) : null}
 
       {pickerOpen ? (

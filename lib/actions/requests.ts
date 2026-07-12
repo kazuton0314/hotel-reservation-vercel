@@ -21,7 +21,6 @@ export async function updateRequestAction(
 ): Promise<UpdateResult> {
   const requestId = String(formData.get("request_id") ?? "").trim();
   const status = String(formData.get("status") ?? "").trim();
-  const rejectReason = String(formData.get("reject_reason") ?? "").trim();
   const internalMemo = String(formData.get("internal_memo") ?? "").trim();
   const linkedReservationId = String(
     formData.get("linked_reservation_id") ?? ""
@@ -33,10 +32,6 @@ export async function updateRequestAction(
 
   if (!REQUEST_STATUS_OPTIONS.includes(status as (typeof REQUEST_STATUS_OPTIONS)[number])) {
     return { ok: false, message: "ステータスが不正です。" };
-  }
-
-  if (status === "却下" && !rejectReason) {
-    return { ok: false, message: "却下時は却下理由を入力してください。" };
   }
 
   const supabase = await createStaffClient();
@@ -80,7 +75,7 @@ export async function updateRequestAction(
   }
   const payload: Record<string, unknown> = {
     status,
-    reject_reason: status === "却下" ? rejectReason : null,
+    reject_reason: null,
     internal_memo: internalMemo || null,
     linked_reservation_id: nextLinkedReservationId,
     updated_at: new Date().toISOString(),
@@ -144,16 +139,12 @@ export async function quickRequestStatusAction(
 ): Promise<UpdateResult> {
   const requestId = String(formData.get("request_id") ?? "").trim();
   const status = String(formData.get("status") ?? "").trim();
-  const rejectReason = String(formData.get("reject_reason") ?? "").trim();
   const expectedUpdatedAt =
     String(formData.get("expected_updated_at") ?? "").trim() || null;
 
   if (!requestId) return { ok: false, message: "リクエストIDが不足しています。" };
   if (!REQUEST_STATUS_OPTIONS.includes(status as (typeof REQUEST_STATUS_OPTIONS)[number])) {
     return { ok: false, message: "ステータスが不正です。" };
-  }
-  if (status === "却下" && !rejectReason) {
-    return { ok: false, message: "却下理由を入力してください。" };
   }
 
   const createProvisional = formData.get("create_provisional") === "true";
@@ -180,7 +171,7 @@ export async function quickRequestStatusAction(
 
   const payload: Record<string, unknown> = {
     status,
-    reject_reason: status === "却下" ? rejectReason : null,
+    reject_reason: null,
     linked_reservation_id: nextLinked,
     updated_at: new Date().toISOString(),
   };

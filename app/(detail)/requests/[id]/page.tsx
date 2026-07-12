@@ -154,17 +154,10 @@ async function RequestDetailContent({ id }: { id: string }) {
           </>
         ) : null}
 
-        {linkedId || asString(request.reject_reason) ? (
+        {linkedId ? (
           <>
             <FormSectionLabel>処理結果</FormSectionLabel>
-            {linkedId ? <Kv label="連携予約ID" value={linkedId} /> : null}
-            {asString(request.reject_reason) ? (
-              <Kv
-                label="却下理由"
-                value={asString(request.reject_reason)}
-                multiline
-              />
-            ) : null}
+            <Kv label="連携予約ID" value={linkedId} />
           </>
         ) : null}
       </DetailBlock>
@@ -173,7 +166,6 @@ async function RequestDetailContent({ id }: { id: string }) {
         <RequestUpdateForm
           requestId={id}
           status={status}
-          rejectReason={asString(request.reject_reason)}
           internalMemo={asString(request.internal_memo)}
           linkedReservationId={linkedId}
         />
