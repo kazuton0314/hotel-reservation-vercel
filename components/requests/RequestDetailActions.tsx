@@ -236,10 +236,9 @@ export function RequestDetailActions({
               type="button"
               variant="danger"
               size="sm"
-              disabled={busy}
+              disabled={busy || !rejectReason.trim()}
               onClick={() => {
-                submitQuick("却下", rejectReason);
-                setRejectOpen(false);
+                submitQuick("却下", rejectReason.trim());
               }}
             >
               却下を確定

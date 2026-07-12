@@ -18,6 +18,7 @@ import {
 import { ConnectionError } from "@/components/SetupRequired";
 import { getReservations } from "@/lib/queries/reservations";
 import { getRooms } from "@/lib/queries/rooms";
+import { CONTACT_LABELS } from "@/lib/config/contact-confirm-labels";
 import { UNASSIGNED_ROOM_FILTER } from "@/lib/services/reservation-list-filter";
 import { parseListScope } from "@/lib/utils/list-scope";
 
@@ -26,9 +27,6 @@ type PageProps = {
     period?: string;
     status?: string;
     scope?: string;
-    assignment?: string;
-    mail?: string;
-    companion?: string;
     filterField?: string;
     filterValue?: string;
     sort?: string;
@@ -63,9 +61,6 @@ async function ReservationsContent({
     period?: string;
     status?: string;
     scope?: string;
-    assignment?: string;
-    mail?: string;
-    companion?: string;
     filterField?: string;
     filterValue?: string;
   };
@@ -78,9 +73,6 @@ async function ReservationsContent({
       period,
       status: params.status,
       scope,
-      assignment: params.assignment === "unassigned" ? "unassigned" : undefined,
-      mailPending: params.mail === "pending",
-      companionPending: params.companion === "pending",
     }),
     getRooms(),
   ]);
@@ -133,11 +125,19 @@ async function ReservationsContent({
       ],
     },
     {
-      key: "completionEmail",
-      label: "メール",
+      key: "guestTotal",
+      label: "宿泊人数",
       options: [
-        { value: "未送付", label: "メール未送付" },
-        { value: "送付済", label: "メール送付済" },
+        { value: "不定", label: "人数不定" },
+        { value: "確定", label: "人数確定" },
+      ],
+    },
+    {
+      key: "completionEmail",
+      label: CONTACT_LABELS.filterFieldLabel,
+      options: [
+        { value: CONTACT_LABELS.filterPending, label: CONTACT_LABELS.filterPending },
+        { value: CONTACT_LABELS.filterDone, label: CONTACT_LABELS.filterDone },
       ],
     },
   ];

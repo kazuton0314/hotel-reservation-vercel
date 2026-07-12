@@ -98,8 +98,8 @@ export function MailComposeModal({
     [body, placeholderContext]
   );
   const unresolved = useMemo(
-    () => listUnresolvedPlaceholders(`${subject}\n${body}`),
-    [subject, body]
+    () => listUnresolvedPlaceholders(`${subject}\n${body}`, placeholderContext),
+    [subject, body, placeholderContext]
   );
 
   function insertMergeKey(key: string) {

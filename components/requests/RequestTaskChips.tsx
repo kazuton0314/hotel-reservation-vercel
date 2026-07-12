@@ -1,4 +1,5 @@
 import { TaskChip } from "@/components/list/TaskChip";
+import { CONTACT_LABELS } from "@/lib/config/contact-confirm-labels";
 import { requestConfirmChipState } from "@/lib/utils/task-chip";
 
 type Props = {
@@ -14,7 +15,11 @@ export function RequestTaskChips({ status, replyEmailSent }: Props) {
 
   return (
     <div className="status-groups compact">
-      <TaskChip label="リクエスト確認" state={chip.state} title={chip.title} />
+      <TaskChip
+        label={CONTACT_LABELS.requestRowLabel}
+        state={chip.state}
+        title={chip.title}
+      />
     </div>
   );
 }

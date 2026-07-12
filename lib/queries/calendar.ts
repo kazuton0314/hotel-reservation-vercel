@@ -12,7 +12,7 @@ import {
   type MonthCalendarView,
   type WeekCalendarView,
 } from "@/lib/services/calendar";
-import { parseReservationDate } from "@/lib/utils/date-label";
+import { businessToday, parseReservationDate, todayIso } from "@/lib/utils/date-label";
 import { includeArchivedForDateRange } from "@/lib/utils/list-scope";
 import type { TodayRoomBoardItem } from "@/lib/queries/dashboard";
 
@@ -24,7 +24,7 @@ function monthBounds(year: number, month: number) {
 }
 
 function weekBounds(anchorDate: string) {
-  const anchor = parseReservationDate(anchorDate) || stripTime(new Date());
+  const anchor = parseReservationDate(anchorDate) || businessToday();
   const day = anchor.getDay();
   const diffToMon = day === 0 ? -6 : 1 - day;
   const monday = new Date(anchor);

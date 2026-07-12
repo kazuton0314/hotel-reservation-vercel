@@ -89,11 +89,7 @@ export function RequestUpdateForm(props: Props) {
         </div>
       ) : null}
 
-      <p className="detail-hint">
-        「承認」でステータスを承認済にできます。仮予約の作成は承認時に選べます（部屋割り等が必要なとき）。確定の本予約が既にある場合は「本予約を紐づけ」から選べます。
-      </p>
-
-      {displayStatus === "却下" || props.rejectReason ? (
+      {selectedStatus === "却下" || props.rejectReason ? (
         <>
           <p className="form-section-label">却下理由</p>
           <div className="form-group">

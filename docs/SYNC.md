@@ -44,6 +44,18 @@ npm run import:csv -- companions ./data/05_同行者情報.csv
 ```
 
 CSV 投入後、`import_sequences` が台帳の最大 ID から連番を同期します。
+**リクエスト台帳 CSV 投入後は `form_import_log` の backfill も必須です**（日次フォーム同期で既存行が二重取込されないようにするため）。
+
+```powershell
+npm run backfill:form-import-log
+```
+
+データ破損からの復旧（台帳 CSV または Supabase エクスポート）:
+
+```powershell
+npm run restore:requests -- ./data/reservation_requests_rows_before.csv ./data/reservation_requests_rows_after.csv
+```
+
 必要に応じて以下を実行してください。
 
 ```powershell
@@ -57,9 +69,11 @@ npm run rebuild:customers
 ## 重複レコードの扱い（本番フォーム切替時）
 
 - フォーム同期では、**同一人物（氏名＋連絡先）かつ同一日程**を重複候補として扱います。
+- **既に DB にある行（import_row_id 一致 or 重複判定）は一切上書きしません。** `form_import_log` だけ付けてスキップします（リクエスト・本予約フォーム共通）。
 - 既存の確定予約がある場合は既存 `reservation_id` を優先し、二重作成を抑止します。
 - 既存リクエストがある場合は既存 `request_id` を優先し、`linked_reservation_id` 連携を維持します。
-- 既存データの整合は `npm run link:records` で後追い修復できます。
+- チェックイン日の受付範囲は **今日から365日以内**（1年以上先は新規取込エラー）。年の繰り上げもこの範囲内でのみ行います。
+- 既存データの整合は `npm run link:records` で後追い修復できます（アーカイブ本予約とのリンク・双方向修復含む）。
 
 ## サービスアカウントの共有先
 

@@ -2,7 +2,7 @@ import { stripTime } from "@/lib/import/date-utils";
 import {
   daysBetweenCalendarDates,
   formatDateJa,
-  isSameDay,
+  businessToday,
   parseReservationDate,
   todayIso,
   weekdayJa,
@@ -286,7 +286,7 @@ export function buildMonthCalendarView(
     monthEnd
   );
   const eventsByDate = indexEventsByDate(allEvents);
-  const today = stripTime(new Date());
+  const todayIsoStr = todayIso();
   const firstDate = new Date(year, month - 1, 1);
   const gridStartOffset = (firstDate.getDay() + 6) % 7;
   const days: MonthCalendarView["days"] = [];
@@ -301,7 +301,7 @@ export function buildMonthCalendarView(
     days.push({
       date: iso,
       dayNum: d,
-      isToday: isSameDay(date, today),
+      isToday: iso === todayIsoStr,
       checkinCount: checkins.length,
       checkoutCount: checkouts.length,
       stayingCount: staying.length,
@@ -323,7 +323,7 @@ export function buildWeekCalendarView(
   reservations: CalendarReservation[],
   assignmentsByReservation: Map<string, CalendarAssignment[]>
 ): WeekCalendarView {
-  const anchor = parseReservationDate(anchorDate) || stripTime(new Date());
+  const anchor = parseReservationDate(anchorDate) || businessToday();
   const day = anchor.getDay();
   const diffToMon = day === 0 ? -6 : 1 - day;
   const monday = new Date(anchor);
@@ -339,7 +339,7 @@ export function buildWeekCalendarView(
     weekEnd
   );
   const eventsByDate = indexEventsByDate(allEvents);
-  const today = stripTime(new Date());
+  const todayIsoStr = todayIso();
   const days: WeekCalendarView["days"] = [];
 
   for (let i = 0; i < 7; i++) {
@@ -354,7 +354,7 @@ export function buildWeekCalendarView(
       date: iso,
       dateLabel: `${d.getMonth() + 1}/${d.getDate()}`,
       weekday: weekdayJa(d),
-      isToday: isSameDay(d, today),
+      isToday: iso === todayIsoStr,
       checkinCount: checkins.length,
       checkoutCount: checkouts.length,
       stayingCount: staying.length,
@@ -371,7 +371,7 @@ export function buildDayCalendarView(
   assignmentsByReservation: Map<string, CalendarAssignment[]>,
   todayRooms: TodayRoomBoardItem[]
 ): DayCalendarView {
-  const d = parseReservationDate(date) || stripTime(new Date());
+  const d = parseReservationDate(date) || businessToday();
   const iso = formatDateIso(d);
   const dayMs = stripTime(d).getTime();
 
@@ -434,7 +434,7 @@ export function defaultCalendarAnchor(): string {
 }
 
 export function shiftIsoDate(iso: string, days: number): string {
-  const d = parseReservationDate(iso) || stripTime(new Date());
+  const d = parseReservationDate(iso) || businessToday();
   d.setDate(d.getDate() + days);
   return formatDateIso(d);
 }

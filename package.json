@@ -16,7 +16,9 @@
     "sync:gcal": "tsx scripts/sync-gcal.ts",
     "check:setup": "tsx scripts/check-setup.ts",
     "link:records": "tsx scripts/link-existing.ts",
-    "rebuild:customers": "tsx scripts/rebuild-customers.ts"
+    "rebuild:customers": "tsx scripts/rebuild-customers.ts",
+    "backfill:form-import-log": "tsx scripts/backfill-form-import-log.ts",
+    "restore:requests": "tsx scripts/restore-requests-from-csv.ts"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.17",

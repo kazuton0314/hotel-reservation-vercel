@@ -1,7 +1,7 @@
 import { calculateNights, stripTime } from "@/lib/import/date-utils";
 import {
-  isSameDay,
   parseReservationDate,
+  todayIso,
   weekdayJa,
 } from "@/lib/utils/date-label";
 
@@ -355,7 +355,7 @@ export function buildRoomOccupancyMonthView(
   }
 
   const daysInMonth = new Date(year, month, 0).getDate();
-  const today = stripTime(new Date());
+  const todayIsoStr = todayIso();
   const days: OccDay[] = [];
   const nightsByRoom: Record<string, number> = {};
   for (const room of rooms) {
@@ -431,7 +431,7 @@ export function buildRoomOccupancyMonthView(
       date: iso,
       dayNum: d,
       weekday: weekdayJa(date),
-      isToday: isSameDay(date, today),
+      isToday: iso === todayIsoStr,
       isWeekend: date.getDay() === 0 || date.getDay() === 6,
       cells,
     });

@@ -73,13 +73,25 @@ export function substituteMailPlaceholders(
   });
 }
 
-export function listUnresolvedPlaceholders(text: string): string[] {
-  const found = new Set<string>();
+export function listUnresolvedPlaceholders(
+  text: string,
+  ctx?: MailEntityContext
+): string[] {
   const normalized = normalizeMergeText(text);
+  const variables = ctx ? buildVariableMap(ctx) : null;
+  const found = new Set<string>();
   const re = /⟦([^⟧]+)⟧|\{\{([^}]+)\}\}/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(normalized)) !== null) {
-    found.add(m[1] ? `⟦${m[1].trim()}⟧` : `{{${m[2].trim()}}}`);
+    const key = String(m[1] ?? m[2] ?? "").trim();
+    const token = m[1] ? `⟦${key}⟧` : `{{${key}}}`;
+    if (!variables) {
+      found.add(token);
+      continue;
+    }
+    if (!(key in variables) || String(variables[key] ?? "").trim() === "") {
+      found.add(token);
+    }
   }
   return [...found];
 }

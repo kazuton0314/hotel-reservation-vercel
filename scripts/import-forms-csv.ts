@@ -23,6 +23,9 @@ function printResult(
   if (result.skippedAlreadyLogged > 0) {
     console.log(`    └ 取込済み（form_import_log）: ${result.skippedAlreadyLogged} 件`);
   }
+  if (result.skippedAlreadyInDb > 0) {
+    console.log(`    └ DB既存（上書き回避）: ${result.skippedAlreadyInDb} 件`);
+  }
   if (result.skippedNotImportable > 0) {
     console.log(`    └ 取込条件不足: ${result.skippedNotImportable} 件`);
   }
@@ -91,8 +94,12 @@ target:
         ? await importRequestFormRows(supabase, headers, rows, { force: reimport })
         : await importStudioFormRows(supabase, headers, rows, { force: reimport });
 
-    let postLink: { linked: number; skipped: number; errors: string[] } | null =
-      null;
+    let postLink: {
+      linked: number;
+      repaired: number;
+      skipped: number;
+      errors: string[];
+    } | null = null;
     if (target === "studio") {
       postLink = await linkExistingRequestsAndReservations(supabase);
     }
@@ -122,6 +129,9 @@ target:
 
     if (postLink) {
       console.log(`  事後リンク: ${postLink.linked} 件`);
+      if (postLink.repaired > 0) {
+        console.log(`  双方向修復: ${postLink.repaired} 件`);
+      }
     }
   } catch (e) {
     await finishImportJobRun(supabase, runId, {

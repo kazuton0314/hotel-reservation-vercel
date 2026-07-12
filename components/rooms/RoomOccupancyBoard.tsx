@@ -445,12 +445,6 @@ export function RoomOccupancyBoard({
         )}
       </div>
 
-      {editMode ? (
-        <p className="occ-hint">
-          カードをドラッグして部屋を変更（スマホは長押し）。未割当列へドロップで解除。
-        </p>
-      ) : null}
-
       <div
         ref={boardRef}
         id="rooms-body"

@@ -1,3 +1,15 @@
+import {
+  resolveMaxCheckInDate,
+  type BuildCheckInDateOptions,
+} from "@/lib/import/booking-horizon";
+
+export {
+  MAX_BOOKING_ADVANCE_DAYS,
+  addCalendarDays,
+  isCheckInWithinBookingHorizon,
+  type BuildCheckInDateOptions,
+} from "@/lib/import/booking-horizon";
+
 export function stripTime(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
@@ -31,7 +43,8 @@ export function buildCheckInDate(
   yearVal: unknown,
   monthVal: unknown,
   dayVal: unknown,
-  referenceDate: Date = new Date()
+  referenceDate: Date = new Date(),
+  options: BuildCheckInDateOptions = {}
 ): Date | null {
   const month = parseMonthDay(monthVal);
   const day = parseMonthDay(dayVal);
@@ -44,11 +57,16 @@ export function buildCheckInDate(
 
   const ref = stripTime(referenceDate);
   const year = ref.getFullYear();
+  const maxCheckIn = resolveMaxCheckInDate(ref, options.maxCheckInDate);
   let checkIn = validDate(year, month, day);
   if (!checkIn) return null;
 
   if (checkIn.getTime() < ref.getTime()) {
-    checkIn = validDate(year + 1, month, day);
+    const nextYear = year + 1;
+    const bumped = validDate(nextYear, month, day);
+    if (bumped && bumped.getTime() <= maxCheckIn.getTime()) {
+      checkIn = bumped;
+    }
   }
   return checkIn;
 }

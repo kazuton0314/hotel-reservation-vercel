@@ -1,6 +1,5 @@
 "use client";
 
-import { useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useListSearch } from "@/components/list/ListSearchProvider";
@@ -11,29 +10,20 @@ type Props = {
 
 export function ListSearchBar({ className }: Props) {
   const { keyword, setKeyword, checkIn, setCheckIn, clearAll } = useListSearch();
-  const keywordComposing = useRef(false);
   const hasFilter = Boolean(keyword.trim() || checkIn.trim());
 
   return (
     <div className={`list-search-bar${className ? ` ${className}` : ""}`}>
       <Input
-        type="search"
+        type="text"
+        inputMode="search"
+        enterKeyHint="search"
         className="list-search-keyword"
         placeholder="名前・メール・電話・ID"
         value={keyword}
         autoComplete="off"
         aria-label="キーワード検索"
-        onCompositionStart={() => {
-          keywordComposing.current = true;
-        }}
-        onCompositionEnd={(e) => {
-          keywordComposing.current = false;
-          setKeyword(e.currentTarget.value);
-        }}
-        onChange={(e) => {
-          if (keywordComposing.current) return;
-          setKeyword(e.target.value);
-        }}
+        onChange={(e) => setKeyword(e.target.value)}
       />
       <Input
         type="date"

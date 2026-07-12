@@ -498,6 +498,96 @@
   width: 100%;
 }
 
+.confirm-section h3 {
+  margin: 0;
+}
+
+.confirm-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.confirm-section-hint {
+  margin: 0 0 8px;
+  font-size: 0.74rem;
+}
+
+.confirm-section-error {
+  margin: 8px 0 0;
+  color: #b91c1c;
+}
+
+.confirm-mail-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.confirm-mail-kind-select {
+  min-width: 6.5em;
+  padding: 4px 8px;
+  font-size: 0.78rem;
+}
+
+.confirm-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--card);
+}
+
+.confirm-row {
+  display: grid;
+  grid-template-columns: minmax(4.5em, auto) minmax(3.5em, auto) 1fr;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.confirm-row:last-child {
+  border-bottom: none;
+}
+
+.confirm-row-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.confirm-row-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  min-width: 0;
+}
+
+.confirm-row-form {
+  display: flex;
+  margin: 0;
+  min-width: 0;
+}
+
+.confirm-row-actions button,
+.confirm-row-form button {
+  width: 100%;
+  min-height: 28px !important;
+  padding: 2px 6px !important;
+  font-size: 0.68rem !important;
+}
+
+.mail-pill-skip {
+  background: var(--surface-muted);
+  color: var(--muted);
+}
+
 .row-card-status-row {
   display: flex;
   flex-wrap: wrap;

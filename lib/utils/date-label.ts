@@ -13,6 +13,17 @@ export function todayIso(): string {
   }).format(new Date());
 }
 
+/** YYYY-MM-DD をローカル日付として解釈（UTC ずれを避ける） */
+export function parseBusinessDate(iso: string): Date {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+/** 業務タイムゾーン基準の「今日」の Date */
+export function businessToday(): Date {
+  return parseBusinessDate(todayIso());
+}
+
 export function formatDateJa(date: Date): string {
   return `${date.getMonth() + 1}月${date.getDate()}日`;
 }

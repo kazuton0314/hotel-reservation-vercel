@@ -193,7 +193,6 @@ export function RoomAssignmentManager({
         className={showAdd ? "" : "hidden"}
         style={{ marginTop: 10 }}
       >
-        <p className="form-hint">予約人数を1部屋にまとめて割り当てます</p>
         <form ref={createFormRef} action={createAction}>
           <input type="hidden" name="reservation_id" value={reservationId} />
           {forceCreate ? <input type="hidden" name="force" value="true" /> : null}

@@ -160,9 +160,6 @@ export function RoomBulkAddModal({
             ))
           )}
         </div>
-        <p className="form-hint">
-          予約人数（{guestDefaults.guestTotal || "—"}名）を各部屋に割り当てます
-        </p>
         {error ? <p className="detail-hint" style={{ color: "#b91c1c" }}>{error}</p> : null}
         <div className="mail-modal-actions">
           <Button type="button" variant="secondary" onClick={onClose}>

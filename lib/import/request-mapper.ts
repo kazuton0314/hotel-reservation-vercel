@@ -4,9 +4,12 @@ import {
   buildCheckOutDate,
   calculateNights,
   formatDateIso,
+  isCheckInWithinBookingHorizon,
   joinName,
+  parseDateValue,
   stripTime,
 } from "@/lib/import/date-utils";
+import { businessToday } from "@/lib/utils/date-label";
 import {
   asPhoneString,
   asTextField,
@@ -60,12 +63,13 @@ export function mapRequestFormRow(
   row: SheetRow,
   headers: string[],
   requestId: string,
-  now: Date
+  now: Date,
+  options: { validateBookingHorizon?: boolean } = {}
 ): RequestInsert {
   const idx = headerIndex(headers);
   const v = row.values;
   const nowIso = now.toISOString();
-  const today = stripTime(now);
+  const today = businessToday();
 
   const lastName = String(g(v, idx, "姓") ?? "").trim();
   const firstName = String(g(v, idx, "名") ?? "").trim();
@@ -80,6 +84,14 @@ export function mapRequestFormRow(
   );
   if (!checkIn) {
     throw new Error(`チェックイン日が不正（行${row.sheetRow}）`);
+  }
+  if (
+    options.validateBookingHorizon !== false &&
+    !isCheckInWithinBookingHorizon(checkIn, today)
+  ) {
+    throw new Error(
+      `チェックインが受付可能範囲外（1年以上先または過去日・行${row.sheetRow}）`
+    );
   }
 
   const checkOut = buildCheckOutDate(
@@ -143,8 +155,13 @@ export function mapRequestCsvRow(
   const requestId = String(record["リクエストID"] ?? "").trim();
   if (!requestId) return null;
 
-  const checkIn = String(record["チェックイン日"] ?? "").trim();
-  if (!checkIn) return null;
+  const checkInRaw = String(record["チェックイン日"] ?? "").trim();
+  const checkOutRaw = asTextField(record["チェックアウト日"]);
+  const checkInParsed = parseDateValue(checkInRaw);
+  const checkOutParsed = parseDateValue(checkOutRaw);
+  if (!checkInParsed) return null;
+
+  const checkIn = formatDateIso(checkInParsed);
 
   const toTs = (v: unknown) => {
     if (!v) return null;
@@ -167,8 +184,8 @@ export function mapRequestCsvRow(
     email: asTextField(record["メールアドレス"]).toLowerCase() || null,
     phone: asPhoneString(record["電話番号"]) || null,
     phone_available: asTextField(record["電話可能時間"]) || null,
-    check_in: checkIn.slice(0, 10),
-    check_out: asTextField(record["チェックアウト日"]).slice(0, 10) || null,
+    check_in: checkIn,
+    check_out: checkOutParsed ? formatDateIso(checkOutParsed) : null,
     nights: Number(record["泊数"]) || 0,
     guest_total: asTextField(record["宿泊人数"]) || null,
     inquiry: asTextField(record["お問い合わせ内容"]) || null,
@@ -182,4 +199,58 @@ export function mapRequestCsvRow(
     sheet_updated_at: toTs(record["更新日時"]) ?? new Date().toISOString(),
     synced_at: new Date().toISOString(),
   };
+}
+
+/** Supabase テーブルエクスポート CSV（request_id 列） */
+export function mapRequestDbExportRow(
+  record: Record<string, unknown>
+): RequestInsert | null {
+  const requestId = String(record["request_id"] ?? "").trim();
+  if (!requestId) return null;
+
+  const checkIn = String(record["check_in"] ?? "").trim();
+  if (!checkIn) return null;
+
+  const toTs = (v: unknown) => {
+    if (v === "" || v == null) return null;
+    const d = new Date(String(v));
+    return isNaN(d.getTime()) ? null : d.toISOString();
+  };
+  const toBool = (v: unknown) =>
+    String(v ?? "").toLowerCase() === "true" || String(v) === "1";
+
+  return {
+    request_id: requestId,
+    access_key: String(record["access_key"] ?? "").trim(),
+    import_row_id: String(record["import_row_id"] ?? "").trim(),
+    status: String(record["status"] ?? DEFAULTS.requestStatus).trim(),
+    last_name: asTextField(record["last_name"]) || null,
+    first_name: asTextField(record["first_name"]) || null,
+    representative_name: asTextField(record["representative_name"]) || null,
+    last_name_kana: asTextField(record["last_name_kana"]) || null,
+    first_name_kana: asTextField(record["first_name_kana"]) || null,
+    name_kana: asTextField(record["name_kana"]) || null,
+    group_type: asTextField(record["group_type"]) || null,
+    email: asTextField(record["email"]).toLowerCase() || null,
+    phone: asPhoneString(record["phone"]) || null,
+    phone_available: asTextField(record["phone_available"]) || null,
+    check_in: checkIn.slice(0, 10),
+    check_out: asTextField(record["check_out"]).slice(0, 10) || null,
+    nights: Number(record["nights"]) || 0,
+    guest_total: asTextField(record["guest_total"]) || null,
+    inquiry: asTextField(record["inquiry"]) || null,
+    linked_reservation_id: asTextField(record["linked_reservation_id"]) || null,
+    reject_reason: asTextField(record["reject_reason"]) || null,
+    internal_memo: asTextField(record["internal_memo"]) || null,
+    reply_email_sent: toBool(record["reply_email_sent"]),
+    reply_email_sent_at: toTs(record["reply_email_sent_at"]),
+    is_archived: toBool(record["is_archived"]),
+    sheet_created_at: toTs(record["sheet_created_at"]) ?? new Date().toISOString(),
+    sheet_updated_at: toTs(record["sheet_updated_at"]) ?? new Date().toISOString(),
+    synced_at: new Date().toISOString(),
+  };
+}
+
+export function isRequestDbExportRecord(record: Record<string, unknown>) {
+  return Boolean(String(record["request_id"] ?? "").trim());
 }
