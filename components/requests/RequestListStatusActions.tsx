@@ -34,17 +34,12 @@ export function RequestListStatusActions({
   const [pending, startTransition] = useTransition();
   const [approveOpen, setApproveOpen] = useState(false);
 
-  function submit(
-    nextStatus: string,
-    rejectReason?: string,
-    createProvisional = false
-  ) {
+  function submit(nextStatus: string, createProvisional = false) {
     startTransition(async () => {
       setOptimisticStatus(nextStatus);
       const fd = new FormData();
       fd.set("request_id", requestId);
       fd.set("status", nextStatus);
-      if (rejectReason) fd.set("reject_reason", rejectReason);
       if (createProvisional) fd.set("create_provisional", "true");
       if (updatedAt) fd.set("expected_updated_at", updatedAt);
       const result = await quickRequestStatusAction({ ok: true }, fd);
@@ -60,17 +55,7 @@ export function RequestListStatusActions({
 
   function approve(createProvisional: boolean) {
     setApproveOpen(false);
-    submit("承認済", undefined, createProvisional);
-  }
-
-  function reject() {
-    const reason = window.prompt("却下理由を入力してください");
-    if (reason === null) return;
-    if (!reason.trim()) {
-      showErrorToast("却下理由を入力してください");
-      return;
-    }
-    submit("却下", reason.trim());
+    submit("承認済", createProvisional);
   }
 
   return (
@@ -97,7 +82,7 @@ export function RequestListStatusActions({
             variant="secondary"
             disabled={pending}
             className="list-inline-status-btn list-inline-status-btn-danger"
-            onClick={reject}
+            onClick={() => submit("却下")}
           >
             却下
           </Button>
