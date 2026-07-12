@@ -24,20 +24,20 @@ function findReservationForRequest(
   });
 }
 
-/** linked_reservation_id から reservations.request_id を双方向に修復 */
+/** リクエスト↔本予約の双方向リンクを修復（どちらか片方向だけ残っている場合も含む） */
 export async function repairBidirectionalRequestLinks(
   supabase: SupabaseClient
 ): Promise<{ repaired: number; errors: string[] }> {
-  const { data, error } = await supabase
-    .from("reservation_requests")
-    .select("request_id, linked_reservation_id")
-    .not("linked_reservation_id", "is", null);
-
-  if (error) throw error;
-
   const errors: string[] = [];
   let repaired = 0;
   const nowIso = new Date().toISOString();
+
+  const { data, error } = await supabase
+    .from("reservation_requests")
+    .select("request_id, status, linked_reservation_id")
+    .not("linked_reservation_id", "is", null);
+
+  if (error) throw error;
 
   for (const req of data ?? []) {
     const linkedId = req.linked_reservation_id as string;
@@ -64,6 +64,66 @@ export async function repairBidirectionalRequestLinks(
 
     if (updateError) {
       errors.push(`${req.request_id}: ${updateError.message}`);
+      continue;
+    }
+    repaired++;
+  }
+
+  const { data: linkedReservations, error: resError } = await supabase
+    .from("reservations")
+    .select("reservation_id, request_id")
+    .not("request_id", "is", null);
+
+  if (resError) throw resError;
+
+  for (const reservation of linkedReservations ?? []) {
+    const requestId = reservation.request_id as string;
+    const { data: req, error: reqError } = await supabase
+      .from("reservation_requests")
+      .select("request_id, status, linked_reservation_id")
+      .eq("request_id", requestId)
+      .maybeSingle();
+
+    if (reqError) {
+      errors.push(`${requestId}: ${reqError.message}`);
+      continue;
+    }
+    if (!req) {
+      errors.push(
+        `${reservation.reservation_id}: request_id ${requestId} のリクエストが見つかりません`
+      );
+      continue;
+    }
+
+    const linkedId = req.linked_reservation_id as string | null;
+    if (linkedId && linkedId !== reservation.reservation_id) {
+      errors.push(
+        `${requestId}: 別の本予約 ${linkedId} と連携済（${reservation.reservation_id} は未反映）`
+      );
+      continue;
+    }
+
+    const needsLink = linkedId !== reservation.reservation_id;
+    const needsStatus =
+      req.status === "リクエスト" || req.status === "却下";
+    if (!needsLink && !needsStatus) continue;
+
+    const nextStatus =
+      req.status === "本予約連携済" || req.status === "承認済"
+        ? req.status
+        : "本予約連携済";
+
+    const { error: updateError } = await supabase
+      .from("reservation_requests")
+      .update({
+        linked_reservation_id: reservation.reservation_id,
+        status: nextStatus,
+        updated_at: nowIso,
+      })
+      .eq("request_id", requestId);
+
+    if (updateError) {
+      errors.push(`${requestId}: ${updateError.message}`);
       continue;
     }
     repaired++;

@@ -103,22 +103,34 @@ async function DetailContent({
   const backHref =
     from === "customers" && customer
       ? `/customers/${encodeURIComponent(customer)}`
-      : "/reservations";
+      : from === "home"
+        ? "/"
+        : "/reservations";
 
   return (
     <>
       <RealtimeRefresh tables={["reservations", "room_assignments"]} notify />
       <DetailNav
         backHref={backHref}
-        backLabel={from === "customers" ? "← 顧客に戻る" : "← 本予約一覧"}
+        backLabel={
+          from === "customers"
+            ? "← 顧客に戻る"
+            : from === "home"
+              ? "← ホームに戻る"
+              : "← 本予約一覧"
+        }
         crumbs={[
           { label: "ホーム", href: "/" },
-          from === "customers"
-            ? { label: "顧客索引", href: "/customers" }
-            : { label: "本予約", href: "/reservations" },
-          ...(from === "customers" && customer
-            ? [{ label: "顧客詳細", href: backHref }]
-            : []),
+          ...(from === "customers"
+            ? [
+                { label: "顧客索引", href: "/customers" },
+                ...(customer
+                  ? [{ label: "顧客詳細", href: backHref }]
+                  : []),
+              ]
+            : from === "home"
+              ? []
+              : [{ label: "本予約", href: "/reservations" }]),
           { label: representativeName },
         ]}
       />
@@ -300,7 +312,7 @@ async function DetailContent({
           <OverlapStayList stays={stays} anchorCheckIn={checkIn} />
           <div className="detail-actions detail-actions-inline">
             <Link
-              href={`/calendar?date=${encodeURIComponent(checkIn)}`}
+              href={`/calendar?mode=day&date=${encodeURIComponent(checkIn)}`}
               className="btn btn-secondary"
             >
               {checkIn} の予定画面を開く

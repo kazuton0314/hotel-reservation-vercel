@@ -34,7 +34,7 @@ export function mergeTextToHtml(text: string): string {
       const m = part.match(/^⟦([^⟧]+)⟧$/);
       if (m) {
         const key = m[1];
-        return `<span class="mail-merge-chip" data-merge="${escapeHtml(key)}" contenteditable="false">${escapeHtml(key)}</span>`;
+        return `<span class="mail-merge-chip" data-merge="${escapeHtml(key)}" contenteditable="false" draggable="true">${escapeHtml(key)}</span>`;
       }
       return escapeHtml(part).replace(/\n/g, "<br>");
     })
@@ -45,7 +45,7 @@ export function serializeMergeEditor(root: HTMLElement): string {
   const lines: string[] = [];
   let current = "";
 
-  const pushCurrent = () => {
+  const pushLine = () => {
     lines.push(current);
     current = "";
   };
@@ -65,7 +65,7 @@ export function serializeMergeEditor(root: HTMLElement): string {
     }
 
     if (el.tagName === "BR") {
-      pushCurrent();
+      pushLine();
       return;
     }
 
@@ -76,17 +76,12 @@ export function serializeMergeEditor(root: HTMLElement): string {
         (el.firstChild as HTMLElement).tagName === "BR";
 
       if (onlyBr) {
-        if (current) pushCurrent();
-        else if (lines.length > 0 || el.previousSibling) pushCurrent();
+        pushLine();
         return;
       }
 
-      if (current || lines.length > 0 || el.previousSibling) {
-        if (current) pushCurrent();
-        else if (el.previousSibling && lines[lines.length - 1] !== "") {
-          pushCurrent();
-        }
-      }
+      if (current) pushLine();
+      else if (el.previousSibling) pushLine();
 
       el.childNodes.forEach(walk);
       return;
@@ -96,9 +91,13 @@ export function serializeMergeEditor(root: HTMLElement): string {
   };
 
   root.childNodes.forEach(walk);
-  if (current || lines.length === 0) pushCurrent();
+  pushLine();
 
-  return lines.join("\n").replace(/\n$/, "");
+  while (lines.length > 1 && lines[lines.length - 1] === "") {
+    lines.pop();
+  }
+
+  return lines.join("\n");
 }
 
 function isMergeChip(node: Node | null): node is HTMLElement {
@@ -170,31 +169,80 @@ export function removeAdjacentMergeChip(
   return true;
 }
 
-export function insertMergeChip(root: HTMLElement, key: string) {
+export function placeCaretAtPoint(
+  root: HTMLElement,
+  clientX: number,
+  clientY: number
+): Range | null {
+  const doc = root.ownerDocument;
+  let range: Range | null = null;
+
+  if (doc.caretRangeFromPoint) {
+    range = doc.caretRangeFromPoint(clientX, clientY);
+  } else {
+    const caretFromPoint = (
+      doc as Document & {
+        caretPositionFromPoint?: (
+          x: number,
+          y: number
+        ) => { offsetNode: Node; offset: number } | null;
+      }
+    ).caretPositionFromPoint;
+    const pos = caretFromPoint?.(clientX, clientY);
+    if (pos) {
+      range = doc.createRange();
+      range.setStart(pos.offsetNode, pos.offset);
+      range.collapse(true);
+    }
+  }
+
+  if (!range || !root.contains(range.commonAncestorContainer)) {
+    range = doc.createRange();
+    range.selectNodeContents(root);
+    range.collapse(false);
+  }
+
+  const sel = root.ownerDocument.defaultView?.getSelection();
+  if (sel) {
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+
+  return range;
+}
+
+export function insertMergeChip(
+  root: HTMLElement,
+  key: string,
+  range?: Range | null
+) {
   const chip = document.createElement("span");
   chip.className = "mail-merge-chip";
   chip.setAttribute("data-merge", key);
   chip.setAttribute("contenteditable", "false");
+  chip.setAttribute("draggable", "true");
   chip.textContent = key;
 
   const sel = window.getSelection();
-  if (!sel || sel.rangeCount === 0) {
+  let targetRange = range ?? null;
+
+  if (!targetRange && sel && sel.rangeCount > 0) {
+    targetRange = sel.getRangeAt(0);
+  }
+
+  if (!targetRange || !root.contains(targetRange.commonAncestorContainer)) {
     root.appendChild(chip);
     return;
   }
 
-  const range = sel.getRangeAt(0);
-  if (!root.contains(range.commonAncestorContainer)) {
-    root.appendChild(chip);
-    return;
+  targetRange.deleteContents();
+  targetRange.insertNode(chip);
+  targetRange.setStartAfter(chip);
+  targetRange.collapse(true);
+  if (sel) {
+    sel.removeAllRanges();
+    sel.addRange(targetRange);
   }
-
-  range.deleteContents();
-  range.insertNode(chip);
-  range.setStartAfter(chip);
-  range.collapse(true);
-  sel.removeAllRanges();
-  sel.addRange(range);
 }
 
 export function listMergeKeysInText(text: string): string[] {

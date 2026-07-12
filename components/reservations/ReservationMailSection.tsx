@@ -202,7 +202,9 @@ export function ReservationMailSection(props: Props) {
           >
             メール作成
           </Button>
-        ) : null}
+        ) : (
+          <span className="form-hint">メールアドレス未登録</span>
+        )}
       </div>
 
       <div className="confirm-rows">

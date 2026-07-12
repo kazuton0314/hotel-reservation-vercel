@@ -16,6 +16,7 @@ import {
   insertMergeChip,
   mergeTextToHtml,
   normalizeMergeText,
+  placeCaretAtPoint,
   removeAdjacentMergeChip,
   serializeMergeEditor,
 } from "@/lib/services/mail-merge";
@@ -52,6 +53,7 @@ export const MailMergeEditor = forwardRef<MailMergeEditorHandle, Props>(
   ) {
     const rootRef = useRef<HTMLDivElement>(null);
     const focusedRef = useRef(false);
+    const movingChipRef = useRef<HTMLElement | null>(null);
     const [empty, setEmpty] = useState(!normalizeMergeText(value).trim());
 
     const syncFromValue = useCallback((next: string) => {
@@ -100,11 +102,7 @@ export const MailMergeEditor = forwardRef<MailMergeEditorHandle, Props>(
 
       if (e.key === "Enter" && multiline) {
         e.preventDefault();
-        if (document.queryCommandSupported("insertLineBreak")) {
-          document.execCommand("insertLineBreak");
-        } else {
-          document.execCommand("insertHTML", false, "<br>");
-        }
+        document.execCommand("insertHTML", false, "<br>");
         emitChange();
         return;
       }
@@ -158,6 +156,17 @@ export const MailMergeEditor = forwardRef<MailMergeEditorHandle, Props>(
       emitChange();
     };
 
+    const handleDragStart = (e: DragEvent<HTMLDivElement>) => {
+      const chip = (e.target as HTMLElement).closest(".mail-merge-chip");
+      if (!chip || !rootRef.current?.contains(chip)) return;
+      const key = chip.getAttribute("data-merge");
+      if (!key) return;
+      movingChipRef.current = chip as HTMLElement;
+      e.dataTransfer.setData("application/x-mail-merge", key);
+      e.dataTransfer.setData("application/x-mail-merge-move", "1");
+      e.dataTransfer.effectAllowed = "move";
+    };
+
     const handleDrop = (e: DragEvent<HTMLDivElement>) => {
       const key = e.dataTransfer.getData("application/x-mail-merge");
       if (!key) return;
@@ -165,7 +174,14 @@ export const MailMergeEditor = forwardRef<MailMergeEditorHandle, Props>(
       const el = rootRef.current;
       if (!el) return;
       el.focus();
-      insertMergeChip(el, key);
+      const range = placeCaretAtPoint(el, e.clientX, e.clientY);
+      const moving = movingChipRef.current;
+      const isMove = e.dataTransfer.getData("application/x-mail-merge-move") === "1";
+      if (isMove && moving && el.contains(moving)) {
+        moving.remove();
+        movingChipRef.current = null;
+      }
+      insertMergeChip(el, key, range);
       emitChange();
     };
 
@@ -199,6 +215,7 @@ export const MailMergeEditor = forwardRef<MailMergeEditorHandle, Props>(
               e.preventDefault();
             }
           }}
+          onDragStart={handleDragStart}
           onDrop={handleDrop}
         />
       </div>

@@ -298,12 +298,14 @@ export async function linkRequestReservationAction(
   if (!reservation) return { ok: false, message: "指定の本予約が見つかりません。" };
 
   const nextStatus =
-    current.status === "リクエスト" ? "承認済" : String(current.status ?? "承認済");
+    current.status === "リクエスト" || current.status === "却下"
+      ? "本予約連携済"
+      : String(current.status ?? "本予約連携済");
 
   const { error } = await supabase
     .from("reservation_requests")
     .update({
-      status: nextStatus === "却下" ? "承認済" : nextStatus,
+      status: nextStatus,
       linked_reservation_id: reservationId,
       updated_at: new Date().toISOString(),
     })

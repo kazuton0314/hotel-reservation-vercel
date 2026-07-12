@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { TodayRoomBoardItem } from "@/lib/queries/dashboard";
 import { formatGuestCompact } from "@/lib/utils/guest-display";
 
@@ -76,9 +77,12 @@ export function TodayRoomsBoard({ rooms }: { rooms: TodayRoomBoardItem[] }) {
                       isCheckout={ev.isCheckout}
                       isStay={ev.isStay}
                     />
-                    <span className="today-room-guest">
+                    <Link
+                      href={`/reservations/${encodeURIComponent(ev.reservationId)}?from=home`}
+                      className="today-room-guest"
+                    >
                       {ev.representativeName}
-                    </span>
+                    </Link>
                     {nightLbl ? (
                       <span className="today-room-nights">{nightLbl}</span>
                     ) : null}

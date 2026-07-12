@@ -20,7 +20,7 @@
 
 - Sheets API で**回答スプシを直接**読み取る（IMPORTRANGE 中間シートは使わない）
 - 取込済み管理は `form_import_log` テーブル（GAS の P/Q・AM/AN 列の代替）
-- Vercel Hobby では **1日1回** Cron（`0 0 * * *` UTC ≒ 9:00 JST）が `/api/cron/sync-forms` を実行
+- Vercel Hobby では **1日1回** Cron（`0 18 * * *` UTC ≒ **3:00 JST**）が `/api/cron/sync-forms` を実行
 - 手動: 設定 → 同期ステータス、または `npm run sync:forms`
 
 ### 2. 予約管理DB CSV（一度だけ）

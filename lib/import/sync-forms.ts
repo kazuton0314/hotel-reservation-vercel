@@ -314,8 +314,7 @@ export async function importStudioFormRows(
         continue;
       }
 
-      const reservationId = await nextStudioReservationId(supabase);
-      let record = mapStudioFormRow(row, headers, reservationId, now);
+      let record = { ...incoming };
 
       const matchedProvisional = findMatchingProvisionalReservation(
         activeReservations,
@@ -350,6 +349,11 @@ export async function importStudioFormRows(
           access_key: duplicateConfirmed.access_key || record.access_key,
           request_id: duplicateConfirmed.request_id || record.request_id,
         };
+      }
+
+      if (record.reservation_id === draftId) {
+        const reservationId = await nextStudioReservationId(supabase);
+        record = { ...record, reservation_id: reservationId };
       }
 
       const { error: upsertError } = await supabase.from("reservations").upsert(

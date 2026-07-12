@@ -935,6 +935,11 @@ body.cal-month-active .main {
 .today-room-guest {
   font-weight: 700;
   margin-left: 2px;
+  color: inherit;
+  text-decoration: none;
+}
+.today-room-guest:hover {
+  text-decoration: underline;
 }
 .today-room-nights {
   font-size: 0.72rem;

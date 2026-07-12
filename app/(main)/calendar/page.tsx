@@ -16,6 +16,11 @@ type PageProps = {
   }>;
 };
 
+function resolveCalendarMode(params: { mode?: string; date?: string }) {
+  if (params.mode === "week" || params.mode === "day") return params.mode;
+  return params.date ? "day" : "month";
+}
+
 export default async function CalendarPage({ searchParams }: PageProps) {
   const params = await searchParams;
   return <CalendarContent params={params} />;
@@ -26,8 +31,7 @@ async function CalendarContent({
 }: {
   params: { mode?: string; year?: string; month?: string; date?: string };
 }) {
-  const mode =
-    params.mode === "week" || params.mode === "day" ? params.mode : "month";
+  const mode = resolveCalendarMode(params);
   const now = new Date();
   const year = parseInt(params.year ?? String(now.getFullYear()), 10);
   const month = parseInt(params.month ?? String(now.getMonth() + 1), 10);

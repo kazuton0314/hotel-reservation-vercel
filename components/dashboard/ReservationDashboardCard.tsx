@@ -25,7 +25,7 @@ export function ReservationDashboardCard({
 
   return (
     <Link
-      href={`/reservations/${encodeURIComponent(item.reservationId)}`}
+      href={`/reservations/${encodeURIComponent(item.reservationId)}?from=home`}
       className="card list-card block"
     >
       <div className="row-card-head">

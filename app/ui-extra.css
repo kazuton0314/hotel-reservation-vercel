@@ -260,6 +260,11 @@
 .mail-compose-dialog {
   max-width: min(920px, calc(100vw - 20px)) !important;
   width: calc(100vw - 20px);
+  left: 50% !important;
+  right: auto !important;
+  top: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  margin: 0 !important;
 }
 
 .mail-compose-header {
@@ -400,7 +405,13 @@
   font-weight: 700;
   vertical-align: baseline;
   user-select: none;
-  cursor: default;
+  cursor: grab;
+  touch-action: none;
+}
+
+.mail-merge-chip:active,
+.mail-merge-editor .mail-merge-chip:active {
+  cursor: grabbing;
 }
 
 .mail-compose-preview {
@@ -1490,7 +1501,9 @@
     position: fixed !important;
     inset: 0 !important;
     left: 0 !important;
+    right: 0 !important;
     top: 0 !important;
+    bottom: 0 !important;
     transform: none !important;
     width: 100% !important;
     max-width: 100% !important;
@@ -1532,21 +1545,21 @@
   }
 
   .mail-placeholder-chips {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    display: flex;
+    flex-wrap: wrap;
     gap: 6px;
     overflow: visible;
     padding-bottom: 0;
   }
 
   .mail-placeholder-chip {
-    flex: none;
-    width: 100%;
-    max-width: none;
-    border-radius: 10px;
-    padding: 8px 6px;
-    font-size: 0.68rem;
-    min-height: 36px;
+    flex: 0 1 auto;
+    width: auto;
+    max-width: 100%;
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-size: 0.72rem;
+    min-height: 0;
     display: inline-flex;
     align-items: center;
     justify-content: center;

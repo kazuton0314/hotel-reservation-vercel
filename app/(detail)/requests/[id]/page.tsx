@@ -180,7 +180,7 @@ async function RequestDetailContent({ id }: { id: string }) {
           <OverlapStayList stays={stays} anchorCheckIn={checkIn} />
           <div className="detail-actions detail-actions-inline">
             <Link
-              href={`/calendar?date=${encodeURIComponent(checkIn)}`}
+              href={`/calendar?mode=day&date=${encodeURIComponent(checkIn)}`}
               className="btn btn-secondary"
             >
               {checkIn} の予定画面を開く
