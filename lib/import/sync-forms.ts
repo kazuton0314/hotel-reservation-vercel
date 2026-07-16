@@ -190,8 +190,12 @@ export async function importRequestFormRows(
 
   for (const row of rows) {
     if (!options.force && importedRows.has(row.sheetRow)) {
-      skippedAlreadyLogged++;
-      continue;
+      // 誤って log だけ残っている場合（reservation に import_row_id なし）は再取込を許可
+      const owned = findRequestByImportRowId(requests, row.sheetRow);
+      if (owned) {
+        skippedAlreadyLogged++;
+        continue;
+      }
     }
     if (!isRequestRowImportable(row, headers)) {
       skippedNotImportable++;
@@ -282,8 +286,12 @@ export async function importStudioFormRows(
 
   for (const row of rows) {
     if (!options.force && importedRows.has(row.sheetRow)) {
-      skippedAlreadyLogged++;
-      continue;
+      // 誤って log だけ残っている場合（reservation に import_row_id なし）は再取込を許可
+      const owned = findReservationByImportRowId(allReservations, row.sheetRow);
+      if (owned) {
+        skippedAlreadyLogged++;
+        continue;
+      }
     }
     if (!isStudioRowImportable(row, headers)) {
       skippedNotImportable++;
@@ -307,15 +315,9 @@ export async function importStudioFormRows(
         validateBookingHorizon: false,
       });
 
-      const duplicate = findDuplicateReservation(allReservations, incoming);
-      if (duplicate) {
-        await logStudioFormImport(supabase, row.sheetRow, duplicate.reservation_id);
-        skippedAlreadyInDb++;
-        continue;
-      }
-
       let record = { ...incoming };
 
+      // 仮予約 → 確定へ昇格（姓名+連絡先+月日一致のリンク照合）
       const matchedProvisional = findMatchingProvisionalReservation(
         activeReservations,
         record
@@ -338,20 +340,43 @@ export async function importStudioFormRows(
         };
       }
 
-      const duplicateConfirmed = findDuplicateConfirmedReservation(
-        activeReservations,
-        record
-      );
-      if (duplicateConfirmed) {
-        record = {
-          ...record,
-          reservation_id: duplicateConfirmed.reservation_id,
-          access_key: duplicateConfirmed.access_key || record.access_key,
-          request_id: duplicateConfirmed.request_id || record.request_id,
-        };
+      // 同一確定予約（年月日完全一致）へマージ。それ以外は新規採番
+      if (record.reservation_id === draftId) {
+        const duplicateConfirmed = findDuplicateConfirmedReservation(
+          activeReservations,
+          record
+        );
+        if (duplicateConfirmed) {
+          // 確定同士の完全一致のみ再利用（年ズレ救済は仮予約リンクに限定）
+          const exact =
+            duplicateConfirmed.check_in === record.check_in &&
+            (!duplicateConfirmed.check_out ||
+              !record.check_out ||
+              duplicateConfirmed.check_out === record.check_out);
+          if (exact) {
+            record = {
+              ...record,
+              reservation_id: duplicateConfirmed.reservation_id,
+              access_key: duplicateConfirmed.access_key || record.access_key,
+              request_id: duplicateConfirmed.request_id || record.request_id,
+            };
+          }
+        }
       }
 
       if (record.reservation_id === draftId) {
+        // ハード重複（年月日完全一致・アーカイブ除外）→ 既存 ID にログのみ
+        const hardDuplicate = findDuplicateReservation(allReservations, incoming);
+        if (hardDuplicate) {
+          await logStudioFormImport(
+            supabase,
+            row.sheetRow,
+            hardDuplicate.reservation_id
+          );
+          skippedAlreadyInDb++;
+          continue;
+        }
+
         const reservationId = await nextStudioReservationId(supabase);
         record = { ...record, reservation_id: reservationId };
       }
@@ -366,7 +391,12 @@ export async function importStudioFormRows(
       );
       if (upsertError) throw upsertError;
 
-      await syncReservationToGCal(supabase, record.reservation_id);
+      // 取込本体を優先。GCal 失敗で取込を落とさない
+      try {
+        await syncReservationToGCal(supabase, record.reservation_id);
+      } catch {
+        /* best-effort */
+      }
 
       if (matchedRequest) {
         const { error: requestUpdateError } = await supabase
@@ -475,10 +505,8 @@ export async function syncAllForms(
     const { runDailyArchive } = await import("@/lib/services/archive-daily");
     const archive = await runDailyArchive(supabase);
 
-    const { syncAllActiveReservationsToGCal } = await import(
-      "@/lib/services/gcal-sync"
-    );
-    const gcal = await syncAllActiveReservationsToGCal(supabase);
+    // 全件 GCal 同期は重いので取込ジョブからは外す（新規行は import 内で個別同期）
+    const gcal = { synced: 0, errors: [] as string[] };
 
     await finishSyncRun(supabase, runId, {
       status: "success",

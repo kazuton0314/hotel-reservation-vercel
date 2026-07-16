@@ -1,9 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
-  bookingEntryMatchesForLink,
+  checkInMatchesExact,
   contactMatches,
   nameMatches,
-  stayMatches,
+  stayMatchesExact,
 } from "@/lib/import/match-utils";
 
 export type RequestImportRecord = {
@@ -85,6 +85,10 @@ export function findReservationByImportRowId(
   return reservations.find((r) => r.import_row_id === rowId);
 }
 
+/**
+ * 取込時の「同一リクエスト」判定。
+ * アーカイブ除外・宿泊日は年月日の完全一致のみ（年ズレ救済はリンク照合に限定）。
+ */
 export function findDuplicateRequest(
   requests: RequestImportRecord[],
   row: {
@@ -97,14 +101,25 @@ export function findDuplicateRequest(
   }
 ) {
   return requests.find((req) => {
+    if (req.is_archived) return false;
     if (!nameMatches(req.last_name, req.first_name, row.last_name, row.first_name)) {
       return false;
     }
     if (!contactMatches(req.email, req.phone, row.email, row.phone)) return false;
-    return stayMatches(req.check_in, req.check_out, row.check_in, row.check_out);
+    return stayMatchesExact(
+      req.check_in,
+      req.check_out,
+      row.check_in,
+      row.check_out
+    );
   });
 }
 
+/**
+ * 取込時の「同一本予約」判定（ハード重複）。
+ * アーカイブ・キャンセル除外。チェックインは年月日の完全一致のみ。
+ * 仮予約→確定の更新は sync 側のマッチ処理で行う（ここではスキップしない想定）。
+ */
 export function findDuplicateReservation(
   reservations: ReservationImportRecord[],
   row: {
@@ -116,8 +131,12 @@ export function findDuplicateReservation(
   }
 ) {
   return reservations.find((r) => {
-    if (r.status === "キャンセル") return false;
-    return bookingEntryMatchesForLink(r, row);
+    if (r.is_archived || r.status === "キャンセル") return false;
+    if (!checkInMatchesExact(r.check_in, row.check_in)) return false;
+    if (!nameMatches(r.last_name, r.first_name, row.last_name, row.first_name)) {
+      return false;
+    }
+    return contactMatches(r.email, r.phone, row.email, row.phone);
   });
 }
 

@@ -45,7 +45,7 @@ type AppShellProps = {
 
 export function AppShell({
   children,
-  title = "予約管理",
+  title = "ホーム",
   headerDate,
   hideNav = false,
 }: AppShellProps) {

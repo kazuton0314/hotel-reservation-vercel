@@ -4,7 +4,7 @@ import { AppShell } from "@/components/AppShell";
 import { usePathname } from "next/navigation";
 
 const TITLES: Record<string, string> = {
-  "/": "予約管理",
+  "/": "ホーム",
   "/rooms": "部屋割り",
   "/calendar": "予定",
   "/requests": "リクエスト",
@@ -18,13 +18,18 @@ const TITLES: Record<string, string> = {
   "/settings/preferences": "表示と通知",
 };
 
+function resolveTitle(pathname: string): string {
+  if (pathname === "/") return "ホーム";
+  const match = Object.entries(TITLES)
+    .filter(([path]) => path !== "/")
+    .sort(([a], [b]) => b.length - a.length)
+    .find(
+      ([path]) => pathname === path || pathname.startsWith(`${path}/`)
+    );
+  return match?.[1] ?? "ホーム";
+}
+
 export function MainShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const title =
-    Object.entries(TITLES)
-      .sort(([a], [b]) => b.length - a.length)
-      .find(([path]) => pathname === path || pathname.startsWith(`${path}/`))?.[1] ??
-    "予約管理";
-
-  return <AppShell title={title}>{children}</AppShell>;
+  return <AppShell title={resolveTitle(pathname)}>{children}</AppShell>;
 }

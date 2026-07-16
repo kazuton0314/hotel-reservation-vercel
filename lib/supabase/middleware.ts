@@ -52,7 +52,9 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (user && pathname === "/login") {
-    const next = request.nextUrl.searchParams.get("next") || "/";
+    const rawNext = request.nextUrl.searchParams.get("next") || "/";
+    const next =
+      rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/";
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = next;
     redirectUrl.search = "";

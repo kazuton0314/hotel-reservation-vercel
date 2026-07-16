@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { importReservationsAction } from "@/lib/actions/sync";
 import { Button } from "@/components/ui/button";
-import { showInfoToast, showSuccessToast } from "@/lib/utils/toast";
+import { showErrorToast, showSuccessToast } from "@/lib/utils/toast";
 
 export function SyncImportButton() {
   const router = useRouter();
@@ -17,7 +17,7 @@ export function SyncImportButton() {
         showSuccessToast(result.message);
         router.refresh();
       } else {
-        showInfoToast(result.message);
+        showErrorToast(result.message);
       }
     });
   };

@@ -64,13 +64,22 @@ export function contactMatches(
   return Boolean(tailA && tailB && tailA.length >= 10 && tailA === tailB);
 }
 
-/** チェックイン日: 完全一致 or 月日一致（年ズレ救済）。月日は必須。 */
+/** チェックイン日: 完全一致 or 月日一致（年ズレ救済）。月日は必須。リンク照合用。 */
 export function checkInMatches(aCheckIn: string | null, bCheckIn: string | null) {
   if (!aCheckIn || !bCheckIn) return false;
   if (aCheckIn === bCheckIn) return true;
   const mdA = aCheckIn.slice(5);
   const mdB = bCheckIn.slice(5);
   return Boolean(mdA && mdB && mdA === mdB);
+}
+
+/** 取込重複判定用: 年を含むチェックイン完全一致のみ */
+export function checkInMatchesExact(
+  aCheckIn: string | null,
+  bCheckIn: string | null
+) {
+  if (!aCheckIn || !bCheckIn) return false;
+  return aCheckIn === bCheckIn;
 }
 
 export function stayMatches(
@@ -80,6 +89,18 @@ export function stayMatches(
   bCheckOut: string | null
 ) {
   if (!checkInMatches(aCheckIn, bCheckIn)) return false;
+  if (!aCheckOut || !bCheckOut) return true;
+  return aCheckOut === bCheckOut;
+}
+
+/** 取込重複判定用: 宿泊日は年月日から完全一致 */
+export function stayMatchesExact(
+  aCheckIn: string | null,
+  aCheckOut: string | null,
+  bCheckIn: string | null,
+  bCheckOut: string | null
+) {
+  if (!checkInMatchesExact(aCheckIn, bCheckIn)) return false;
   if (!aCheckOut || !bCheckOut) return true;
   return aCheckOut === bCheckOut;
 }
