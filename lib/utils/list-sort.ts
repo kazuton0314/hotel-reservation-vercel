@@ -12,12 +12,15 @@ export function parseListSort(
 ): ListSort {
   const f: ListSortField =
     field === "received" || field === "updated" ? field : "stay";
-  const d: ListSortDir = dir === "desc" ? "desc" : "asc";
+  // dir 未指定時はフィールドごとのデフォルト
+  const d: ListSortDir =
+    dir === "asc" || dir === "desc" ? dir : defaultDirForSortField(f);
   return { field: f, dir: d };
 }
 
+/** 滞在日=早い順 / 受付・更新=新しい（直近）順 */
 export function defaultDirForSortField(field: ListSortField): ListSortDir {
-  return field === "updated" ? "desc" : "asc";
+  return field === "stay" ? "asc" : "desc";
 }
 
 export function listSortDirLabel(sort: ListSort): string {
@@ -30,8 +33,12 @@ export function listSortDirLabel(sort: ListSort): string {
   return sort.dir === "asc" ? "更新が古い順" : "更新が新しい順";
 }
 
+/**
+ * 一覧の上→下の時系列イメージに合わせる:
+ * 早い／古い順 = ↓（上から下へ進む）、遅い／新しい順 = ↑
+ */
 export function listSortDirIcon(sort: ListSort): string {
-  return sort.dir === "asc" ? "↑" : "↓";
+  return sort.dir === "asc" ? "↓" : "↑";
 }
 
 type SortableListItem = {

@@ -3,6 +3,7 @@ import {
   checkInMatchesExact,
   contactMatches,
   nameMatches,
+  sameImportIdentity,
   stayMatchesExact,
 } from "@/lib/import/match-utils";
 
@@ -84,6 +85,41 @@ export function findReservationByImportRowId(
   const rowId = String(sheetRow);
   return reservations.find((r) => r.import_row_id === rowId);
 }
+
+/** import_row_id 一致かつ同一人物・同一チェックインのときだけ「取込済み」 */
+export function findOwnedReservationByImportRow(
+  reservations: ReservationImportRecord[],
+  sheetRow: number,
+  incoming: {
+    last_name: string | null;
+    first_name: string | null;
+    email: string | null;
+    phone: string | null;
+    check_in: string | null;
+  }
+) {
+  const byRow = findReservationByImportRowId(reservations, sheetRow);
+  if (!byRow) return null;
+  return sameImportIdentity(byRow, incoming) ? byRow : null;
+}
+
+export function findOwnedRequestByImportRow(
+  requests: RequestImportRecord[],
+  sheetRow: number,
+  incoming: {
+    last_name: string | null;
+    first_name: string | null;
+    email: string | null;
+    phone: string | null;
+    check_in: string | null;
+  }
+) {
+  const byRow = findRequestByImportRowId(requests, sheetRow);
+  if (!byRow) return null;
+  return sameImportIdentity(byRow, incoming) ? byRow : null;
+}
+
+export { sameImportIdentity };
 
 /**
  * 取込時の「同一リクエスト」判定。

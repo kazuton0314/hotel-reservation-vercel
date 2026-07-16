@@ -15,7 +15,7 @@ export function getFormSources() {
         process.env.GOOGLE_BOOKING_FORM_SHEET_NAME ??
         process.env.GOOGLE_STUDIO_SHEET_NAME ??
         "シート1",
-      dataColumnCount: 38,
+      dataColumnCount: 50,
     },
     /** 予約リクエストフォーム */
     request: {
@@ -27,7 +27,7 @@ export function getFormSources() {
         process.env.GOOGLE_REQUEST_FORM_SHEET_NAME ??
         process.env.GOOGLE_REQUEST_SHEET_NAME ??
         "シート1",
-      dataColumnCount: 15,
+      dataColumnCount: 30,
     },
   } as const;
 }

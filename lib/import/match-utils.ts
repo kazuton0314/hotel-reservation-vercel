@@ -82,6 +82,30 @@ export function checkInMatchesExact(
   return aCheckIn === bCheckIn;
 }
 
+/** 行番号再利用時の「同一回答」判定（姓名+連絡先+チェックイン年月日） */
+export function sameImportIdentity(
+  a: {
+    last_name: string | null;
+    first_name: string | null;
+    email: string | null;
+    phone: string | null;
+    check_in: string | null;
+  },
+  b: {
+    last_name: string | null;
+    first_name: string | null;
+    email: string | null;
+    phone: string | null;
+    check_in: string | null;
+  }
+) {
+  if (!checkInMatchesExact(a.check_in, b.check_in)) return false;
+  if (!nameMatches(a.last_name, a.first_name, b.last_name, b.first_name)) {
+    return false;
+  }
+  return contactMatches(a.email, a.phone, b.email, b.phone);
+}
+
 export function stayMatches(
   aCheckIn: string | null,
   aCheckOut: string | null,

@@ -87,9 +87,19 @@ export type ReservationInsert = {
 function g(
   values: unknown[],
   index: Record<string, number>,
-  key: string
+  key: string,
+  ...aliases: string[]
 ): unknown {
-  return getCell(values, index, key);
+  for (const k of [key, ...aliases]) {
+    const v = getCell(values, index, k);
+    if (v !== "" && v != null) return v;
+  }
+  // キー自体が存在するなら空文字でも返す（未入力）
+  if (index[key] !== undefined) return getCell(values, index, key);
+  for (const k of aliases) {
+    if (index[k] !== undefined) return getCell(values, index, k);
+  }
+  return "";
 }
 
 function toIsoDate(value: unknown): string | null {
@@ -260,12 +270,26 @@ export function mapStudioFormRow(
     check_out: formatDateIso(checkOut),
     nights: calculateNights(checkIn, checkOut),
     guest_total: asTextField(g(v, idx, "人数")) || null,
-    adult_male: asTextField(g(v, idx, "中学生以上の男性（大人）")) || null,
-    adult_female: asTextField(g(v, idx, "中学生以上の女性（大人）")) || null,
-    boy_student: asTextField(g(v, idx, "小学生の男の子")) || null,
-    girl_student: asTextField(g(v, idx, "小学生の女の子")) || null,
-    age_3plus: asTextField(g(v, idx, "3歳以上のお子さま")) || null,
-    under_3: asTextField(g(v, idx, "3歳未満のお子さま")) || null,
+    adult_male:
+      asTextField(
+        g(v, idx, "中学生以上の男性（大人）", "大人男", "中学生以上男性")
+      ) || null,
+    adult_female:
+      asTextField(
+        g(v, idx, "中学生以上の女性（大人）", "大人女", "中学生以上女性")
+      ) || null,
+    boy_student:
+      asTextField(g(v, idx, "小学生の男の子", "小学生男", "小学生男の子")) ||
+      null,
+    girl_student:
+      asTextField(g(v, idx, "小学生の女の子", "小学生女", "小学生女の子")) ||
+      null,
+    age_3plus:
+      asTextField(g(v, idx, "3歳以上のお子さま", "3歳以上", "3歳以上幼児")) ||
+      null,
+    under_3:
+      asTextField(g(v, idx, "3歳未満のお子さま", "3歳未満", "3歳未満乳幼児")) ||
+      null,
     arrival_time: asTextField(g(v, idx, "到着時間")) || null,
     transport: asTextField(g(v, idx, "交通手段")) || null,
     vehicle_count: asTextField(g(v, idx, "車両台数")) || null,

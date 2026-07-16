@@ -3,12 +3,15 @@ import { FORM_SOURCES } from "@/lib/config/forms";
 import {
   findDuplicateRequest,
   findDuplicateReservation,
+  findOwnedRequestByImportRow,
+  findOwnedReservationByImportRow,
   findRequestByImportRowId,
   findReservationByImportRowId,
   loadAllRequestsForImport,
   loadAllReservationsForImport,
   logRequestFormImport,
   logStudioFormImport,
+  sameImportIdentity,
   type RequestImportRecord,
   type ReservationImportRecord,
 } from "@/lib/import/form-import-index";
@@ -52,16 +55,55 @@ export type ImportFormRowsOptions = {
 
 type ActiveReservation = ReservationImportRecord;
 
-async function loadImportedRows(
+/** source_row → 紐付いた reservation_id / request_id */
+type ImportLogMap = Map<number, string>;
+
+async function loadImportLogMap(
   supabase: SupabaseClient,
   source: "studio" | "request"
-): Promise<Set<number>> {
-  const { data } = await supabase
-    .from("form_import_log")
-    .select("source_row")
-    .eq("source", source);
+): Promise<ImportLogMap> {
+  const map: ImportLogMap = new Map();
+  const pageSize = 1000;
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabase
+      .from("form_import_log")
+      .select("source_row, reservation_id, request_id")
+      .eq("source", source)
+      .range(from, from + pageSize - 1);
+    if (error) throw error;
+    const rows = data ?? [];
+    for (const row of rows) {
+      const id =
+        source === "studio"
+          ? (row.reservation_id as string | null)
+          : (row.request_id as string | null);
+      if (row.source_row != null && id) {
+        map.set(Number(row.source_row), id);
+      }
+    }
+    if (rows.length < pageSize) break;
+  }
+  return map;
+}
 
-  return new Set((data ?? []).map((r) => r.source_row));
+function buildCollisionSafeImportRowId(
+  sheetRow: number,
+  incoming: {
+    check_in: string | null;
+    email: string | null;
+    phone: string | null;
+    last_name: string | null;
+  },
+  colliding: ReservationImportRecord | RequestImportRecord | null | undefined
+): string {
+  if (!colliding) return String(sheetRow);
+  // シート行番号が別予約に使われている → 内容ベースの一意キー
+  const tip =
+    incoming.email ||
+    incoming.phone ||
+    incoming.last_name ||
+    "unknown";
+  return `${sheetRow}:${incoming.check_in ?? ""}:${tip}`;
 }
 
 async function loadActiveReservationsForMatching(
@@ -179,7 +221,7 @@ export async function importRequestFormRows(
   rows: SheetRow[],
   options: ImportFormRowsOptions = {}
 ): Promise<ImportResult> {
-  const importedRows = await loadImportedRows(supabase, "request");
+  const importLog = await loadImportLogMap(supabase, "request");
   const now = new Date();
   let imported = 0;
   let skippedAlreadyLogged = 0;
@@ -189,35 +231,39 @@ export async function importRequestFormRows(
   const requests = await loadAllRequestsForImport(supabase);
 
   for (const row of rows) {
-    if (!options.force && importedRows.has(row.sheetRow)) {
-      // 誤って log だけ残っている場合（reservation に import_row_id なし）は再取込を許可
-      const owned = findRequestByImportRowId(requests, row.sheetRow);
-      if (owned) {
-        skippedAlreadyLogged++;
-        continue;
-      }
-    }
     if (!isRequestRowImportable(row, headers)) {
       skippedNotImportable++;
       continue;
     }
 
     try {
-      const existingByRow = findRequestByImportRowId(requests, row.sheetRow);
-      if (existingByRow) {
-        await logRequestFormImport(
-          supabase,
-          row.sheetRow,
-          existingByRow.request_id
-        );
-        skippedAlreadyInDb++;
-        continue;
-      }
-
       const draftId = `DRAFT-${row.sheetRow}`;
       const incoming = mapRequestFormRow(row, headers, draftId, now, {
         validateBookingHorizon: false,
       });
+
+      // 行番号一致かつ同一人物・同一日のみスキップ（シート行の再利用に耐える）
+      const ownedByRow = findOwnedRequestByImportRow(
+        requests,
+        row.sheetRow,
+        incoming
+      );
+      if (ownedByRow) {
+        await logRequestFormImport(supabase, row.sheetRow, ownedByRow.request_id);
+        skippedAlreadyInDb++;
+        continue;
+      }
+
+      if (!options.force) {
+        const loggedId = importLog.get(row.sheetRow);
+        if (loggedId) {
+          const logged = requests.find((r) => r.request_id === loggedId);
+          if (logged && sameImportIdentity(logged, incoming)) {
+            skippedAlreadyLogged++;
+            continue;
+          }
+        }
+      }
 
       const duplicate = findDuplicateRequest(requests, incoming);
       if (duplicate) {
@@ -226,8 +272,19 @@ export async function importRequestFormRows(
         continue;
       }
 
+      const colliding = findRequestByImportRowId(requests, row.sheetRow);
+      const importRowId = buildCollisionSafeImportRowId(
+        row.sheetRow,
+        incoming,
+        colliding
+      );
+
       const requestId = await nextStudioRequestId(supabase);
-      const record: RequestInsert = { ...incoming, request_id: requestId };
+      const record: RequestInsert = {
+        ...incoming,
+        request_id: requestId,
+        import_row_id: importRowId,
+      };
 
       const { error: upsertError } = await supabase
         .from("reservation_requests")
@@ -237,6 +294,7 @@ export async function importRequestFormRows(
       await logRequestFormImport(supabase, row.sheetRow, requestId);
 
       pushRequestCache(requests, record);
+      importLog.set(row.sheetRow, requestId);
       imported++;
     } catch (e) {
       errors.push(`行${row.sheetRow}: ${e instanceof Error ? e.message : String(e)}`);
@@ -273,7 +331,7 @@ export async function importStudioFormRows(
   rows: SheetRow[],
   options: ImportFormRowsOptions = {}
 ): Promise<ImportResult> {
-  const importedRows = await loadImportedRows(supabase, "studio");
+  const importLog = await loadImportLogMap(supabase, "studio");
   const now = new Date();
   let imported = 0;
   let skippedAlreadyLogged = 0;
@@ -285,37 +343,55 @@ export async function importStudioFormRows(
   const activeRequests = await loadActiveRequestsForMatching(supabase);
 
   for (const row of rows) {
-    if (!options.force && importedRows.has(row.sheetRow)) {
-      // 誤って log だけ残っている場合（reservation に import_row_id なし）は再取込を許可
-      const owned = findReservationByImportRowId(allReservations, row.sheetRow);
-      if (owned) {
-        skippedAlreadyLogged++;
-        continue;
-      }
-    }
     if (!isStudioRowImportable(row, headers)) {
       skippedNotImportable++;
       continue;
     }
 
     try {
-      const existingByRow = findReservationByImportRowId(allReservations, row.sheetRow);
-      if (existingByRow) {
-        await logStudioFormImport(
-          supabase,
-          row.sheetRow,
-          existingByRow.reservation_id
-        );
-        skippedAlreadyInDb++;
-        continue;
-      }
-
       const draftId = `DRAFT-${row.sheetRow}`;
       const incoming = mapStudioFormRow(row, headers, draftId, now, {
         validateBookingHorizon: false,
       });
 
-      let record = { ...incoming };
+      // 行番号一致かつ同一人物・同一日のみスキップ（シートクリア後の行番号再利用に耐える）
+      const ownedByRow = findOwnedReservationByImportRow(
+        allReservations,
+        row.sheetRow,
+        incoming
+      );
+      if (ownedByRow) {
+        await logStudioFormImport(
+          supabase,
+          row.sheetRow,
+          ownedByRow.reservation_id
+        );
+        skippedAlreadyInDb++;
+        continue;
+      }
+
+      if (!options.force) {
+        const loggedId = importLog.get(row.sheetRow);
+        if (loggedId) {
+          const logged = allReservations.find((r) => r.reservation_id === loggedId);
+          if (logged && sameImportIdentity(logged, incoming)) {
+            skippedAlreadyLogged++;
+            continue;
+          }
+        }
+      }
+
+      const colliding = findReservationByImportRowId(allReservations, row.sheetRow);
+      const importRowId = buildCollisionSafeImportRowId(
+        row.sheetRow,
+        incoming,
+        colliding && !sameImportIdentity(colliding, incoming) ? colliding : null
+      );
+
+      let record: ReservationInsert = {
+        ...incoming,
+        import_row_id: importRowId,
+      };
 
       // 仮予約 → 確定へ昇格（姓名+連絡先+月日一致のリンク照合）
       const matchedProvisional = findMatchingProvisionalReservation(
@@ -347,7 +423,6 @@ export async function importStudioFormRows(
           record
         );
         if (duplicateConfirmed) {
-          // 確定同士の完全一致のみ再利用（年ズレ救済は仮予約リンクに限定）
           const exact =
             duplicateConfirmed.check_in === record.check_in &&
             (!duplicateConfirmed.check_out ||
@@ -365,7 +440,6 @@ export async function importStudioFormRows(
       }
 
       if (record.reservation_id === draftId) {
-        // ハード重複（年月日完全一致・アーカイブ除外）→ 既存 ID にログのみ
         const hardDuplicate = findDuplicateReservation(allReservations, incoming);
         if (hardDuplicate) {
           await logStudioFormImport(
@@ -391,7 +465,6 @@ export async function importStudioFormRows(
       );
       if (upsertError) throw upsertError;
 
-      // 取込本体を優先。GCal 失敗で取込を落とさない
       try {
         await syncReservationToGCal(supabase, record.reservation_id);
       } catch {
@@ -440,6 +513,7 @@ export async function importStudioFormRows(
         request_id: record.request_id,
         is_archived: false,
       });
+      importLog.set(row.sheetRow, record.reservation_id);
       imported++;
     } catch (e) {
       errors.push(`行${row.sheetRow}: ${e instanceof Error ? e.message : String(e)}`);
