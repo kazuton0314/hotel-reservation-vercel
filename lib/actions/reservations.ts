@@ -10,6 +10,7 @@ import {
 import { upsertCustomerFromReservation } from "@/lib/services/customer-index";
 import { DEFAULTS } from "@/lib/config/forms";
 import {
+  joinMultiSelectValues,
   PAYMENT_STATUS_OPTIONS,
   RESERVATION_STATUS_OPTIONS,
 } from "@/lib/config/field-options";
@@ -142,8 +143,8 @@ export async function updateReservationAction(
     meal: String(formData.get("meal") ?? current.meal ?? ""),
     bbq: String(formData.get("bbq") ?? current.bbq ?? ""),
     inquiry: String(formData.get("inquiry") ?? current.inquiry ?? ""),
-    travel_purpose: String(
-      formData.get("travel_purpose") ?? current.travel_purpose ?? ""
+    travel_purpose: joinMultiSelectValues(
+      formData.getAll("travel_purpose").map((v) => String(v))
     ),
     travel_purpose_other: String(
       formData.get("travel_purpose_other") ?? current.travel_purpose_other ?? ""
@@ -414,7 +415,10 @@ export async function createManualReservationAction(
     meal: String(formData.get("meal") ?? "").trim() || null,
     bbq: String(formData.get("bbq") ?? "").trim() || null,
     inquiry: String(formData.get("inquiry") ?? "").trim() || null,
-    travel_purpose: String(formData.get("travel_purpose") ?? "").trim() || null,
+    travel_purpose:
+      joinMultiSelectValues(
+        formData.getAll("travel_purpose").map((v) => String(v))
+      ) || null,
     travel_purpose_other:
       String(formData.get("travel_purpose_other") ?? "").trim() || null,
     referral: String(formData.get("referral") ?? "").trim() || null,

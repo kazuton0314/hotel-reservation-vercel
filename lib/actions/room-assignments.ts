@@ -7,7 +7,9 @@ import { syncAssignmentStatus } from "@/lib/services/assignment-status";
 import { syncReservationToGCal } from "@/lib/services/gcal-sync";
 import {
   checkRoomConflict,
+  hasOtherReservationConflictInFinalState,
   SHARED_ROOM_CONFIRM_MSG,
+  type BatchSimAssignment,
 } from "@/lib/services/room-conflicts";
 import { createAdminClient, createStaffClient } from "@/lib/supabase/server";
 import { CONFLICT_MESSAGE } from "@/lib/utils/optimistic-lock";
@@ -339,6 +341,67 @@ export type RoomAssignmentBatchChange =
       expectedUpdatedAt?: string | null;
     };
 
+async function loadBaselineForBatchConflict(
+  supabase: Awaited<ReturnType<typeof createStaffClient>>,
+  changes: RoomAssignmentBatchChange[]
+): Promise<BatchSimAssignment[]> {
+  const touchedAssignmentIds = [
+    ...new Set(
+      changes
+        .filter(
+          (ch): ch is Extract<RoomAssignmentBatchChange, { type: "move" | "unassign" }> =>
+            ch.type === "move" || ch.type === "unassign"
+        )
+        .map((ch) => ch.roomAssignmentId)
+    ),
+  ];
+
+  const roomIds = new Set<string>();
+  for (const ch of changes) {
+    if (ch.type === "move") roomIds.add(ch.toRoomId);
+    if (ch.type === "assign") roomIds.add(ch.payload.roomId);
+  }
+
+  const byId = new Map<string, BatchSimAssignment>();
+
+  if (touchedAssignmentIds.length) {
+    const { data: touched } = await supabase
+      .from("room_assignments")
+      .select("room_assignment_id, reservation_id, room_id, stay_start, stay_end")
+      .in("room_assignment_id", touchedAssignmentIds)
+      .eq("is_archived", false);
+    for (const row of touched ?? []) {
+      if (row.room_id) roomIds.add(row.room_id);
+      byId.set(row.room_assignment_id, {
+        room_assignment_id: row.room_assignment_id,
+        reservation_id: row.reservation_id,
+        room_id: row.room_id,
+        stay_start: row.stay_start,
+        stay_end: row.stay_end,
+      });
+    }
+  }
+
+  if (roomIds.size) {
+    const { data: inRooms } = await supabase
+      .from("room_assignments")
+      .select("room_assignment_id, reservation_id, room_id, stay_start, stay_end")
+      .in("room_id", [...roomIds])
+      .eq("is_archived", false);
+    for (const row of inRooms ?? []) {
+      byId.set(row.room_assignment_id, {
+        room_assignment_id: row.room_assignment_id,
+        reservation_id: row.reservation_id,
+        room_id: row.room_id,
+        stay_start: row.stay_start,
+        stay_end: row.stay_end,
+      });
+    }
+  }
+
+  return [...byId.values()];
+}
+
 export async function batchRoomAssignmentChangesAction(
   changes: RoomAssignmentBatchChange[],
   force = false
@@ -348,6 +411,19 @@ export async function batchRoomAssignmentChangesAction(
   }
 
   const supabase = await createStaffClient();
+
+  // 途中経過ではなく最終状態で別グループ重複を判定（A→B 後に C→A など）
+  if (!force) {
+    const baseline = await loadBaselineForBatchConflict(supabase, changes);
+    if (hasOtherReservationConflictInFinalState(baseline, changes)) {
+      return {
+        ok: false,
+        needsConfirm: true,
+        message: SHARED_ROOM_CONFIRM_MSG,
+      };
+    }
+  }
+
   const affected = new Set<string>();
   let applied = 0;
 
@@ -365,22 +441,6 @@ export async function batchRoomAssignmentChangesAction(
         applied++;
         affected.add(ch.reservationId);
         continue;
-      }
-
-      const conflict = await checkRoomConflict(supabase, {
-        roomId: ch.toRoomId,
-        startDate: existing.stay_start,
-        endDate: existing.stay_end,
-        reservationId: existing.reservation_id,
-        excludeAssignmentId: ch.roomAssignmentId,
-      });
-
-      if (conflict.hasOtherReservationConflict && !force) {
-        return {
-          ok: false,
-          needsConfirm: true,
-          message: SHARED_ROOM_CONFIRM_MSG,
-        };
       }
 
       const { data: room } = await supabase
@@ -443,21 +503,6 @@ export async function batchRoomAssignmentChangesAction(
         affected.add(ch.reservationId);
         applied++;
         continue;
-      }
-
-      const conflict = await checkRoomConflict(supabase, {
-        roomId: p.roomId,
-        startDate: p.startDate,
-        endDate: p.endDate,
-        reservationId: p.reservationId,
-      });
-
-      if (conflict.hasOtherReservationConflict && !force) {
-        return {
-          ok: false,
-          needsConfirm: true,
-          message: SHARED_ROOM_CONFIRM_MSG,
-        };
       }
 
       const roomAssignmentId = await nextRoomAssignmentId(supabase);

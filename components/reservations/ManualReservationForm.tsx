@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { useRouter } from "next/navigation";
+import { FormCheckboxGroup } from "@/components/form/FormCheckboxGroup";
 import { FormSelectField } from "@/components/form/FormSelectField";
 import { DetailBack } from "@/components/detail/DetailBack";
 import { RoomGuestFields } from "@/components/reservations/RoomGuestFields";
@@ -162,7 +163,7 @@ export function ManualReservationForm() {
             <label htmlFor="ma-inquiry">お問い合わせ内容</label>
             <Textarea id="ma-inquiry" name="inquiry" rows={3} />
           </div>
-          <FormSelectField
+          <FormCheckboxGroup
             label="旅行の目的"
             name="travel_purpose"
             options={TRAVEL_PURPOSE_OPTIONS}

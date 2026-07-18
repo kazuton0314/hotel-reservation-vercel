@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { FormCheckboxGroup } from "@/components/form/FormCheckboxGroup";
 import { FormSelectField } from "@/components/form/FormSelectField";
 import { updateReservationAction } from "@/lib/actions/reservations";
 import { Button } from "@/components/ui/button";
@@ -218,7 +219,7 @@ export function ReservationUpdateForm(props: Props) {
           defaultValue={props.inquiry ?? ""}
         />
       </div>
-      <FormSelectField
+      <FormCheckboxGroup
         label="旅行の目的"
         name="travel_purpose"
         options={TRAVEL_PURPOSE_OPTIONS}

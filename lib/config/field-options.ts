@@ -56,6 +56,8 @@ export const TRAVEL_PURPOSE_OPTIONS = [
   "観光",
   "合宿",
   "仕事",
+  "ラフティング",
+  "体育館",
   "その他",
 ] as const;
 
@@ -108,4 +110,35 @@ export function optionsWithCurrent(
   if (!v) return [...options];
   if (options.includes(v)) return [...options];
   return [v, ...options];
+}
+
+/** 複数選択（読点・カンマ区切り）の保存値を配列に分解 */
+export function parseMultiSelectValues(
+  raw: string | null | undefined
+): string[] {
+  const text = String(raw ?? "").trim();
+  if (!text) return [];
+  const parts = text
+    .split(/[、,／/|]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return [...new Set(parts)];
+}
+
+/** 複数選択値を DB 保存用に結合（読点区切り） */
+export function joinMultiSelectValues(values: readonly string[]): string {
+  const cleaned = [
+    ...new Set(values.map((v) => String(v).trim()).filter(Boolean)),
+  ];
+  return cleaned.join("、");
+}
+
+/** 複数選択の現行値をマスタに足す */
+export function optionsWithCurrentValues(
+  options: readonly string[],
+  current: string | null | undefined
+): string[] {
+  const selected = parseMultiSelectValues(current);
+  const extra = selected.filter((v) => !options.includes(v));
+  return extra.length ? [...extra, ...options] : [...options];
 }

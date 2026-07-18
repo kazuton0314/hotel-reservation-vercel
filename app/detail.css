@@ -261,6 +261,38 @@ body.subview {
   margin-bottom: 4px;
   font-weight: 700;
 }
+.form-group-heading {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-bottom: 4px;
+  font-weight: 700;
+}
+.form-checkbox-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+}
+.form-checkbox-item {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 6px;
+  width: auto !important;
+  margin-bottom: 0 !important;
+  font-size: 0.84rem !important;
+  font-weight: 500 !important;
+  color: var(--fg) !important;
+  cursor: pointer;
+}
+.form-group .form-checkbox-group input[type="checkbox"] {
+  width: auto;
+  max-width: none;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  accent-color: var(--accent, #2563eb);
+}
 .form-group input,
 .form-group select,
 .form-group textarea {
