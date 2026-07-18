@@ -61,22 +61,38 @@ export async function backfillFormImportLog(
     reservation_id: string;
   }[];
 
+  // source_row 重複があると upsert が一括で失敗するため、後勝ちで一意化
+  const requestByRow = new Map<number, { source: "request"; source_row: number; request_id: string }>();
+  for (const row of requestLogs) {
+    requestByRow.set(row.source_row, row);
+  }
+  const uniqueRequestLogs = [...requestByRow.values()];
+
+  const studioByRow = new Map<
+    number,
+    { source: "studio"; source_row: number; reservation_id: string }
+  >();
+  for (const row of studioLogs) {
+    studioByRow.set(row.source_row, row);
+  }
+  const uniqueStudioLogs = [...studioByRow.values()];
+
   const chunkSize = 100;
-  for (let i = 0; i < requestLogs.length; i += chunkSize) {
-    const chunk = requestLogs.slice(i, i + chunkSize);
+  for (let i = 0; i < uniqueRequestLogs.length; i += chunkSize) {
+    const chunk = uniqueRequestLogs.slice(i, i + chunkSize);
     const { error } = await supabase
       .from("form_import_log")
       .upsert(chunk, { onConflict: "source,source_row" });
     if (error) throw error;
   }
 
-  for (let i = 0; i < studioLogs.length; i += chunkSize) {
-    const chunk = studioLogs.slice(i, i + chunkSize);
+  for (let i = 0; i < uniqueStudioLogs.length; i += chunkSize) {
+    const chunk = uniqueStudioLogs.slice(i, i + chunkSize);
     const { error } = await supabase
       .from("form_import_log")
       .upsert(chunk, { onConflict: "source,source_row" });
     if (error) throw error;
   }
 
-  return { request: requestLogs.length, studio: studioLogs.length };
+  return { request: uniqueRequestLogs.length, studio: uniqueStudioLogs.length };
 }

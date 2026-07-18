@@ -21,6 +21,13 @@ function summarizeImportErrors(
 
 export async function importReservationsAction(): Promise<ImportResult> {
   try {
+    if (process.env.FORM_SYNC_DISABLED === "true") {
+      return {
+        ok: false,
+        message:
+          "フォーム同期は一時停止中です（FORM_SYNC_DISABLED=true）。復旧完了後に解除してください。",
+      };
+    }
     const supabase = createAdminClient();
     const result = await syncAllForms(supabase);
     const imported = result.request.imported + result.studio.imported;

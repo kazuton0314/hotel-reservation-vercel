@@ -18,7 +18,10 @@
     "link:records": "tsx scripts/link-existing.ts",
     "rebuild:customers": "tsx scripts/rebuild-customers.ts",
     "backfill:form-import-log": "tsx scripts/backfill-form-import-log.ts",
-    "restore:requests": "tsx scripts/restore-requests-from-csv.ts"
+    "restore:requests": "tsx scripts/restore-requests-from-csv.ts",
+    "audit:bad-studio-imports": "tsx scripts/audit-bad-studio-imports.ts",
+    "recover:bad-studio-imports": "tsx scripts/recover-bad-studio-imports.ts",
+    "recover:bad-studio-imports:execute": "tsx scripts/recover-bad-studio-imports.ts --execute"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.17",

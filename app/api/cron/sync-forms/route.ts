@@ -25,6 +25,13 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    if (process.env.FORM_SYNC_DISABLED === "true") {
+      return NextResponse.json({
+        ok: false,
+        paused: true,
+        error: "フォーム同期は一時停止中です（FORM_SYNC_DISABLED=true）",
+      });
+    }
     const supabase = createAdminClient();
     const result = await syncAllForms(supabase);
     revalidateAfterCronSync();
