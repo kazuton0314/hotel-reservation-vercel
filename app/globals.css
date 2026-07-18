@@ -973,10 +973,56 @@ body.cal-month-active .main {
 }
 
 /* ----- 部屋割ボード（GAS Style.html 相当） ----- */
+/*
+  縦向きスマホでも月ナビが常に見えるよう、ページ全体を flex 固定し
+  スクロールはボード内だけにする（横向きで見える／縦で消える問題の対策）。
+*/
+body.rooms-active {
+  overflow: hidden;
+  height: 100vh;
+  height: 100dvh;
+  padding-bottom: 0;
+  display: flex;
+  flex-direction: column;
+}
+body.rooms-active .header {
+  flex-shrink: 0;
+  position: relative;
+}
 body.rooms-active .main {
   max-width: none;
-  padding-left: 8px;
-  padding-right: 8px;
+  width: 100%;
+  margin: 0;
+  padding: 8px;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+body.rooms-active .nav {
+  position: relative;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  flex-shrink: 0;
+}
+body.rooms-active .occ-page {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: 8px;
+}
+body.rooms-active .occ-nav,
+body.rooms-active #occ-edit-chrome,
+body.rooms-active .occ-legend {
+  flex-shrink: 0;
+}
+body.rooms-active .occ-board-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
 }
 
 .btn-sm {
@@ -1027,9 +1073,10 @@ body.rooms-active .main {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  margin-bottom: 10px;
+  gap: 6px;
+  margin-bottom: 0;
   flex-wrap: wrap;
+  row-gap: 6px;
 }
 .occ-nav .nav-date-picker {
   min-width: 7em;
@@ -1045,6 +1092,20 @@ body.rooms-active .main {
   border-radius: 12px;
   background: var(--card);
   -webkit-overflow-scrolling: touch;
+}
+
+/* 狭い縦画面でも月送りが押しやすいよう、ナビを折り返しつつ余白を抑える */
+@media (max-width: 480px) and (orientation: portrait) {
+  .occ-nav {
+    gap: 4px;
+  }
+  .occ-nav .btn,
+  .occ-nav button {
+    min-height: 36px;
+    min-width: 36px;
+    padding-left: 10px;
+    padding-right: 10px;
+  }
 }
 .occ-board {
   border-collapse: separate;
@@ -1391,6 +1452,13 @@ body.occ-fullscreen .main {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+body.occ-fullscreen .occ-page {
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: 0;
 }
 body.occ-fullscreen .occ-nav {
   flex-shrink: 0;

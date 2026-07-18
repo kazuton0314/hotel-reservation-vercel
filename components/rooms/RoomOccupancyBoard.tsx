@@ -348,14 +348,14 @@ export function RoomOccupancyBoard({
     displayData.month === now.getMonth() + 1;
 
   return (
-    <>
-
+    <div className="occ-page">
       <div className="occ-nav">
         <Button
           type="button"
           variant="secondary"
           size="sm"
           onClick={() => guardedNavigate(monthHref(prev.year, prev.month))}
+          aria-label="前月"
         >
           ←
         </Button>
@@ -376,6 +376,7 @@ export function RoomOccupancyBoard({
           variant="secondary"
           size="sm"
           onClick={() => guardedNavigate(monthHref(next.year, next.month))}
+          aria-label="翌月"
         >
           →
         </Button>
@@ -534,6 +535,6 @@ export function RoomOccupancyBoard({
           <span className="occ-legend-today">今日の行</span>
         ) : null}
       </div>
-    </>
+    </div>
   );
 }

@@ -30,6 +30,7 @@ export type RequestImportRecord = {
 export type ReservationImportRecord = {
   reservation_id: string;
   import_row_id: string | null;
+  import_source: string | null;
   access_key: string | null;
   status: string;
   check_in: string | null;
@@ -46,7 +47,12 @@ const REQUEST_SELECT =
   "request_id, import_row_id, access_key, status, check_in, check_out, last_name, first_name, email, phone, linked_reservation_id, reject_reason, internal_memo, reply_email_sent, reply_email_sent_at, sheet_created_at, is_archived";
 
 const RESERVATION_SELECT =
-  "reservation_id, import_row_id, access_key, status, check_in, check_out, last_name, first_name, email, phone, request_id, is_archived";
+  "reservation_id, import_row_id, import_source, access_key, status, check_in, check_out, last_name, first_name, email, phone, request_id, is_archived";
+
+/** 過去取込CSVは別スプシ由来のため、現行フォームの行番号と衝突しうる */
+export function isPastImportSource(importSource: string | null | undefined): boolean {
+  return String(importSource ?? "").trim() === "過去取込";
+}
 
 /** 取込済み判定用: アーカイブ含む全リクエスト */
 export async function loadAllRequestsForImport(
@@ -83,7 +89,12 @@ export function findReservationByImportRowId(
   sheetRow: number
 ) {
   const rowId = String(sheetRow);
-  return reservations.find((r) => r.import_row_id === rowId);
+  return reservations.find((r) => {
+    if (r.import_row_id !== rowId) return false;
+    // 過去取込は現行フォーム行番号と別空間（衝突させない）
+    if (isPastImportSource(r.import_source)) return false;
+    return true;
+  });
 }
 
 /** import_row_id 一致かつ同一人物・同一チェックインのときだけ「取込済み」 */

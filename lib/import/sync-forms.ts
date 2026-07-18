@@ -319,9 +319,13 @@ export async function importStudioFormRows(
 
   for (const row of rows) {
     // form_import_log に行番号があればスキップ（内容不一致でも再取込しない）
+    // ただし PAST-* への誤紐づけは過去取込との行番号衝突なので無視する
     if (!options.force && importLog.has(row.sheetRow)) {
-      skippedAlreadyLogged++;
-      continue;
+      const loggedId = importLog.get(row.sheetRow);
+      if (!String(loggedId ?? "").startsWith("PAST-")) {
+        skippedAlreadyLogged++;
+        continue;
+      }
     }
     if (!isStudioRowImportable(row, headers)) {
       skippedNotImportable++;

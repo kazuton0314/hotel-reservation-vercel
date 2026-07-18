@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { resolvePostLoginPath } from "@/lib/auth/post-login-path";
 
 const PUBLIC_PATHS = ["/login", "/auth/callback", "/companions"];
 
@@ -52,12 +53,16 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (user && pathname === "/login") {
-    const rawNext = request.nextUrl.searchParams.get("next") || "/";
-    const next =
-      rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/";
+    const next = resolvePostLoginPath(request.nextUrl.searchParams.get("next"));
     const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = next;
-    redirectUrl.search = "";
+    const q = next.indexOf("?");
+    if (q >= 0) {
+      redirectUrl.pathname = next.slice(0, q) || "/";
+      redirectUrl.search = next.slice(q);
+    } else {
+      redirectUrl.pathname = next;
+      redirectUrl.search = "";
+    }
     return NextResponse.redirect(redirectUrl);
   }
 

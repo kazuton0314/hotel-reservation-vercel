@@ -34,11 +34,12 @@ export function listSortDirLabel(sort: ListSort): string {
 }
 
 /**
- * 一覧の上→下の時系列イメージに合わせる:
- * 早い／古い順 = ↓（上から下へ進む）、遅い／新しい順 = ↑
+ * 各フィールドの「よく使う並び」を ↓、逆を ↑ にする。
+ * （時刻の昇順/降順ではなく、デフォルト方向との一致で矢印を決める）
+ * 例: 滞在日の早い順・受付/更新の新しい順 → いずれも ↓
  */
 export function listSortDirIcon(sort: ListSort): string {
-  return sort.dir === "asc" ? "↓" : "↑";
+  return sort.dir === defaultDirForSortField(sort.field) ? "↓" : "↑";
 }
 
 type SortableListItem = {

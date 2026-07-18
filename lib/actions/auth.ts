@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { resolvePostLoginPath } from "@/lib/auth/post-login-path";
 import { createClient } from "@/lib/supabase/server";
 
 export async function signInAction(
@@ -10,7 +11,7 @@ export async function signInAction(
 ): Promise<{ ok: false; message: string } | null> {
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
-  const next = String(formData.get("next") ?? "/").trim() || "/";
+  const next = resolvePostLoginPath(String(formData.get("next") ?? "/"));
 
   if (!email || !password) {
     return { ok: false, message: "メールアドレスとパスワードを入力してください。" };
@@ -23,7 +24,7 @@ export async function signInAction(
   }
 
   revalidatePath("/", "layout");
-  redirect(next.startsWith("/") ? next : "/");
+  redirect(next);
 }
 
 export async function signOutAction() {
