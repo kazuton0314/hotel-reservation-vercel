@@ -101,7 +101,7 @@ async function loadActiveReservationsForMatching(
   const { data, error } = await supabase
     .from("reservations")
     .select(
-      "reservation_id, import_row_id, access_key, status, check_in, check_out, last_name, first_name, email, phone, request_id, is_archived"
+      "reservation_id, import_row_id, import_source, access_key, status, check_in, check_out, last_name, first_name, email, phone, request_id, is_archived"
     )
     .eq("is_archived", false);
   if (error) throw error;
@@ -452,6 +452,7 @@ export async function importStudioFormRows(
       activeReservations.push({
         reservation_id: record.reservation_id,
         import_row_id: record.import_row_id,
+        import_source: record.import_source,
         access_key: record.access_key,
         status: "確定",
         check_in: record.check_in,
@@ -466,6 +467,7 @@ export async function importStudioFormRows(
       allReservations.push({
         reservation_id: record.reservation_id,
         import_row_id: record.import_row_id,
+        import_source: record.import_source,
         access_key: record.access_key,
         status: "確定",
         check_in: record.check_in,

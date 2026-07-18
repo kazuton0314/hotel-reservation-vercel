@@ -19,6 +19,10 @@ export const metadata: Metadata = {
   title: "みどりの時計台 予約管理",
   description: "予約台帳・リクエスト・部屋割りの管理（Supabase + Next.js）",
   manifest: "/manifest.webmanifest",
+  icons: {
+    icon: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
   appleWebApp: {
     capable: true,
     title: "時計台予約",
