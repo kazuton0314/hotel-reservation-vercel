@@ -974,14 +974,16 @@ body.cal-month-active .main {
 
 /* ----- 部屋割ボード（GAS Style.html 相当） ----- */
 /*
-  縦向きスマホでも月ナビが常に見えるよう、ページ全体を flex 固定し
-  スクロールはボード内だけにする（横向きで見える／縦で消える問題の対策）。
+  月ナビは常時表示、ボード内だけスクロール。
+  下部ナビは他画面と同じ fixed のままにし、アイコンずれを防ぐ。
 */
 body.rooms-active {
   overflow: hidden;
   height: 100vh;
   height: 100dvh;
-  padding-bottom: 0;
+  box-sizing: border-box;
+  /* fixed nav 用の余白は通常どおり維持（nav 自体は fixed のまま） */
+  padding-bottom: calc(var(--nav-h) + var(--safe-b));
   display: flex;
   flex-direction: column;
 }
@@ -1000,13 +1002,7 @@ body.rooms-active .main {
   flex-direction: column;
   overflow: hidden;
 }
-body.rooms-active .nav {
-  position: relative;
-  left: auto;
-  right: auto;
-  bottom: auto;
-  flex-shrink: 0;
-}
+/* .nav は position:fixed のまま（上書きしない） */
 body.rooms-active .occ-page {
   display: flex;
   flex-direction: column;
