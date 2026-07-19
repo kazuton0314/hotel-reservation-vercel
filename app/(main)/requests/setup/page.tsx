@@ -1,40 +1,20 @@
 import { Suspense } from "react";
-import { ListSearchBar } from "@/components/list/ListSearchBar";
-import { ListSearchProvider } from "@/components/list/ListSearchProvider";
 import { ConnectionError } from "@/components/SetupRequired";
 import { ListScopeBar } from "@/components/list/ListScopeBar";
-import { parseListScope } from "@/lib/utils/list-scope";
 import { ListStatusTabs } from "@/components/list/ListStatusTabs";
-import { RequestListFilterBar } from "@/components/list/RequestListFilterBar";
-import { RequestsListResults } from "@/components/requests/RequestsListResults";
-import { ListSetupEntryLink } from "@/components/setup/ListSetupEntryLink";
+import { RequestSetupBoard } from "@/components/setup/RequestSetupBoard";
 import { getRequests } from "@/lib/queries/requests";
+import { parseListScope } from "@/lib/utils/list-scope";
 
 type PageProps = {
   searchParams: Promise<{
     status?: string;
     scope?: string;
-    sort?: string;
-    dir?: string;
-    page?: string;
-    q?: string;
-    checkIn?: string;
   }>;
 };
 
-export default async function RequestsPage({ searchParams }: PageProps) {
+export default async function RequestsSetupPage({ searchParams }: PageProps) {
   const params = await searchParams;
-  return <RequestsContent params={params} />;
-}
-
-async function RequestsContent({
-  params,
-}: {
-  params: {
-    status?: string;
-    scope?: string;
-  };
-}) {
   const scope = parseListScope(params.scope);
   const status = params.status || "リクエスト";
 
@@ -48,16 +28,10 @@ async function RequestsContent({
   }
 
   return (
-    <>
-      <div className="list-actions-row">
+    <div className="setup-page-chrome">
+      <div className="setup-page-chrome-top">
         <Suspense fallback={null}>
-          <ListSetupEntryLink href="/requests/setup" />
-        </Suspense>
-      </div>
-      <ListScopeBar kind="request" scope={scope} />
-      <Suspense fallback={null}>
-        <ListSearchProvider>
-          <ListSearchBar />
+          <ListScopeBar kind="request" scope={scope} />
           <ListStatusTabs
             className="tabs tabs-3 request-filter-tabs"
             activeId={status}
@@ -83,14 +57,11 @@ async function RequestsContent({
               },
             ]}
           />
-          <RequestListFilterBar />
-          <Suspense
-            fallback={<div className="inline-loading">一覧を読み込み中…</div>}
-          >
-            <RequestsListResults requests={requests} scope={scope} />
-          </Suspense>
-        </ListSearchProvider>
+        </Suspense>
+      </div>
+      <Suspense fallback={<div className="inline-loading">読み込み中…</div>}>
+        <RequestSetupBoard requests={requests} />
       </Suspense>
-    </>
+    </div>
   );
 }

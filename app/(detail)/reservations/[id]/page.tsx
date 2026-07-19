@@ -105,7 +105,7 @@ async function DetailContent({
       ? `/customers/${encodeURIComponent(customer)}`
       : from === "home"
         ? "/"
-        : "/reservations";
+        : undefined;
 
   return (
     <>
@@ -117,7 +117,7 @@ async function DetailContent({
             ? "← 顧客に戻る"
             : from === "home"
               ? "← ホームに戻る"
-              : "← 本予約一覧"
+              : "← 戻る"
         }
         crumbs={[
           { label: "ホーム", href: "/" },

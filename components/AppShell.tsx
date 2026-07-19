@@ -1,12 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { RefreshButton } from "@/components/RefreshButton";
 import { SettingsMenu } from "@/components/SettingsMenu";
 import { signOutAction } from "@/lib/actions/auth";
+import {
+  defaultHrefForSection,
+  getSectionRememberedHref,
+  markHomeIntent,
+  type NavSection,
+} from "@/lib/nav/session-memory";
 
 export type NavView =
   | "dashboard"
@@ -16,13 +22,18 @@ export type NavView =
   | "list"
   | "customers";
 
-const NAV: { view: NavView; href: string; icon: string; label: string }[] = [
-  { view: "dashboard", href: "/", icon: "◉", label: "ホーム" },
-  { view: "rooms", href: "/rooms", icon: "▦", label: "部屋割" },
-  { view: "calendar", href: "/calendar", icon: "◫", label: "予定" },
-  { view: "request", href: "/requests", icon: "✉", label: "リクエスト" },
-  { view: "list", href: "/reservations", icon: "☰", label: "本予約" },
-  { view: "customers", href: "/customers", icon: "⌕", label: "顧客" },
+const NAV: {
+  view: NavView;
+  section: NavSection;
+  icon: string;
+  label: string;
+}[] = [
+  { view: "dashboard", section: "home", icon: "◉", label: "ホーム" },
+  { view: "rooms", section: "rooms", icon: "▦", label: "部屋割" },
+  { view: "calendar", section: "calendar", icon: "◫", label: "予定" },
+  { view: "request", section: "requests", icon: "✉", label: "リクエスト" },
+  { view: "list", section: "reservations", icon: "☰", label: "本予約" },
+  { view: "customers", section: "customers", icon: "⌕", label: "顧客" },
 ];
 
 function resolveActiveView(pathname: string): NavView | null {
@@ -42,6 +53,49 @@ type AppShellProps = {
   headerDate?: string;
   hideNav?: boolean;
 };
+
+function BottomNav({ activeView }: { activeView: NavView | null }) {
+  const [hrefs, setHrefs] = useState<Record<NavSection, string>>(() => ({
+    home: "/",
+    rooms: "/rooms",
+    calendar: "/calendar",
+    requests: "/requests",
+    reservations: "/reservations",
+    customers: "/customers",
+    settings: "/settings",
+  }));
+
+  useEffect(() => {
+    setHrefs({
+      home: defaultHrefForSection("home"),
+      rooms: getSectionRememberedHref("rooms"),
+      calendar: getSectionRememberedHref("calendar"),
+      requests: getSectionRememberedHref("requests"),
+      reservations: getSectionRememberedHref("reservations"),
+      customers: getSectionRememberedHref("customers"),
+      settings: getSectionRememberedHref("settings"),
+    });
+  }, [activeView]);
+
+  return (
+    <nav className="nav" id="bottom-nav">
+      {NAV.map((item) => (
+        <Link
+          key={item.view}
+          href={hrefs[item.section]}
+          prefetch
+          className={`nav-btn${activeView === item.view ? " active" : ""}`}
+          onClick={() => {
+            if (item.section === "home") markHomeIntent();
+          }}
+        >
+          <span className="ni">{item.icon}</span>
+          {item.label}
+        </Link>
+      ))}
+    </nav>
+  );
+}
 
 export function AppShell({
   children,
@@ -90,21 +144,7 @@ export function AppShell({
 
       <main className="main">{children}</main>
 
-      {!hideNav ? (
-        <nav className="nav" id="bottom-nav">
-          {NAV.map((item) => (
-            <Link
-              key={item.view}
-              href={item.href}
-              prefetch
-              className={`nav-btn${activeView === item.view ? " active" : ""}`}
-            >
-              <span className="ni">{item.icon}</span>
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-      ) : null}
+      {!hideNav ? <BottomNav activeView={activeView} /> : null}
     </>
   );
 }

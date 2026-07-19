@@ -72,7 +72,6 @@ async function RequestDetailContent({ id }: { id: string }) {
     <>
       <RealtimeRefresh tables={["reservation_requests"]} notify />
       <DetailNav
-        backHref="/requests"
         crumbs={[
           { label: "ホーム", href: "/" },
           { label: "リクエスト", href: "/requests" },

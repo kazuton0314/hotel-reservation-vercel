@@ -29,6 +29,9 @@ export type ReservationListItem = {
   meal: string | null;
   bbq: string | null;
   payment_status: string | null;
+  referral: string | null;
+  travel_purpose: string | null;
+  internal_memo: string | null;
   is_archived: boolean;
   completion_email_sent: boolean;
   day11_email_sent: boolean;
@@ -47,7 +50,14 @@ export type ReservationListItem = {
   updated_ms: number;
   updated_at: string | null;
   assigned_rooms: string;
-  assignments: { room_id: string | null; room_name: string | null }[];
+  assignments: {
+    room_assignment_id: string;
+    room_id: string | null;
+    room_name: string | null;
+    stay_start: string;
+    stay_end: string;
+    updated_at: string | null;
+  }[];
   companion_pending: boolean;
   companion_required: boolean;
   any_mail_pending: boolean;
@@ -81,7 +91,7 @@ export type ReservationFilters = {
 };
 
 const LIST_SELECT =
-  "reservation_id, representative_name, last_name, first_name, name_kana, last_name_kana, first_name_kana, group_name, phone, status, check_in, check_out, guest_total, assignment_status, channel, meal, bbq, payment_status, is_archived, completion_email_sent, day11_email_sent, day3_email_sent, companion_form_answered, email, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3, created_at, sheet_created_at, updated_at";
+  "reservation_id, representative_name, last_name, first_name, name_kana, last_name_kana, first_name_kana, group_name, phone, status, check_in, check_out, guest_total, assignment_status, channel, meal, bbq, payment_status, referral, travel_purpose, internal_memo, is_archived, completion_email_sent, day11_email_sent, day3_email_sent, companion_form_answered, email, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3, created_at, sheet_created_at, updated_at";
 
 type DbListRow = {
   reservation_id: string;
@@ -102,6 +112,9 @@ type DbListRow = {
   meal: string | null;
   bbq: string | null;
   payment_status: string | null;
+  referral: string | null;
+  travel_purpose: string | null;
+  internal_memo: string | null;
   is_archived: boolean;
   completion_email_sent: boolean;
   day11_email_sent: boolean;
@@ -130,7 +143,14 @@ function mapReservationListItem(
   row: DbListRow,
   assignmentsByReservation: Map<
     string,
-    { room_id: string | null; room_name: string | null }[]
+    {
+      room_assignment_id: string;
+      room_id: string | null;
+      room_name: string | null;
+      stay_start: string;
+      stay_end: string;
+      updated_at: string | null;
+    }[]
   >,
   refDate: Date
 ): ReservationListItem {
@@ -161,6 +181,9 @@ function mapReservationListItem(
     meal: row.meal,
     bbq: row.bbq,
     payment_status: row.payment_status,
+    referral: row.referral,
+    travel_purpose: row.travel_purpose,
+    internal_memo: row.internal_memo,
     is_archived: row.is_archived,
     completion_email_sent: row.completion_email_sent,
     day11_email_sent: row.day11_email_sent,
@@ -243,19 +266,35 @@ async function getReservationsUncached(filters: ReservationFilters = {}) {
   const ids = rows.map((r) => r.reservation_id);
   const assignmentsByReservation = new Map<
     string,
-    { room_id: string | null; room_name: string | null }[]
+    {
+      room_assignment_id: string;
+      room_id: string | null;
+      room_name: string | null;
+      stay_start: string;
+      stay_end: string;
+      updated_at: string | null;
+    }[]
   >();
 
   if (ids.length) {
     const { data: assignments } = await supabase
       .from("room_assignments")
-      .select("reservation_id, room_id, room_name")
+      .select(
+        "room_assignment_id, reservation_id, room_id, room_name, stay_start, stay_end, updated_at"
+      )
       .eq("is_archived", false)
       .in("reservation_id", ids);
 
     for (const a of assignments ?? []) {
       const list = assignmentsByReservation.get(a.reservation_id) ?? [];
-      list.push({ room_id: a.room_id, room_name: a.room_name });
+      list.push({
+        room_assignment_id: a.room_assignment_id,
+        room_id: a.room_id,
+        room_name: a.room_name,
+        stay_start: a.stay_start,
+        stay_end: a.stay_end,
+        updated_at: a.updated_at,
+      });
       assignmentsByReservation.set(a.reservation_id, list);
     }
   }
