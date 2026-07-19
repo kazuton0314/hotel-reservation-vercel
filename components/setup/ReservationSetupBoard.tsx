@@ -28,7 +28,6 @@ import {
   saveJson,
   setupDraftStorageKey,
 } from "@/lib/nav/session-memory";
-import { useRememberedScrollArea } from "@/lib/nav/use-remembered-scroll-area";
 import type { ReservationListItem } from "@/lib/queries/reservations";
 import { applyReservationListFilter } from "@/lib/services/reservation-list-filter";
 import {
@@ -76,7 +75,6 @@ export function ReservationSetupBoard({ reservations, rooms }: Props) {
   const searchParams = useSearchParams();
   const fullPath = getFullPath(pathname, searchParams);
   const draftKey = setupDraftStorageKey(fullPath);
-  const tableScrollRef = useRememberedScrollArea("setup-table-x");
   const q = searchParams.get("q") ?? undefined;
   const checkIn = searchParams.get("checkIn") ?? undefined;
   const filterField = searchParams.get("filterField") ?? undefined;
@@ -241,7 +239,7 @@ export function ReservationSetupBoard({ reservations, rooms }: Props) {
 
       <p className="setup-summary">{draftRows.length}件</p>
 
-      <div className="setup-table-wrap" ref={tableScrollRef}>
+      <div className="setup-table-wrap">
         <table className="setup-sheet">
           <thead>
             <tr>

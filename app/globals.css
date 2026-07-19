@@ -1051,12 +1051,12 @@ body.setup-active .main {
   flex-direction: column;
   gap: 8px;
   padding-bottom: 16px;
+  min-width: min-content;
 }
 .setup-page-chrome {
   flex: 1 1 auto;
   min-height: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow: auto;
   -webkit-overflow-scrolling: touch;
   display: flex;
   flex-direction: column;
@@ -1065,6 +1065,7 @@ body.setup-active .main {
 .setup-page-chrome-top {
   flex-shrink: 0;
   width: min(560px, 100%);
+  max-width: 100%;
   margin-inline: auto;
   display: flex;
   flex-direction: column;
@@ -1082,7 +1083,9 @@ body.setup-active .main {
   border: 1px solid #fde68a;
   position: sticky;
   top: 0;
-  z-index: 6;
+  z-index: 20;
+  /* 下の表行が透けて突き抜けないように */
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--border) 80%, transparent);
 }
 .setup-commit-meta {
   display: flex;
@@ -1105,12 +1108,11 @@ body.setup-active .main {
   color: var(--muted);
 }
 .setup-table-wrap {
-  overflow-x: auto;
-  overflow-y: visible;
+  /* 縦横とも親 (.setup-page-chrome) でスクロール。ネスト overflow は sticky 見出しを壊す */
+  overflow: visible;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--card);
-  -webkit-overflow-scrolling: touch;
 }
 
 /* スプシ風: 1行コンパクト・横スクロール */
@@ -1132,30 +1134,39 @@ body.setup-active .main {
   height: 32px;
   box-sizing: border-box;
 }
-.setup-sheet th {
+.setup-sheet thead th {
   position: sticky;
-  top: 52px;
-  z-index: 3;
+  top: 52px; /* 保存バー直下 */
+  z-index: 8;
   background: #eef2f0;
+  background-clip: padding-box;
   font-size: 0.68rem;
   font-weight: 700;
   color: var(--muted);
   text-align: center;
+  box-shadow: 0 1px 0 var(--border);
+}
+.setup-sheet tbody td {
+  position: relative;
+  z-index: 0;
+  background: var(--card);
 }
 .setup-sheet tr.is-dirty td {
   background: #fff8e1;
 }
+.setup-sheet tbody td.setup-sticky {
+  position: sticky;
+  z-index: 4;
+  background: var(--card);
+  background-clip: padding-box;
+}
 .setup-sheet tr.is-dirty td.setup-sticky {
   background: #fff3c4;
 }
-.setup-sticky {
-  position: sticky;
-  z-index: 2;
-  background: var(--card);
-}
-.setup-sheet thead .setup-sticky {
-  z-index: 4;
+.setup-sheet thead th.setup-sticky {
+  z-index: 12;
   background: #eef2f0;
+  background-clip: padding-box;
 }
 .setup-col-id {
   left: 0;
@@ -1302,9 +1313,13 @@ html[data-theme="dark"] .setup-commit-bar {
 html[data-theme="dark"] .setup-commit-status {
   color: #fdba74;
 }
-html[data-theme="dark"] .setup-sheet th,
-html[data-theme="dark"] .setup-sheet thead .setup-sticky {
+html[data-theme="dark"] .setup-sheet thead th,
+html[data-theme="dark"] .setup-sheet thead th.setup-sticky {
   background: #24302a;
+}
+html[data-theme="dark"] .setup-sheet tbody td,
+html[data-theme="dark"] .setup-sheet tbody td.setup-sticky {
+  background: var(--card);
 }
 html[data-theme="dark"] .setup-sheet tr.is-dirty td {
   background: #3b2f14;

@@ -16,7 +16,6 @@ import {
   saveJson,
   setupDraftStorageKey,
 } from "@/lib/nav/session-memory";
-import { useRememberedScrollArea } from "@/lib/nav/use-remembered-scroll-area";
 import type { RequestListItem } from "@/lib/queries/requests";
 import {
   computeRequestSetupChanges,
@@ -46,7 +45,6 @@ export function RequestSetupBoard({ requests }: Props) {
   const searchParams = useSearchParams();
   const fullPath = getFullPath(pathname, searchParams);
   const draftKey = setupDraftStorageKey(fullPath);
-  const tableScrollRef = useRememberedScrollArea("setup-table-x");
   const q = searchParams.get("q") ?? undefined;
   const checkIn = searchParams.get("checkIn") ?? undefined;
   const sort =
@@ -181,7 +179,7 @@ export function RequestSetupBoard({ requests }: Props) {
 
       <p className="setup-summary">{draftRows.length}件</p>
 
-      <div className="setup-table-wrap" ref={tableScrollRef}>
+      <div className="setup-table-wrap">
         <table className="setup-sheet">
           <thead>
             <tr>
