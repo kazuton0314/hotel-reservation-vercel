@@ -3,6 +3,7 @@ import { ConnectionError } from "@/components/SetupRequired";
 import { ListScopeBar } from "@/components/list/ListScopeBar";
 import { ListStatusTabs } from "@/components/list/ListStatusTabs";
 import { RequestSetupBoard } from "@/components/setup/RequestSetupBoard";
+import { SetupPageShell } from "@/components/setup/SetupPageShell";
 import { getRequests } from "@/lib/queries/requests";
 import { parseListScope } from "@/lib/utils/list-scope";
 
@@ -28,8 +29,8 @@ export default async function RequestsSetupPage({ searchParams }: PageProps) {
   }
 
   return (
-    <div className="setup-page-chrome">
-      <div className="setup-page-chrome-top">
+    <SetupPageShell
+      top={
         <Suspense fallback={null}>
           <ListScopeBar kind="request" scope={scope} />
           <ListStatusTabs
@@ -58,10 +59,11 @@ export default async function RequestsSetupPage({ searchParams }: PageProps) {
             ]}
           />
         </Suspense>
-      </div>
+      }
+    >
       <Suspense fallback={<div className="inline-loading">読み込み中…</div>}>
         <RequestSetupBoard requests={requests} />
       </Suspense>
-    </div>
+    </SetupPageShell>
   );
 }

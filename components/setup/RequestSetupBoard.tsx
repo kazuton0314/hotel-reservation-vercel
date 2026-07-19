@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { SetupCommitBar } from "@/components/setup/SetupCommitBar";
-import { Button } from "@/components/ui/button";
 import { batchUpdateRequestsSetupAction } from "@/lib/actions/setup-batch";
 import {
   optionsWithCurrent,
@@ -35,7 +34,6 @@ type Props = {
 type StoredRequestDraft = {
   sourceKey: string;
   draftRows: RequestSetupEditable[];
-  selected: string[];
 };
 
 function cloneRows(rows: RequestSetupEditable[]): RequestSetupEditable[] {
@@ -48,7 +46,7 @@ export function RequestSetupBoard({ requests }: Props) {
   const searchParams = useSearchParams();
   const fullPath = getFullPath(pathname, searchParams);
   const draftKey = setupDraftStorageKey(fullPath);
-  const tableScrollRef = useRememberedScrollArea("setup-table");
+  const tableScrollRef = useRememberedScrollArea("setup-table-x");
   const q = searchParams.get("q") ?? undefined;
   const checkIn = searchParams.get("checkIn") ?? undefined;
   const sort =
@@ -73,11 +71,8 @@ export function RequestSetupBoard({ requests }: Props) {
 
   const [baseRows, setBaseRows] = useState<RequestSetupEditable[]>([]);
   const [draftRows, setDraftRows] = useState<RequestSetupEditable[]>([]);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [committing, setCommitting] = useState(false);
   const [hydrated, setHydrated] = useState(false);
-  const [bulkStatus, setBulkStatus] = useState("");
-  const [bulkReply, setBulkReply] = useState("");
 
   useEffect(() => {
     document.body.classList.add("setup-active");
@@ -92,10 +87,8 @@ export function RequestSetupBoard({ requests }: Props) {
     const stored = loadJson<StoredRequestDraft>(draftKey);
     if (stored && stored.sourceKey === sourceKey && stored.draftRows?.length) {
       setDraftRows(cloneRows(stored.draftRows));
-      setSelected(new Set(stored.selected ?? []));
     } else {
       setDraftRows(cloneRows(next));
-      setSelected(new Set());
       if (stored) removeStorageKey(draftKey);
     }
     setHydrated(true);
@@ -126,11 +119,10 @@ export function RequestSetupBoard({ requests }: Props) {
       saveJson<StoredRequestDraft>(draftKey, {
         sourceKey,
         draftRows,
-        selected: [...selected],
       });
     }, 250);
     return () => window.clearTimeout(timer);
-  }, [hydrated, dirtyCount, draftKey, sourceKey, draftRows, selected]);
+  }, [hydrated, dirtyCount, draftKey, sourceKey, draftRows]);
 
   const updateRow = useCallback(
     (id: string, patch: Partial<RequestSetupEditable>) => {
@@ -141,50 +133,10 @@ export function RequestSetupBoard({ requests }: Props) {
     []
   );
 
-  const toggleSelect = (id: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const toggleSelectAll = () => {
-    if (selected.size === draftRows.length) {
-      setSelected(new Set());
-      return;
-    }
-    setSelected(new Set(draftRows.map((r) => r.request_id)));
-  };
-
-  const applyBulk = () => {
-    if (!selected.size) {
-      showErrorToast("行を選択してください。");
-      return;
-    }
-    if (!bulkStatus && !bulkReply) {
-      showErrorToast("一括適用する項目を選んでください。");
-      return;
-    }
-    setDraftRows((prev) =>
-      prev.map((row) => {
-        if (!selected.has(row.request_id)) return row;
-        const next = { ...row };
-        if (bulkStatus) next.status = bulkStatus;
-        if (bulkReply === "sent") next.reply_email_sent = true;
-        if (bulkReply === "unsent") next.reply_email_sent = false;
-        return next;
-      })
-    );
-    showSuccessToast(`${selected.size} 件に適用しました（まだ未保存）`);
-  };
-
   const handleDiscard = () => {
     if (dirtyCount === 0) return;
     if (!window.confirm("未保存の変更をすべて破棄しますか？")) return;
     setDraftRows(cloneRows(baseRows));
-    setSelected(new Set());
     removeStorageKey(draftKey);
   };
 
@@ -222,61 +174,17 @@ export function RequestSetupBoard({ requests }: Props) {
       <SetupCommitBar
         listHref="/requests"
         dirtyCount={dirtyCount}
-        selectedCount={selected.size}
         committing={committing}
         onDiscard={handleDiscard}
         onSave={handleSave}
       />
 
-      <div className="setup-bulk-bar">
-        <span className="setup-bulk-label">選択した行に適用</span>
-        <select
-          className="setup-cell"
-          value={bulkStatus}
-          onChange={(e) => setBulkStatus(e.target.value)}
-          aria-label="一括ステータス"
-        >
-          <option value="">ステータス…</option>
-          {REQUEST_STATUS_EDIT_OPTIONS.map((opt) => (
-            <option key={opt} value={opt}>
-              {opt}
-            </option>
-          ))}
-        </select>
-        <select
-          className="setup-cell"
-          value={bulkReply}
-          onChange={(e) => setBulkReply(e.target.value)}
-          aria-label="一括返信メール"
-        >
-          <option value="">返信メール…</option>
-          <option value="sent">済にする</option>
-          <option value="unsent">未にする</option>
-        </select>
-        <Button type="button" size="sm" variant="secondary" onClick={applyBulk}>
-          適用
-        </Button>
-      </div>
-
-      <p className="setup-summary">
-        {draftRows.length} 件表示 ／ 各セルを直接編集 ／ 人数は参照のみ ／
-        承認時の仮予約作成は詳細から
-      </p>
+      <p className="setup-summary">{draftRows.length}件</p>
 
       <div className="setup-table-wrap" ref={tableScrollRef}>
         <table className="setup-sheet">
           <thead>
             <tr>
-              <th className="setup-sticky setup-col-check">
-                <input
-                  type="checkbox"
-                  checked={
-                    draftRows.length > 0 && selected.size === draftRows.length
-                  }
-                  onChange={toggleSelectAll}
-                  aria-label="すべて選択"
-                />
-              </th>
               <th className="setup-sticky setup-col-id">リクエストID</th>
               <th className="setup-sticky setup-col-name">氏名</th>
               <th>希望日</th>
@@ -289,7 +197,7 @@ export function RequestSetupBoard({ requests }: Props) {
           <tbody>
             {draftRows.length === 0 ? (
               <tr>
-                <td colSpan={8} className="setup-empty">
+                <td colSpan={7} className="setup-empty">
                   対象のリクエストがありません
                 </td>
               </tr>
@@ -301,14 +209,6 @@ export function RequestSetupBoard({ requests }: Props) {
                     key={row.request_id}
                     className={dirty ? "is-dirty" : undefined}
                   >
-                    <td className="setup-sticky setup-col-check">
-                      <input
-                        type="checkbox"
-                        checked={selected.has(row.request_id)}
-                        onChange={() => toggleSelect(row.request_id)}
-                        aria-label={`${row.request_id} を選択`}
-                      />
-                    </td>
                     <td className="setup-sticky setup-col-id">
                       <Link href={`/requests/${row.request_id}`}>
                         {row.request_id}

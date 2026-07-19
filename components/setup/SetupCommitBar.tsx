@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 type Props = {
   listHref: string;
   dirtyCount: number;
-  selectedCount: number;
   committing: boolean;
   onDiscard: () => void;
   onSave: () => void;
@@ -16,7 +15,6 @@ type Props = {
 export function SetupCommitBar({
   listHref,
   dirtyCount,
-  selectedCount,
   committing,
   onDiscard,
   onSave,
@@ -37,7 +35,6 @@ export function SetupCommitBar({
             : dirtyCount > 0
               ? `未保存の変更 ${dirtyCount} 件`
               : "変更なし"}
-          {selectedCount > 0 ? ` ／ 選択 ${selectedCount} 件` : ""}
         </p>
       </div>
       <div className="setup-commit-actions">

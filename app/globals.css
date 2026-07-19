@@ -1049,15 +1049,17 @@ body.setup-active .main {
 .setup-page {
   display: flex;
   flex-direction: column;
-  flex: 1 1 auto;
-  min-height: 0;
   gap: 8px;
+  padding-bottom: 16px;
 }
 .setup-page-chrome {
-  display: flex;
-  flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
   gap: 6px;
 }
 .setup-page-chrome-top {
@@ -1067,10 +1069,6 @@ body.setup-active .main {
   display: flex;
   flex-direction: column;
   gap: 6px;
-}
-.setup-page-chrome .setup-page {
-  flex: 1 1 auto;
-  min-height: 0;
 }
 .setup-commit-bar {
   display: flex;
@@ -1082,7 +1080,9 @@ body.setup-active .main {
   border-radius: 12px;
   background: var(--surface-warn);
   border: 1px solid #fde68a;
-  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 6;
 }
 .setup-commit-meta {
   display: flex;
@@ -1099,35 +1099,14 @@ body.setup-active .main {
   display: flex;
   gap: 8px;
 }
-.setup-bulk-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  padding: 8px 10px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--card);
-  flex-shrink: 0;
-}
-.setup-bulk-label {
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: var(--muted);
-}
-.setup-bulk-rooms {
-  min-width: 140px;
-}
 .setup-summary {
   margin: 0;
   font-size: 0.72rem;
   color: var(--muted);
-  flex-shrink: 0;
 }
 .setup-table-wrap {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: visible;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--card);
@@ -1155,7 +1134,7 @@ body.setup-active .main {
 }
 .setup-sheet th {
   position: sticky;
-  top: 0;
+  top: 52px;
   z-index: 3;
   background: #eef2f0;
   font-size: 0.68rem;
@@ -1178,14 +1157,8 @@ body.setup-active .main {
   z-index: 4;
   background: #eef2f0;
 }
-.setup-col-check {
-  left: 0;
-  width: 28px;
-  min-width: 28px;
-  text-align: center;
-}
 .setup-col-id {
-  left: 28px;
+  left: 0;
   min-width: 7.5rem;
   font-weight: 600;
 }
@@ -1195,7 +1168,7 @@ body.setup-active .main {
   text-underline-offset: 2px;
 }
 .setup-col-name {
-  left: calc(28px + 7.5rem);
+  left: 7.5rem;
   min-width: 6.5rem;
   max-width: 8rem;
   overflow: hidden;

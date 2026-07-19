@@ -3,6 +3,7 @@ import { ConnectionError } from "@/components/SetupRequired";
 import { ListScopeBar } from "@/components/list/ListScopeBar";
 import { ListStatusTabs } from "@/components/list/ListStatusTabs";
 import { ReservationSetupBoard } from "@/components/setup/ReservationSetupBoard";
+import { SetupPageShell } from "@/components/setup/SetupPageShell";
 import { getReservations } from "@/lib/queries/reservations";
 import { getRooms } from "@/lib/queries/rooms";
 import { parseListScope } from "@/lib/utils/list-scope";
@@ -47,8 +48,8 @@ export default async function ReservationsSetupPage({ searchParams }: PageProps)
   }
 
   return (
-    <div className="setup-page-chrome">
-      <div className="setup-page-chrome-top">
+    <SetupPageShell
+      top={
         <Suspense fallback={null}>
           <ListScopeBar kind="reservation" scope={scope} />
           <ListStatusTabs
@@ -77,7 +78,8 @@ export default async function ReservationsSetupPage({ searchParams }: PageProps)
             ]}
           />
         </Suspense>
-      </div>
+      }
+    >
       <Suspense fallback={<div className="inline-loading">読み込み中…</div>}>
         <ReservationSetupBoard
           reservations={reservations}
@@ -87,6 +89,6 @@ export default async function ReservationsSetupPage({ searchParams }: PageProps)
           }))}
         />
       </Suspense>
-    </div>
+    </SetupPageShell>
   );
 }

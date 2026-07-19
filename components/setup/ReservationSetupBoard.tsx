@@ -9,7 +9,6 @@ import {
   type SetupRoomOption,
 } from "@/components/setup/SetupRoomPicker";
 import { SetupMultiCheckPicker } from "@/components/setup/SetupMultiCheckPicker";
-import { Button } from "@/components/ui/button";
 import { batchRoomAssignmentChangesAction } from "@/lib/actions/room-assignments";
 import { batchUpdateReservationsSetupAction } from "@/lib/actions/setup-batch";
 import {
@@ -51,7 +50,6 @@ type Props = {
 type StoredReservationDraft = {
   sourceKey: string;
   draftRows: ReservationSetupEditable[];
-  selected: string[];
 };
 
 const GUEST_COLS = [
@@ -78,7 +76,7 @@ export function ReservationSetupBoard({ reservations, rooms }: Props) {
   const searchParams = useSearchParams();
   const fullPath = getFullPath(pathname, searchParams);
   const draftKey = setupDraftStorageKey(fullPath);
-  const tableScrollRef = useRememberedScrollArea("setup-table");
+  const tableScrollRef = useRememberedScrollArea("setup-table-x");
   const q = searchParams.get("q") ?? undefined;
   const checkIn = searchParams.get("checkIn") ?? undefined;
   const filterField = searchParams.get("filterField") ?? undefined;
@@ -114,24 +112,8 @@ export function ReservationSetupBoard({ reservations, rooms }: Props) {
 
   const [baseRows, setBaseRows] = useState<ReservationSetupEditable[]>([]);
   const [draftRows, setDraftRows] = useState<ReservationSetupEditable[]>([]);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [committing, setCommitting] = useState(false);
   const [hydrated, setHydrated] = useState(false);
-
-  const [bulkStatus, setBulkStatus] = useState("");
-  const [bulkReferral, setBulkReferral] = useState("");
-  const [bulkPayment, setBulkPayment] = useState("");
-  const [bulkTravelPurpose, setBulkTravelPurpose] = useState<string[]>([]);
-  const [bulkRooms, setBulkRooms] = useState<string[]>([]);
-
-  const travelPurposeOptions = useMemo(
-    () =>
-      TRAVEL_PURPOSE_OPTIONS.map((v) => ({
-        value: v,
-        label: v,
-      })),
-    []
-  );
 
   useEffect(() => {
     document.body.classList.add("setup-active");
@@ -147,10 +129,8 @@ export function ReservationSetupBoard({ reservations, rooms }: Props) {
     const stored = loadJson<StoredReservationDraft>(draftKey);
     if (stored && stored.sourceKey === sourceKey && stored.draftRows?.length) {
       setDraftRows(cloneRows(stored.draftRows));
-      setSelected(new Set(stored.selected ?? []));
     } else {
       setDraftRows(cloneRows(next));
-      setSelected(new Set());
       if (stored) removeStorageKey(draftKey);
     }
     setHydrated(true);
@@ -172,11 +152,10 @@ export function ReservationSetupBoard({ reservations, rooms }: Props) {
       saveJson<StoredReservationDraft>(draftKey, {
         sourceKey,
         draftRows,
-        selected: [...selected],
       });
     }, 250);
     return () => window.clearTimeout(timer);
-  }, [hydrated, dirtyCount, draftKey, sourceKey, draftRows, selected]);
+  }, [hydrated, dirtyCount, draftKey, sourceKey, draftRows]);
 
   const updateRow = useCallback(
     (id: string, patch: Partial<ReservationSetupEditable>) => {
@@ -189,60 +168,10 @@ export function ReservationSetupBoard({ reservations, rooms }: Props) {
     []
   );
 
-  const toggleSelect = (id: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const toggleSelectAll = () => {
-    if (selected.size === draftRows.length) {
-      setSelected(new Set());
-      return;
-    }
-    setSelected(new Set(draftRows.map((r) => r.reservation_id)));
-  };
-
-  const applyBulk = () => {
-    if (!selected.size) {
-      showErrorToast("行を選択してください。");
-      return;
-    }
-    const hasField =
-      bulkStatus ||
-      bulkReferral ||
-      bulkPayment ||
-      bulkTravelPurpose.length > 0 ||
-      bulkRooms.length > 0;
-    if (!hasField) {
-      showErrorToast("一括適用する項目を選んでください。");
-      return;
-    }
-    setDraftRows((prev) =>
-      prev.map((row) => {
-        if (!selected.has(row.reservation_id)) return row;
-        const next = { ...row };
-        if (bulkStatus) next.status = bulkStatus;
-        if (bulkReferral) next.referral = bulkReferral;
-        if (bulkPayment) next.payment_status = bulkPayment;
-        if (bulkTravelPurpose.length > 0) {
-          next.travel_purpose = joinMultiSelectValues(bulkTravelPurpose);
-        }
-        if (bulkRooms.length > 0) next.room_ids = [...bulkRooms];
-        return next;
-      })
-    );
-    showSuccessToast(`${selected.size} 件に適用しました（まだ未保存）`);
-  };
-
   const handleDiscard = () => {
     if (dirtyCount === 0) return;
     if (!window.confirm("未保存の変更をすべて破棄しますか？")) return;
     setDraftRows(cloneRows(baseRows));
-    setSelected(new Set());
     removeStorageKey(draftKey);
   };
 
@@ -305,92 +234,17 @@ export function ReservationSetupBoard({ reservations, rooms }: Props) {
       <SetupCommitBar
         listHref="/reservations"
         dirtyCount={dirtyCount}
-        selectedCount={selected.size}
         committing={committing}
         onDiscard={handleDiscard}
         onSave={handleSave}
       />
 
-      <div className="setup-bulk-bar">
-        <span className="setup-bulk-label">選択した行に適用</span>
-        <select
-          className="setup-cell"
-          value={bulkStatus}
-          onChange={(e) => setBulkStatus(e.target.value)}
-          aria-label="一括ステータス"
-        >
-          <option value="">ステータス…</option>
-          {RESERVATION_STATUS_OPTIONS.map((opt) => (
-            <option key={opt} value={opt}>
-              {opt}
-            </option>
-          ))}
-        </select>
-        <select
-          className="setup-cell"
-          value={bulkReferral}
-          onChange={(e) => setBulkReferral(e.target.value)}
-          aria-label="一括きっかけ"
-        >
-          <option value="">きっかけ…</option>
-          {REFERRAL_OPTIONS.map((opt) => (
-            <option key={opt} value={opt}>
-              {opt}
-            </option>
-          ))}
-        </select>
-        <select
-          className="setup-cell"
-          value={bulkPayment}
-          onChange={(e) => setBulkPayment(e.target.value)}
-          aria-label="一括支払"
-        >
-          <option value="">支払…</option>
-          {PAYMENT_STATUS_OPTIONS.map((opt) => (
-            <option key={opt} value={opt}>
-              {opt}
-            </option>
-          ))}
-        </select>
-        <div className="setup-bulk-rooms">
-          <SetupMultiCheckPicker
-            options={travelPurposeOptions}
-            value={bulkTravelPurpose}
-            onChange={setBulkTravelPurpose}
-            emptyLabel="旅行の目的…"
-          />
-        </div>
-        <div className="setup-bulk-rooms">
-          <SetupRoomPicker
-            rooms={rooms}
-            value={bulkRooms}
-            onChange={setBulkRooms}
-          />
-        </div>
-        <Button type="button" size="sm" variant="secondary" onClick={applyBulk}>
-          適用
-        </Button>
-      </div>
-
-      <p className="setup-summary">
-        {draftRows.length} 件表示 ／ 各セルを直接編集できます ／ 横スクロール可
-        ／ 保存するまでDBへは反映されません
-      </p>
+      <p className="setup-summary">{draftRows.length}件</p>
 
       <div className="setup-table-wrap" ref={tableScrollRef}>
         <table className="setup-sheet">
           <thead>
             <tr>
-              <th className="setup-sticky setup-col-check">
-                <input
-                  type="checkbox"
-                  checked={
-                    draftRows.length > 0 && selected.size === draftRows.length
-                  }
-                  onChange={toggleSelectAll}
-                  aria-label="すべて選択"
-                />
-              </th>
               <th className="setup-sticky setup-col-id">予約ID</th>
               <th className="setup-sticky setup-col-name">氏名</th>
               <th>CI</th>
@@ -411,7 +265,7 @@ export function ReservationSetupBoard({ reservations, rooms }: Props) {
           <tbody>
             {draftRows.length === 0 ? (
               <tr>
-                <td colSpan={19} className="setup-empty">
+                <td colSpan={17} className="setup-empty">
                   対象の本予約がありません
                 </td>
               </tr>
@@ -423,14 +277,6 @@ export function ReservationSetupBoard({ reservations, rooms }: Props) {
                     key={row.reservation_id}
                     className={dirty ? "is-dirty" : undefined}
                   >
-                    <td className="setup-sticky setup-col-check">
-                      <input
-                        type="checkbox"
-                        checked={selected.has(row.reservation_id)}
-                        onChange={() => toggleSelect(row.reservation_id)}
-                        aria-label={`${row.reservation_id} を選択`}
-                      />
-                    </td>
                     <td className="setup-sticky setup-col-id">
                       <Link href={`/reservations/${row.reservation_id}`}>
                         {row.reservation_id}
