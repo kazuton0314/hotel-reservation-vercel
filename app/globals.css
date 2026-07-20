@@ -1046,14 +1046,27 @@ body.setup-active .main {
   flex-direction: column;
   overflow: hidden;
 }
+.setup-page-chrome {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+/* 絞り込み退避後も表エリアが画面高を埋める → 表内スクロールで thead sticky が効く */
 .setup-page {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding-bottom: 16px;
   width: 100%;
   min-width: 0;
-  --setup-toolbar-offset: 4.75rem;
+  height: 100%;
+  min-height: 100%;
+  box-sizing: border-box;
+  padding-bottom: 8px;
 }
 .setup-page-toolbar {
   position: sticky;
@@ -1067,15 +1080,6 @@ body.setup-active .main {
   gap: 4px;
   padding-bottom: 4px;
   background: var(--bg);
-}
-.setup-page-chrome {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: auto;
-  -webkit-overflow-scrolling: touch;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
 }
 .setup-page-chrome-top {
   flex-shrink: 0;
@@ -1131,10 +1135,12 @@ body.setup-active .main {
   color: var(--muted);
 }
 .setup-table-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
   width: 100%;
   max-width: 100%;
-  overflow-x: auto;
-  overflow-y: visible;
+  /* 縦・横ともここでスクロール → thead sticky が同じ容器で効く */
+  overflow: auto;
   -webkit-overflow-scrolling: touch;
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -1162,8 +1168,8 @@ body.setup-active .main {
 }
 .setup-sheet thead th {
   position: sticky;
-  top: var(--setup-toolbar-offset);
-  z-index: 8;
+  top: 0;
+  z-index: 10;
   background: #eef2f0;
   background-clip: padding-box;
   font-size: 0.68rem;
@@ -1190,9 +1196,12 @@ body.setup-active .main {
   background: #fff3c4;
 }
 .setup-sheet thead th.setup-sticky {
-  z-index: 12;
+  z-index: 14;
   background: #eef2f0;
   background-clip: padding-box;
+  box-shadow:
+    0 1px 0 var(--border),
+    2px 0 4px rgba(0, 0, 0, 0.04);
 }
 .setup-col-id {
   left: 0;
