@@ -24,6 +24,7 @@ import {
 } from "@/lib/services/setup-diff";
 import { filterListBySearch } from "@/lib/utils/list-search";
 import { parseListSort, sortListItems } from "@/lib/utils/list-sort";
+import { markLocalDataMutation } from "@/lib/utils/local-mutation";
 import { showErrorToast, showSuccessToast } from "@/lib/utils/toast";
 
 type Props = {
@@ -147,6 +148,7 @@ export function RequestSetupBoard({ requests }: Props) {
       return;
     }
     setCommitting(true);
+    markLocalDataMutation(30_000);
     try {
       const result = await batchUpdateRequestsSetupAction(changes);
       if (!result.ok) {
@@ -169,15 +171,16 @@ export function RequestSetupBoard({ requests }: Props) {
 
   return (
     <div className="setup-page">
-      <SetupCommitBar
-        listHref="/requests"
-        dirtyCount={dirtyCount}
-        committing={committing}
-        onDiscard={handleDiscard}
-        onSave={handleSave}
-      />
-
-      <p className="setup-summary">{draftRows.length}件</p>
+      <div className="setup-page-toolbar">
+        <SetupCommitBar
+          listHref="/requests"
+          dirtyCount={dirtyCount}
+          committing={committing}
+          onDiscard={handleDiscard}
+          onSave={handleSave}
+        />
+        <p className="setup-summary">{draftRows.length}件</p>
+      </div>
 
       <div className="setup-table-wrap">
         <table className="setup-sheet">

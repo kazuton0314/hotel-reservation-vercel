@@ -341,6 +341,11 @@ export async function quickReservationStatusAction(
     };
   }
 
+  after(async () => {
+    const admin = createAdminClient();
+    await syncReservationToGCal(admin, reservationId);
+  });
+
   revalidateReservationDetail(reservationId);
   return {
     ok: true,

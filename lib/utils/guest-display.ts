@@ -1,3 +1,8 @@
+import {
+  classifyGuestTotal,
+  normalizeGuestBreakdownForStorage,
+} from "@/lib/utils/guest-count-format";
+
 type GuestSource = {
   guest_total?: string | null;
   adult_male?: string | null;
@@ -8,14 +13,11 @@ type GuestSource = {
   under_3?: string | null;
 };
 
-function guestFieldText(value: unknown): string {
-  if (value === null || value === undefined) return "";
-  return String(value).trim();
-}
-
 function guestFieldNumber(value: unknown): number {
-  const s = guestFieldText(value);
-  return s !== "" && /^\d+$/.test(s) ? Number(s) : 0;
+  const normalized = normalizeGuestBreakdownForStorage(
+    value == null ? null : String(value)
+  );
+  return normalized && /^\d+$/.test(normalized) ? Number(normalized) : 0;
 }
 
 /** 「4人」「5人～6人」などから先頭の数字だけ取り出す */
@@ -26,13 +28,22 @@ export function parseGuestCountFromText(value: string | null | undefined): numbe
 }
 
 function formatGuestBreakdownPart(prefix: string, value: unknown): string {
-  const n = parseInt(String(value ?? ""), 10);
-  return !Number.isNaN(n) && n > 0 ? `${prefix}${n}` : "";
+  const n = guestFieldNumber(value);
+  return n > 0 ? `${prefix}${n}` : "";
 }
 
-/** GAS formatGuestCompact_ 相当 */
+/** 表示用の合計人数。確定値は半角数字のみ、不定は原文 */
+export function formatGuestTotalLabel(
+  guestTotal: string | null | undefined
+): string {
+  const classified = classifyGuestTotal(guestTotal);
+  if (classified.kind === "empty") return "";
+  return classified.stored ?? "";
+}
+
+/** GAS formatGuestCompact_ 相当（確定合計は半角数字に正規化） */
 export function formatGuestCompact(source: GuestSource): string {
-  const totalText = guestFieldText(source.guest_total);
+  const totalText = formatGuestTotalLabel(source.guest_total);
   const parts = [
     formatGuestBreakdownPart("男", source.adult_male),
     formatGuestBreakdownPart("女", source.adult_female),
@@ -49,6 +60,10 @@ export function formatGuestCompact(source: GuestSource): string {
 }
 
 export function effectiveGuestCountForCompanion(source: GuestSource): number {
+  const classified = classifyGuestTotal(source.guest_total);
+  if (classified.kind === "definite" && classified.stored) {
+    return Number(classified.stored);
+  }
   const fromTotal = parseGuestCountFromText(source.guest_total);
   if (fromTotal > 0) return fromTotal;
   return (

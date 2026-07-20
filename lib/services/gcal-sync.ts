@@ -101,9 +101,7 @@ function buildGCalEventDescription(
 ): string {
   const guestStr = formatGuestCompact(row);
   const lines: string[] = [];
-  lines.push(
-    `人数: ${guestStr && guestStr !== "—" ? guestStr : row.guest_total || "不明"}`
-  );
+  lines.push(`人数: ${guestStr && guestStr !== "—" ? guestStr : "不明"}`);
   lines.push(`部屋割: ${roomNames}`);
   if (row.arrival_time) lines.push(`到着: ${row.arrival_time}`);
   if (row.meal) lines.push(`食事: ${row.meal}`);
@@ -145,7 +143,76 @@ async function loadRoomNames(
   return formatAssignedRoomsLabel(data ?? []);
 }
 
+/** キャンセル予約の GCal イベント削除（ID がある場合＋説明文の予約ID検索） */
+async function removeCancelledReservationFromGCal(
+  calendar: ReturnType<typeof createCalendarClient>,
+  calendarId: string,
+  row: ReservationRow
+): Promise<{ clearedDb: boolean; error?: string }> {
+  const ids = new Set<string>();
+  if (row.gcal_event_id) ids.add(row.gcal_event_id);
+
+  // gcal_event_id 欠落や ID ずれの取り残しを、説明文の「予約ID: xxx」で拾う
+  if (row.check_in && row.check_out) {
+    try {
+      const listed = await calendar.events.list({
+        calendarId,
+        timeMin: `${row.check_in}T00:00:00Z`,
+        timeMax: `${row.check_out}T00:00:00Z`,
+        singleEvents: true,
+        maxResults: 50,
+      });
+      const needle = `予約ID: ${row.reservation_id}`;
+      for (const ev of listed.data.items ?? []) {
+        const desc = String(ev.description ?? "");
+        if (ev.id && desc.includes(needle)) ids.add(ev.id);
+      }
+    } catch (e) {
+      return {
+        clearedDb: false,
+        error: e instanceof Error ? e.message : String(e),
+      };
+    }
+  }
+
+  for (const eventId of ids) {
+    try {
+      await calendar.events.delete({ calendarId, eventId });
+    } catch {
+      /* 既に削除済み */
+    }
+  }
+
+  return { clearedDb: ids.size > 0 };
+}
+
+/** 同一予約の同期を直列化（古い after が新しい結果を上書きしないようにする） */
+const syncChains = new Map<string, Promise<unknown>>();
+
 export async function syncReservationToGCal(
+  supabase: SupabaseClient,
+  reservationId: string
+): Promise<{ ok: boolean; skipped?: boolean; error?: string }> {
+  const prev = syncChains.get(reservationId) ?? Promise.resolve();
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const chained = prev.then(() => gate);
+  syncChains.set(reservationId, chained);
+
+  try {
+    await prev.catch(() => undefined);
+    return await syncReservationToGCalUnlocked(supabase, reservationId);
+  } finally {
+    release();
+    if (syncChains.get(reservationId) === chained) {
+      syncChains.delete(reservationId);
+    }
+  }
+}
+
+async function syncReservationToGCalUnlocked(
   supabase: SupabaseClient,
   reservationId: string
 ): Promise<{ ok: boolean; skipped?: boolean; error?: string }> {
@@ -166,19 +233,32 @@ export async function syncReservationToGCal(
   const calendar = createCalendarClient();
 
   if (!isGCalTarget(row)) {
-    if (shouldRemoveFromGCal(row) && row.gcal_event_id) {
-      try {
-        await calendar.events.delete({
-          calendarId,
-          eventId: row.gcal_event_id,
-        });
-      } catch {
-        /* 既に削除済み */
+    // キャンセル等: 紐づくイベントを削除。ID 欠落時は説明文の予約IDで救済検索
+    if (shouldRemoveFromGCal(row)) {
+      const removed = await removeCancelledReservationFromGCal(
+        calendar,
+        calendarId,
+        row as ReservationRow
+      );
+      if (removed.error) return { ok: false, error: removed.error };
+      if (row.gcal_event_id || removed.clearedDb) {
+        // 作業中にステータスが戻っていたらクリアしない
+        const { data: latest } = await supabase
+          .from("reservations")
+          .select("status")
+          .eq("reservation_id", reservationId)
+          .maybeSingle();
+        if (latest && shouldRemoveFromGCal(latest)) {
+          await supabase
+            .from("reservations")
+            .update({
+              gcal_event_id: null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("reservation_id", reservationId)
+            .eq("status", "キャンセル");
+        }
       }
-      await supabase
-        .from("reservations")
-        .update({ gcal_event_id: null, updated_at: new Date().toISOString() })
-        .eq("reservation_id", reservationId);
     }
     return { ok: true, skipped: true };
   }
@@ -205,13 +285,48 @@ export async function syncReservationToGCal(
     });
     const eventId = created.data.id;
     if (eventId) {
+      // insert 後にキャンセル等へ変わっていたら、作ったイベントを捨てて書き戻さない
+      const { data: latest } = await supabase
+        .from("reservations")
+        .select("status")
+        .eq("reservation_id", reservationId)
+        .maybeSingle();
+      if (!latest || !isGCalTarget(latest)) {
+        try {
+          await calendar.events.delete({ calendarId, eventId });
+        } catch {
+          /* ignore */
+        }
+        if (latest && shouldRemoveFromGCal(latest)) {
+          await removeCancelledReservationFromGCal(
+            calendar,
+            calendarId,
+            {
+              ...(row as ReservationRow),
+              status: latest.status,
+              gcal_event_id: null,
+            }
+          );
+          await supabase
+            .from("reservations")
+            .update({
+              gcal_event_id: null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("reservation_id", reservationId)
+            .eq("status", "キャンセル");
+        }
+        return { ok: true, skipped: true };
+      }
+
       await supabase
         .from("reservations")
         .update({
           gcal_event_id: eventId,
           updated_at: new Date().toISOString(),
         })
-        .eq("reservation_id", reservationId);
+        .eq("reservation_id", reservationId)
+        .in("status", ["仮予約", "確定"]);
     }
     return { ok: true };
   } catch (e) {

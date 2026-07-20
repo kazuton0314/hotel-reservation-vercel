@@ -168,18 +168,18 @@ export async function batchUpdateReservationsSetupAction(
       }
     }
 
-    if (p.status !== undefined) {
-      gcalIds.push(change.reservationId);
-    }
+    // タイトル・説明に出る項目（人数・ステータス・メモ等）は GCal へ反映
+    gcalIds.push(change.reservationId);
 
     revalidateReservationDetail(change.reservationId);
     updated += 1;
   }
 
   if (gcalIds.length) {
+    const uniqueIds = [...new Set(gcalIds)];
     after(async () => {
       const admin = createAdminClient();
-      for (const id of gcalIds) {
+      for (const id of uniqueIds) {
         await syncReservationToGCal(admin, id);
       }
     });

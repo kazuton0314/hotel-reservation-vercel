@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { isLocalDataMutationActive } from "@/lib/utils/local-mutation";
 import { showInfoToast } from "@/lib/utils/toast";
 
 type Props = {
@@ -18,7 +19,7 @@ export function RealtimeRefresh({
 }: Props) {
   const router = useRouter();
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const notified = useRef(false);
+  const notifiedUntil = useRef(0);
 
   useEffect(() => {
     const supabase = createClient();
@@ -26,16 +27,16 @@ export function RealtimeRefresh({
 
     const scheduleRefresh = () => {
       if (timer.current) clearTimeout(timer.current);
+      // 一括保存の複数 UPDATE をまとめて 1 回の refresh / 通知にする
       timer.current = setTimeout(() => {
         router.refresh();
-        if (notify && !notified.current) {
-          notified.current = true;
-          showInfoToast(`${label}が更新されました`);
-          setTimeout(() => {
-            notified.current = false;
-          }, 8000);
-        }
-      }, 600);
+        if (!notify) return;
+        if (isLocalDataMutationActive()) return;
+        const now = Date.now();
+        if (now < notifiedUntil.current) return;
+        notifiedUntil.current = now + 30_000;
+        showInfoToast(`${label}が更新されました`);
+      }, 1200);
     };
 
     for (const table of tables) {

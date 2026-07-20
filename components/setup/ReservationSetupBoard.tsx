@@ -39,6 +39,7 @@ import {
 } from "@/lib/services/setup-diff";
 import { filterListBySearch } from "@/lib/utils/list-search";
 import { parseListSort, sortListItems } from "@/lib/utils/list-sort";
+import { markLocalDataMutation } from "@/lib/utils/local-mutation";
 import { showErrorToast, showSuccessToast } from "@/lib/utils/toast";
 
 type Props = {
@@ -187,6 +188,7 @@ export function ReservationSetupBoard({ reservations, rooms }: Props) {
     }
 
     setCommitting(true);
+    markLocalDataMutation(30_000);
     try {
       if (fieldChanges.length) {
         const result = await batchUpdateReservationsSetupAction(fieldChanges);
@@ -229,15 +231,16 @@ export function ReservationSetupBoard({ reservations, rooms }: Props) {
 
   return (
     <div className="setup-page">
-      <SetupCommitBar
-        listHref="/reservations"
-        dirtyCount={dirtyCount}
-        committing={committing}
-        onDiscard={handleDiscard}
-        onSave={handleSave}
-      />
-
-      <p className="setup-summary">{draftRows.length}件</p>
+      <div className="setup-page-toolbar">
+        <SetupCommitBar
+          listHref="/reservations"
+          dirtyCount={dirtyCount}
+          committing={committing}
+          onDiscard={handleDiscard}
+          onSave={handleSave}
+        />
+        <p className="setup-summary">{draftRows.length}件</p>
+      </div>
 
       <div className="setup-table-wrap">
         <table className="setup-sheet">
