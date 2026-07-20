@@ -1,5 +1,9 @@
 import type { MailKindStatus } from "@/lib/utils/mail-kind-status";
 import { CONTACT_LABELS } from "@/lib/config/contact-confirm-labels";
+import {
+  isApprovedRequestStatus,
+  isRejectedRequestStatus,
+} from "@/lib/domain/request-status";
 
 /**
  * タスクチップの表示思想（一覧・ホーム・詳細で共通）
@@ -83,14 +87,16 @@ export function mailKindChipState(
   return { state: "skip", title: st.reason || `${label}は対象外です` };
 }
 
-const REQUEST_CONFIRM_STATUSES = new Set(["承認済", "却下", "本予約連携済"]);
+function isRequestWorkflowSettled(status: string): boolean {
+  return isApprovedRequestStatus(status) || isRejectedRequestStatus(status);
+}
 
 /** リクエスト一覧の確認チップ（本予約のメール種別チップと同じ位置づけ） */
 export function requestConfirmChipState(
   status: string,
   confirmed: boolean
 ): { state: TaskChipState; title: string } | null {
-  if (!REQUEST_CONFIRM_STATUSES.has(status)) return null;
+  if (!isRequestWorkflowSettled(status)) return null;
 
   if (confirmed) {
     return { state: "done", title: CONTACT_LABELS.requestDoneTitle };

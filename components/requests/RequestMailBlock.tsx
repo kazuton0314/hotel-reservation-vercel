@@ -5,6 +5,7 @@ import { updateRequestReplyMailAction } from "@/lib/actions/requests";
 import { MailComposeModal } from "@/components/mail/MailComposeModal";
 import { Button } from "@/components/ui/button";
 import { CONTACT_LABELS } from "@/lib/config/contact-confirm-labels";
+import { normalizeRequestStatus } from "@/lib/domain/request-status";
 import type { MailEntityContext } from "@/lib/services/mail-placeholders";
 
 type Props = {
@@ -37,12 +38,7 @@ export function RequestMailBlock({
     initialState
   );
 
-  if (
-    status !== "リクエスト" &&
-    status !== "承認済" &&
-    status !== "却下" &&
-    status !== "本予約連携済"
-  ) {
+  if (!normalizeRequestStatus(status)) {
     return null;
   }
 

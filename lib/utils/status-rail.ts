@@ -66,7 +66,6 @@ export const RESERVATION_STATUS_RAIL_BRANCH: StatusRailStep = {
   label: "キャンセル",
 };
 
-/** 本予約連携済は承認済レール上に表示 */
-export function normalizeRequestStatusForRail(status: string): string {
-  return status === "本予約連携済" ? "承認済" : status;
-}
+/** レール表示用（domain の displayRequestStatus に委譲） */
+export { displayRequestStatus as normalizeRequestStatusForRail } from "@/lib/domain/request-status";
+

@@ -1,5 +1,9 @@
 import { unstable_cache } from "next/cache";
 import { CACHE_TAGS } from "@/lib/cache/tags";
+import {
+  displayRequestStatus,
+  REQUEST_WORKFLOW_STATUSES,
+} from "@/lib/domain/request-status";
 import { createReadClient } from "@/lib/supabase/read";
 import { todayIso } from "@/lib/utils/date-label";
 
@@ -33,12 +37,8 @@ export type RequestListFilters = {
   scope?: "upcoming" | "archive" | "past";
 };
 
-export const REQUEST_STATUS_OPTIONS = [
-  "リクエスト",
-  "承認済",
-  "却下",
-  "本予約連携済",
-] as const;
+/** @deprecated domain/request-status の REQUEST_WORKFLOW_STATUSES を使う */
+export const REQUEST_STATUS_OPTIONS = REQUEST_WORKFLOW_STATUSES;
 
 export async function getRequests(filters: RequestListFilters = {}) {
   const key = JSON.stringify(filters);
@@ -76,10 +76,9 @@ async function getRequestsUncached(filters: RequestListFilters = {}) {
   }) as RequestListItem[];
 
   if (filters.status) {
-    requests = requests.filter((r) => {
-      const s = r.status === "本予約連携済" ? "承認済" : r.status;
-      return s === filters.status;
-    });
+    requests = requests.filter(
+      (r) => displayRequestStatus(r.status) === filters.status
+    );
   }
 
   return {
@@ -140,7 +139,7 @@ export async function getRequestStats() {
       .from("reservation_requests")
       .select("request_id", { count: "exact", head: true })
       .eq("is_archived", false)
-      .eq("status", "本予約連携済"),
+      .not("linked_reservation_id", "is", null),
   ]);
 
   return {
@@ -148,6 +147,7 @@ export async function getRequestStats() {
     pendingCount: pending.count ?? 0,
     approvedCount: approved.count ?? 0,
     rejectedCount: rejected.count ?? 0,
+    /** 本予約リンクあり（status ではなく linked_reservation_id） */
     linkedCount: linked.count ?? 0,
   };
 }

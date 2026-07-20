@@ -18,6 +18,7 @@ import {
   headerIndex,
 } from "@/lib/import/parsers";
 import type { SheetRow } from "@/lib/sheets/client";
+import { normalizeGuestTotalForStorage } from "@/lib/utils/guest-count-format";
 
 export type RequestInsert = {
   request_id: string;
@@ -122,7 +123,7 @@ export function mapRequestFormRow(
     check_in: formatDateIso(checkIn),
     check_out: checkOut ? formatDateIso(checkOut) : null,
     nights: calculateNights(checkIn, checkOut),
-    guest_total: asTextField(g(v, idx, "人数")) || null,
+    guest_total: normalizeGuestTotalForStorage(asTextField(g(v, idx, "人数"))),
     inquiry: asTextField(g(v, idx, "お問い合わせ内容")) || null,
     linked_reservation_id: null,
     reject_reason: null,
@@ -187,7 +188,7 @@ export function mapRequestCsvRow(
     check_in: checkIn,
     check_out: checkOutParsed ? formatDateIso(checkOutParsed) : null,
     nights: Number(record["泊数"]) || 0,
-    guest_total: asTextField(record["宿泊人数"]) || null,
+    guest_total: normalizeGuestTotalForStorage(asTextField(record["宿泊人数"])),
     inquiry: asTextField(record["お問い合わせ内容"]) || null,
     linked_reservation_id: asTextField(record["連携予約ID"]) || null,
     reject_reason: asTextField(record["却下理由"]) || null,
@@ -237,7 +238,7 @@ export function mapRequestDbExportRow(
     check_in: checkIn.slice(0, 10),
     check_out: asTextField(record["check_out"]).slice(0, 10) || null,
     nights: Number(record["nights"]) || 0,
-    guest_total: asTextField(record["guest_total"]) || null,
+    guest_total: normalizeGuestTotalForStorage(asTextField(record["guest_total"])),
     inquiry: asTextField(record["inquiry"]) || null,
     linked_reservation_id: asTextField(record["linked_reservation_id"]) || null,
     reject_reason: asTextField(record["reject_reason"]) || null,

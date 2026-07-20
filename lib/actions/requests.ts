@@ -5,22 +5,51 @@ import {
   revalidateReservationDetail,
   revalidateReservationsList,
 } from "@/lib/cache/revalidate";
-import { createStaffClient } from "@/lib/supabase/server";
-import { REQUEST_STATUS_OPTIONS } from "@/lib/queries/requests";
+import {
+  normalizeRequestStatus,
+  REQUEST_WORKFLOW_STATUSES,
+} from "@/lib/domain/request-status";
+import {
+  applyRequestLinkAfterStatusChange,
+  linkRequestToReservation,
+  statusAllowsProvisional,
+  unlinkRequestFromReservation,
+} from "@/lib/services/request-reservation-link";
 import {
   createProvisionalForRequest,
   deleteLinkedProvisionalIfAny,
 } from "@/lib/actions/request-provisional";
+import { createStaffClient } from "@/lib/supabase/server";
 import { updateRowWithLock } from "@/lib/utils/optimistic-lock";
 
 type UpdateResult = { ok: true } | { ok: false; message: string; conflict?: boolean };
+
+function revalidateRequestPaths(requestId: string, reservationId?: string | null) {
+  revalidateRequestDetail(requestId);
+  revalidateReservationsList();
+  if (reservationId) {
+    revalidateReservationDetail(reservationId);
+  }
+}
+
+async function loadRequest(requestId: string) {
+  const supabase = await createStaffClient();
+  const { data, error } = await supabase
+    .from("reservation_requests")
+    .select("*")
+    .eq("request_id", requestId)
+    .maybeSingle();
+  if (error) return { error: error.message, current: null };
+  if (!data) return { error: "対象リクエストが見つかりません。", current: null };
+  return { error: null, current: data };
+}
 
 export async function updateRequestAction(
   _prevState: UpdateResult,
   formData: FormData
 ): Promise<UpdateResult> {
   const requestId = String(formData.get("request_id") ?? "").trim();
-  const status = String(formData.get("status") ?? "").trim();
+  const rawStatus = String(formData.get("status") ?? "").trim();
   const internalMemo = String(formData.get("internal_memo") ?? "").trim();
   const linkedReservationId = String(
     formData.get("linked_reservation_id") ?? ""
@@ -30,7 +59,8 @@ export async function updateRequestAction(
     return { ok: false, message: "リクエストIDが不足しています。" };
   }
 
-  if (!REQUEST_STATUS_OPTIONS.includes(status as (typeof REQUEST_STATUS_OPTIONS)[number])) {
+  const status = normalizeRequestStatus(rawStatus);
+  if (!status) {
     return { ok: false, message: "ステータスが不正です。" };
   }
 
@@ -48,36 +78,33 @@ export async function updateRequestAction(
     return { ok: false, message: "対象リクエストが見つかりません。" };
   }
 
-  let nextLinkedReservationId = linkedReservationId || null;
+  const previousLinked = (current.linked_reservation_id as string | null) ?? null;
+  let nextLinked = linkedReservationId || previousLinked;
   const createProvisional = formData.get("create_provisional") === "true";
 
-  if (status === "リクエスト") {
-    nextLinkedReservationId = await deleteLinkedProvisionalIfAny(
+  if (status === "リクエスト" || status === "却下") {
+    // 差し戻し・却下: 仮予約なら削除、確定本予約ならリンク解除
+    nextLinked = await deleteLinkedProvisionalIfAny(
       supabase,
       requestId,
-      (current.linked_reservation_id as string | null) ?? nextLinkedReservationId
+      previousLinked
     );
+    if (nextLinked) {
+      nextLinked = null;
+    }
   }
 
-  if (
-    status === "承認済" &&
-    !nextLinkedReservationId &&
-    createProvisional
-  ) {
+  if (status === "承認済" && !nextLinked && createProvisional) {
     const created = await createProvisionalForRequest(supabase, current);
     if (!created.ok) return { ok: false, message: created.message };
-    nextLinkedReservationId = created.provisionalId;
+    nextLinked = created.provisionalId;
   }
 
-  // 連携済ステータスは予約ID必須
-  if (status === "本予約連携済" && !nextLinkedReservationId) {
-    return { ok: false, message: "本予約連携済にする場合は連携予約IDが必要です。" };
-  }
   const payload: Record<string, unknown> = {
     status,
     reject_reason: null,
     internal_memo: internalMemo || null,
-    linked_reservation_id: nextLinkedReservationId,
+    linked_reservation_id: nextLinked,
     updated_at: new Date().toISOString(),
   };
 
@@ -90,47 +117,16 @@ export async function updateRequestAction(
     return { ok: false, message: error.message };
   }
 
-  // 予約側にも request_id を反映
-  if (nextLinkedReservationId) {
-    const { error: reservationLinkError } = await supabase
-      .from("reservations")
-      .update({
-        request_id: requestId,
-        access_key: current.access_key || null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("reservation_id", nextLinkedReservationId);
-    if (reservationLinkError) {
-      return { ok: false, message: reservationLinkError.message };
-    }
-  }
+  const sync = await applyRequestLinkAfterStatusChange(supabase, {
+    requestId,
+    previousLinkedId: previousLinked,
+    nextLinkedId: nextLinked,
+    accessKey: (current.access_key as string | null) ?? null,
+  });
+  if (!sync.ok) return { ok: false, message: sync.message };
 
-  revalidateRequestDetail(requestId);
-  revalidateReservationsList();
-  if (nextLinkedReservationId) {
-    revalidateReservationDetail(nextLinkedReservationId);
-  }
+  revalidateRequestPaths(requestId, nextLinked ?? previousLinked);
   return { ok: true };
-}
-
-async function loadRequest(requestId: string) {
-  const supabase = await createStaffClient();
-  const { data, error } = await supabase
-    .from("reservation_requests")
-    .select("*")
-    .eq("request_id", requestId)
-    .maybeSingle();
-  if (error) return { error: error.message, current: null };
-  if (!data) return { error: "対象リクエストが見つかりません。", current: null };
-  return { error: null, current: data };
-}
-
-function revalidateRequestPaths(requestId: string, reservationId?: string | null) {
-  revalidateRequestDetail(requestId);
-  revalidateReservationsList();
-  if (reservationId) {
-    revalidateReservationDetail(reservationId);
-  }
 }
 
 export async function quickRequestStatusAction(
@@ -138,12 +134,13 @@ export async function quickRequestStatusAction(
   formData: FormData
 ): Promise<UpdateResult> {
   const requestId = String(formData.get("request_id") ?? "").trim();
-  const status = String(formData.get("status") ?? "").trim();
+  const rawStatus = String(formData.get("status") ?? "").trim();
   const expectedUpdatedAt =
     String(formData.get("expected_updated_at") ?? "").trim() || null;
 
   if (!requestId) return { ok: false, message: "リクエストIDが不足しています。" };
-  if (!REQUEST_STATUS_OPTIONS.includes(status as (typeof REQUEST_STATUS_OPTIONS)[number])) {
+  const status = normalizeRequestStatus(rawStatus);
+  if (!status || !(REQUEST_WORKFLOW_STATUSES as readonly string[]).includes(status)) {
     return { ok: false, message: "ステータスが不正です。" };
   }
 
@@ -153,14 +150,16 @@ export async function quickRequestStatusAction(
   if (loadError || !current) return { ok: false, message: loadError || "不明なエラー" };
 
   const supabase = await createStaffClient();
-  let nextLinked = current.linked_reservation_id as string | null;
+  const previousLinked = (current.linked_reservation_id as string | null) ?? null;
+  let nextLinked = previousLinked;
 
-  if (status === "リクエスト") {
+  if (status === "リクエスト" || status === "却下") {
     nextLinked = await deleteLinkedProvisionalIfAny(
       supabase,
       requestId,
-      nextLinked
+      previousLinked
     );
+    if (nextLinked) nextLinked = null;
   }
 
   if (status === "承認済" && !nextLinked && createProvisional) {
@@ -175,9 +174,6 @@ export async function quickRequestStatusAction(
     linked_reservation_id: nextLinked,
     updated_at: new Date().toISOString(),
   };
-  if (status === "リクエスト") {
-    payload.reject_reason = null;
-  }
 
   const updateResult = await updateRowWithLock<Record<string, unknown>>({
     supabase,
@@ -195,19 +191,15 @@ export async function quickRequestStatusAction(
     };
   }
 
-  if (nextLinked) {
-    const { error: linkError } = await supabase
-      .from("reservations")
-      .update({
-        request_id: requestId,
-        access_key: current.access_key || null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("reservation_id", nextLinked);
-    if (linkError) return { ok: false, message: linkError.message };
-  }
+  const sync = await applyRequestLinkAfterStatusChange(supabase, {
+    requestId,
+    previousLinkedId: previousLinked,
+    nextLinkedId: nextLinked,
+    accessKey: (current.access_key as string | null) ?? null,
+  });
+  if (!sync.ok) return { ok: false, message: sync.message };
 
-  revalidateRequestPaths(requestId, nextLinked);
+  revalidateRequestPaths(requestId, nextLinked ?? previousLinked);
   return { ok: true };
 }
 
@@ -221,29 +213,38 @@ export async function createProvisionalFromRequestAction(
   const { current, error: loadError } = await loadRequest(requestId);
   if (loadError || !current) return { ok: false, message: loadError || "不明なエラー" };
 
-  const status = String(current.status ?? "");
-  if (status !== "承認済" && status !== "本予約連携済") {
+  if (!statusAllowsProvisional(String(current.status ?? ""))) {
     return { ok: false, message: "仮予約を作成できるのは承認済のリクエストのみです。" };
   }
   if (current.linked_reservation_id) {
     return { ok: false, message: "仮予約は既に作成済みです。" };
   }
 
-  const provisionalId = String(current.request_id);
   const supabase = await createStaffClient();
   const created = await createProvisionalForRequest(supabase, current);
   if (!created.ok) return { ok: false, message: created.message };
 
+  const previousLinked = null;
+  const nextLinked = created.provisionalId;
   const { error } = await supabase
     .from("reservation_requests")
     .update({
-      linked_reservation_id: provisionalId,
+      linked_reservation_id: nextLinked,
+      status: "承認済",
       updated_at: new Date().toISOString(),
     })
     .eq("request_id", requestId);
   if (error) return { ok: false, message: error.message };
 
-  revalidateRequestPaths(requestId, provisionalId);
+  const sync = await applyRequestLinkAfterStatusChange(supabase, {
+    requestId,
+    previousLinkedId: previousLinked,
+    nextLinkedId: nextLinked,
+    accessKey: (current.access_key as string | null) ?? null,
+  });
+  if (!sync.ok) return { ok: false, message: sync.message };
+
+  revalidateRequestPaths(requestId, nextLinked);
   return { ok: true };
 }
 
@@ -262,14 +263,12 @@ export async function unlinkRequestReservationAction(
 
   const linkedId = String(current.linked_reservation_id);
   const supabase = await createStaffClient();
-  const { error } = await supabase
-    .from("reservation_requests")
-    .update({
-      linked_reservation_id: null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("request_id", requestId);
-  if (error) return { ok: false, message: error.message };
+  const result = await unlinkRequestFromReservation(supabase, {
+    requestId,
+    linkedReservationId: linkedId,
+    keepStatus: "承認済",
+  });
+  if (!result.ok) return { ok: false, message: result.message };
 
   revalidateRequestPaths(requestId, linkedId);
   return { ok: true };
@@ -289,38 +288,14 @@ export async function linkRequestReservationAction(
   if (loadError || !current) return { ok: false, message: loadError || "不明なエラー" };
 
   const supabase = await createStaffClient();
-  const { data: reservation, error: resError } = await supabase
-    .from("reservations")
-    .select("reservation_id")
-    .eq("reservation_id", reservationId)
-    .maybeSingle();
-  if (resError) return { ok: false, message: resError.message };
-  if (!reservation) return { ok: false, message: "指定の本予約が見つかりません。" };
-
-  const nextStatus =
-    current.status === "リクエスト" || current.status === "却下"
-      ? "本予約連携済"
-      : String(current.status ?? "本予約連携済");
-
-  const { error } = await supabase
-    .from("reservation_requests")
-    .update({
-      status: nextStatus,
-      linked_reservation_id: reservationId,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("request_id", requestId);
-  if (error) return { ok: false, message: error.message };
-
-  const { error: linkError } = await supabase
-    .from("reservations")
-    .update({
-      request_id: requestId,
-      access_key: current.access_key || null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("reservation_id", reservationId);
-  if (linkError) return { ok: false, message: linkError.message };
+  const result = await linkRequestToReservation(supabase, {
+    requestId,
+    reservationId,
+    accessKey: (current.access_key as string | null) ?? null,
+    currentStatus: String(current.status ?? ""),
+    currentLinkedId: (current.linked_reservation_id as string | null) ?? null,
+  });
+  if (!result.ok) return { ok: false, message: result.message };
 
   revalidateRequestPaths(requestId, reservationId);
   return { ok: true };

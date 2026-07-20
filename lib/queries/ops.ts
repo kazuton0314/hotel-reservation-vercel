@@ -1,14 +1,38 @@
 import { createReadClient } from "@/lib/supabase/read";
-import { isRequestOpenForLink } from "@/lib/import/match-utils";
+import {
+  contactMatches,
+  isRequestNeedingLink,
+  nameMatches,
+  stayMatches,
+} from "@/lib/import/match-utils";
 import { customerMergeScore, requestReservationMatchScore } from "@/lib/services/matching-score";
+
+export type LinkCandidateSide = {
+  id: string;
+  name: string | null;
+  status: string | null;
+  checkIn: string | null;
+  checkOut: string | null;
+  guestTotal: string | null;
+};
 
 export type LinkCandidate = {
   requestId: string;
   reservationId: string;
   score: number;
+  /** @deprecated use request.name */
   requestName: string | null;
+  /** @deprecated use reservation.name */
   reservationName: string | null;
+  /** @deprecated use request.checkIn */
   checkIn: string | null;
+  request: LinkCandidateSide;
+  reservation: LinkCandidateSide;
+  scoreParts: {
+    name: boolean;
+    contact: boolean;
+    stay: boolean;
+  };
 };
 
 export async function getRequestReservationLinkCandidates(limit = 80) {
@@ -16,33 +40,64 @@ export async function getRequestReservationLinkCandidates(limit = 80) {
   const [reqRes, resRes] = await Promise.all([
     supabase
       .from("reservation_requests")
-      .select("request_id,status,linked_reservation_id,last_name,first_name,email,phone,check_in,check_out,representative_name")
+      .select(
+        "request_id,status,linked_reservation_id,last_name,first_name,email,phone,check_in,check_out,representative_name,guest_total"
+      )
       .eq("is_archived", false),
     supabase
       .from("reservations")
-      .select("reservation_id,status,request_id,last_name,first_name,email,phone,check_in,check_out,representative_name")
+      .select(
+        "reservation_id,status,request_id,last_name,first_name,email,phone,check_in,check_out,representative_name,guest_total"
+      )
       .eq("is_archived", false),
   ]);
   if (reqRes.error) return { candidates: [] as LinkCandidate[], error: reqRes.error.message };
   if (resRes.error) return { candidates: [] as LinkCandidate[], error: resRes.error.message };
 
-  const requests = (reqRes.data ?? []).filter((r) => isRequestOpenForLink(r.status) && !r.linked_reservation_id);
-  const reservations = (resRes.data ?? []).filter((r) => !r.request_id && r.status !== "キャンセル");
+  const requests = (reqRes.data ?? []).filter((r) =>
+    isRequestNeedingLink(r.status, r.linked_reservation_id)
+  );
+  const reservations = (resRes.data ?? []).filter(
+    (r) => !r.request_id && r.status !== "キャンセル"
+  );
   const out: LinkCandidate[] = [];
   for (const req of requests) {
     let best: LinkCandidate | null = null;
     for (const rsv of reservations) {
       const score = requestReservationMatchScore(req, rsv);
       if (score < 60) continue;
-      if (!best || score > best.score) {
-        best = {
-          requestId: req.request_id,
-          reservationId: rsv.reservation_id,
-          score,
-          requestName: req.representative_name,
-          reservationName: rsv.representative_name,
+      const scoreParts = {
+        name: nameMatches(req.last_name, req.first_name, rsv.last_name, rsv.first_name),
+        contact: contactMatches(req.email, req.phone, rsv.email, rsv.phone),
+        stay: stayMatches(req.check_in, req.check_out, rsv.check_in, rsv.check_out),
+      };
+      const candidate: LinkCandidate = {
+        requestId: req.request_id,
+        reservationId: rsv.reservation_id,
+        score,
+        requestName: req.representative_name,
+        reservationName: rsv.representative_name,
+        checkIn: req.check_in,
+        request: {
+          id: req.request_id,
+          name: req.representative_name,
+          status: req.status,
           checkIn: req.check_in,
-        };
+          checkOut: req.check_out,
+          guestTotal: req.guest_total != null ? String(req.guest_total) : null,
+        },
+        reservation: {
+          id: rsv.reservation_id,
+          name: rsv.representative_name,
+          status: rsv.status,
+          checkIn: rsv.check_in,
+          checkOut: rsv.check_out,
+          guestTotal: rsv.guest_total != null ? String(rsv.guest_total) : null,
+        },
+        scoreParts,
+      };
+      if (!best || score > best.score) {
+        best = candidate;
       }
     }
     if (best) out.push(best);

@@ -439,7 +439,7 @@ export async function importStudioFormRows(
         const { error: requestUpdateError } = await supabase
           .from("reservation_requests")
           .update({
-            status: "本予約連携済",
+            status: "承認済",
             linked_reservation_id: record.reservation_id,
             updated_at: new Date().toISOString(),
           })

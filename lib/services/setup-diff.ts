@@ -450,8 +450,11 @@ export function validateRequestSetupPatch(
   patch: RequestSetupPatch
 ): string | null {
   if (patch.status === undefined) return null;
-  const allowed = [...REQUEST_STATUS_EDIT_OPTIONS, "本予約連携済"] as const;
-  if (!allowed.includes(patch.status as (typeof allowed)[number])) {
+  if (
+    !REQUEST_STATUS_EDIT_OPTIONS.includes(
+      patch.status as (typeof REQUEST_STATUS_EDIT_OPTIONS)[number]
+    )
+  ) {
     return "ステータスが不正です。";
   }
   return null;

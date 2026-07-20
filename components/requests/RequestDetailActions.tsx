@@ -12,6 +12,7 @@ import {
 import { LinkReservationPicker } from "@/components/requests/LinkReservationPicker";
 import { RequestApproveDialog } from "@/components/requests/RequestApproveDialog";
 import { Button } from "@/components/ui/button";
+import { isApprovedRequestStatus } from "@/lib/domain/request-status";
 import { showErrorToast, showSuccessToast } from "@/lib/utils/toast";
 
 type LinkCandidate = {
@@ -66,9 +67,9 @@ export function RequestDetailActions({
     null;
 
   const showLinkedActions =
-    (status === "承認済" || status === "本予約連携済") && linkedReservationId;
+    isApprovedRequestStatus(status) && Boolean(linkedReservationId);
   const showApprovedNoLink =
-    (status === "承認済" || status === "本予約連携済") && !linkedReservationId;
+    isApprovedRequestStatus(status) && !linkedReservationId;
 
   function submitQuick(nextStatus: string, createProvisional = false) {
     startQuick(async () => {

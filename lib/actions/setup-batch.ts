@@ -14,9 +14,15 @@ import {
 } from "@/lib/services/setup-diff";
 import { deleteLinkedProvisionalIfAny } from "@/lib/actions/request-provisional";
 import { syncReservationToGCal } from "@/lib/services/gcal-sync";
+import { applyRequestLinkAfterStatusChange } from "@/lib/services/request-reservation-link";
 import { syncRoomAssignmentGuestBreakdown } from "@/lib/services/room-assignment-guest-sync";
 import { createAdminClient, createStaffClient } from "@/lib/supabase/server";
 import { updateRowWithLock } from "@/lib/utils/optimistic-lock";
+import {
+  normalizeGuestBreakdownForStorage,
+  normalizeGuestTotalForStorage,
+} from "@/lib/utils/guest-count-format";
+import { normalizeRequestStatus } from "@/lib/domain/request-status";
 
 export type SetupBatchResult =
   | {
@@ -66,17 +72,27 @@ export async function batchUpdateReservationsSetupAction(
     const dbPatch: Record<string, unknown> = { updated_at: nowIso };
 
     if (p.status !== undefined) dbPatch.status = p.status;
-    if (p.guest_total !== undefined) dbPatch.guest_total = p.guest_total || null;
-    if (p.adult_male !== undefined) dbPatch.adult_male = p.adult_male || null;
+    if (p.guest_total !== undefined) {
+      dbPatch.guest_total = normalizeGuestTotalForStorage(p.guest_total);
+    }
+    if (p.adult_male !== undefined) {
+      dbPatch.adult_male = normalizeGuestBreakdownForStorage(p.adult_male);
+    }
     if (p.adult_female !== undefined) {
-      dbPatch.adult_female = p.adult_female || null;
+      dbPatch.adult_female = normalizeGuestBreakdownForStorage(p.adult_female);
     }
-    if (p.boy_student !== undefined) dbPatch.boy_student = p.boy_student || null;
+    if (p.boy_student !== undefined) {
+      dbPatch.boy_student = normalizeGuestBreakdownForStorage(p.boy_student);
+    }
     if (p.girl_student !== undefined) {
-      dbPatch.girl_student = p.girl_student || null;
+      dbPatch.girl_student = normalizeGuestBreakdownForStorage(p.girl_student);
     }
-    if (p.age_3plus !== undefined) dbPatch.age_3plus = p.age_3plus || null;
-    if (p.under_3 !== undefined) dbPatch.under_3 = p.under_3 || null;
+    if (p.age_3plus !== undefined) {
+      dbPatch.age_3plus = normalizeGuestBreakdownForStorage(p.age_3plus);
+    }
+    if (p.under_3 !== undefined) {
+      dbPatch.under_3 = normalizeGuestBreakdownForStorage(p.under_3);
+    }
     if (p.referral !== undefined) dbPatch.referral = p.referral || null;
     if (p.travel_purpose !== undefined) {
       dbPatch.travel_purpose = p.travel_purpose || null;
@@ -216,25 +232,25 @@ export async function batchUpdateRequestsSetupAction(
     const p = change.patch;
     const dbPatch: Record<string, unknown> = { updated_at: nowIso };
 
-    let nextLinked = current.linked_reservation_id as string | null;
+    const previousLinked = current.linked_reservation_id as string | null;
+    let nextLinked = previousLinked;
 
     if (p.status !== undefined) {
-      // 一覧設定では仮予約の自動作成はしない。戻すときだけ連携解除。
-      if (p.status === "リクエスト") {
+      const status = normalizeRequestStatus(p.status);
+      if (!status) {
+        failures.push({ id: change.requestId, message: "ステータスが不正です。" });
+        continue;
+      }
+      // 一覧設定では仮予約の自動作成はしない。差し戻し時はリンク解除。
+      if (status === "リクエスト" || status === "却下") {
         nextLinked = await deleteLinkedProvisionalIfAny(
           supabase,
           change.requestId,
-          nextLinked
+          previousLinked
         );
+        if (nextLinked) nextLinked = null;
       }
-      if (p.status === "本予約連携済" && !nextLinked) {
-        failures.push({
-          id: change.requestId,
-          message: "本予約連携済にする場合は連携予約IDが必要です。",
-        });
-        continue;
-      }
-      dbPatch.status = p.status;
+      dbPatch.status = status;
       dbPatch.linked_reservation_id = nextLinked;
       dbPatch.reject_reason = null;
     }
@@ -262,10 +278,23 @@ export async function batchUpdateRequestsSetupAction(
       continue;
     }
 
+    if (p.status !== undefined) {
+      const sync = await applyRequestLinkAfterStatusChange(supabase, {
+        requestId: change.requestId,
+        previousLinkedId: previousLinked,
+        nextLinkedId: nextLinked,
+        accessKey: (current.access_key as string | null) ?? null,
+      });
+      if (!sync.ok) {
+        failures.push({ id: change.requestId, message: sync.message });
+        continue;
+      }
+    }
+
     revalidateRequestDetail(change.requestId);
     revalidateReservationsList();
-    if (nextLinked) {
-      revalidateReservationDetail(nextLinked);
+    if (nextLinked || previousLinked) {
+      revalidateReservationDetail(nextLinked ?? previousLinked!);
     }
     updated += 1;
   }

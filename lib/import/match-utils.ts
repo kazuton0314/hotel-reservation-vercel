@@ -153,6 +153,8 @@ export function bookingEntryMatchesForLink(
   return contactMatches(a.email, a.phone, b.email, b.phone);
 }
 
-export function isRequestOpenForLink(status: string) {
-  return status === "リクエスト" || status === "承認済";
-}
+export {
+  isRequestNeedingLink,
+  isRequestOpenForLink,
+} from "@/lib/domain/request-status";
+

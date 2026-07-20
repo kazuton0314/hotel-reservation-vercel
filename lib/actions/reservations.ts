@@ -26,6 +26,10 @@ import { generateAccessKey } from "@/lib/utils/access-key";
 import { updateRowWithLock } from "@/lib/utils/optimistic-lock";
 import { syncReservationToGCal } from "@/lib/services/gcal-sync";
 import { syncRoomAssignmentGuestBreakdown } from "@/lib/services/room-assignment-guest-sync";
+import {
+  normalizeGuestBreakdownForStorage,
+  normalizeGuestTotalForStorage,
+} from "@/lib/utils/guest-count-format";
 
 type ActionResult =
   | { ok: true; reservationId?: string; updatedAt?: string }
@@ -122,17 +126,27 @@ export async function updateReservationAction(
     city,
     address_line: addressLine,
     address: buildAddress(postalCode, prefecture, city, addressLine),
-    guest_total: String(formData.get("guest_total") ?? current.guest_total ?? ""),
-    adult_male: String(formData.get("adult_male") ?? current.adult_male ?? ""),
-    adult_female: String(
-      formData.get("adult_female") ?? current.adult_female ?? ""
+    guest_total: normalizeGuestTotalForStorage(
+      String(formData.get("guest_total") ?? current.guest_total ?? "")
     ),
-    boy_student: String(formData.get("boy_student") ?? current.boy_student ?? ""),
-    girl_student: String(
-      formData.get("girl_student") ?? current.girl_student ?? ""
+    adult_male: normalizeGuestBreakdownForStorage(
+      String(formData.get("adult_male") ?? current.adult_male ?? "")
     ),
-    age_3plus: String(formData.get("age_3plus") ?? current.age_3plus ?? ""),
-    under_3: String(formData.get("under_3") ?? current.under_3 ?? ""),
+    adult_female: normalizeGuestBreakdownForStorage(
+      String(formData.get("adult_female") ?? current.adult_female ?? "")
+    ),
+    boy_student: normalizeGuestBreakdownForStorage(
+      String(formData.get("boy_student") ?? current.boy_student ?? "")
+    ),
+    girl_student: normalizeGuestBreakdownForStorage(
+      String(formData.get("girl_student") ?? current.girl_student ?? "")
+    ),
+    age_3plus: normalizeGuestBreakdownForStorage(
+      String(formData.get("age_3plus") ?? current.age_3plus ?? "")
+    ),
+    under_3: normalizeGuestBreakdownForStorage(
+      String(formData.get("under_3") ?? current.under_3 ?? "")
+    ),
     arrival_time: String(
       formData.get("arrival_time") ?? current.arrival_time ?? ""
     ),
@@ -402,13 +416,27 @@ export async function createManualReservationAction(
     check_in: checkIn.toISOString().slice(0, 10),
     check_out: checkOut.toISOString().slice(0, 10),
     nights: calculateNights(checkIn, checkOut),
-    guest_total: String(formData.get("guest_total") ?? "").trim() || null,
-    adult_male: String(formData.get("adult_male") ?? "").trim() || null,
-    adult_female: String(formData.get("adult_female") ?? "").trim() || null,
-    boy_student: String(formData.get("boy_student") ?? "").trim() || null,
-    girl_student: String(formData.get("girl_student") ?? "").trim() || null,
-    age_3plus: String(formData.get("age_3plus") ?? "").trim() || null,
-    under_3: String(formData.get("under_3") ?? "").trim() || null,
+    guest_total: normalizeGuestTotalForStorage(
+      String(formData.get("guest_total") ?? "")
+    ),
+    adult_male: normalizeGuestBreakdownForStorage(
+      String(formData.get("adult_male") ?? "")
+    ),
+    adult_female: normalizeGuestBreakdownForStorage(
+      String(formData.get("adult_female") ?? "")
+    ),
+    boy_student: normalizeGuestBreakdownForStorage(
+      String(formData.get("boy_student") ?? "")
+    ),
+    girl_student: normalizeGuestBreakdownForStorage(
+      String(formData.get("girl_student") ?? "")
+    ),
+    age_3plus: normalizeGuestBreakdownForStorage(
+      String(formData.get("age_3plus") ?? "")
+    ),
+    under_3: normalizeGuestBreakdownForStorage(
+      String(formData.get("under_3") ?? "")
+    ),
     arrival_time: String(formData.get("arrival_time") ?? "").trim() || null,
     transport: String(formData.get("transport") ?? "").trim() || null,
     vehicle_count: String(formData.get("vehicle_count") ?? "").trim() || null,

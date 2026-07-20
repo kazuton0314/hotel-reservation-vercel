@@ -149,6 +149,7 @@ export async function recoverBadStudioImports(
         .from("reservation_requests")
         .update({
           linked_reservation_id: null,
+          status: "承認済",
           updated_at: new Date().toISOString(),
         })
         .eq("request_id", req.request_id);

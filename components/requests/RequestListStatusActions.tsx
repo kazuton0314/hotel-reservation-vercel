@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { quickRequestStatusAction } from "@/lib/actions/requests";
 import { RequestApproveDialog } from "@/components/requests/RequestApproveDialog";
 import { Button } from "@/components/ui/button";
+import { displayRequestStatus, isApprovedRequestStatus } from "@/lib/domain/request-status";
 import { showErrorToast, showSuccessToast } from "@/lib/utils/toast";
 
 type Props = {
@@ -14,13 +15,13 @@ type Props = {
 };
 
 function statusBadge(status: string) {
+  const display = displayRequestStatus(status);
   let cls = "badge badge-status";
-  if (status === "リクエスト") cls += " badge-status-request";
-  else if (status === "承認済" || status === "本予約連携済")
+  if (display === "リクエスト") cls += " badge-status-request";
+  else if (isApprovedRequestStatus(status))
     cls += " badge-confirmed badge-status-confirmed";
-  else if (status === "却下") cls += " badge-cancelled badge-status-cancelled";
-  const label = status === "本予約連携済" ? "承認済" : status;
-  return <span className={cls}>{label}</span>;
+  else if (display === "却下") cls += " badge-cancelled badge-status-cancelled";
+  return <span className={cls}>{display}</span>;
 }
 
 /** 一覧からステータス変更（承認時は仮予約作成を確認） */

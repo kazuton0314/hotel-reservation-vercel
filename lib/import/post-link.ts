@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   bookingEntryMatchesForLink,
-  isRequestOpenForLink,
+  isRequestNeedingLink,
   MatchableRequest,
   MatchableReservation,
 } from "@/lib/import/match-utils";
@@ -57,10 +57,22 @@ export async function repairBidirectionalRequestLinks(
     }
     if (reservation.request_id === req.request_id) continue;
 
+    // 別リクエストに既に紐づいている場合は奪わない（あべこべ防止）
+    if (
+      reservation.request_id &&
+      reservation.request_id !== req.request_id
+    ) {
+      errors.push(
+        `${req.request_id}: 連携先 ${linkedId} は既に ${reservation.request_id} と紐づき済（上書きせず）`
+      );
+      continue;
+    }
+
     const { error: updateError } = await supabase
       .from("reservations")
       .update({ request_id: req.request_id, updated_at: nowIso })
-      .eq("reservation_id", linkedId);
+      .eq("reservation_id", linkedId)
+      .is("request_id", null);
 
     if (updateError) {
       errors.push(`${req.request_id}: ${updateError.message}`);
@@ -108,16 +120,11 @@ export async function repairBidirectionalRequestLinks(
       req.status === "リクエスト" || req.status === "却下";
     if (!needsLink && !needsStatus) continue;
 
-    const nextStatus =
-      req.status === "本予約連携済" || req.status === "承認済"
-        ? req.status
-        : "本予約連携済";
-
     const { error: updateError } = await supabase
       .from("reservation_requests")
       .update({
         linked_reservation_id: reservation.reservation_id,
-        status: nextStatus,
+        status: "承認済",
         updated_at: nowIso,
       })
       .eq("request_id", requestId);
@@ -159,7 +166,7 @@ export async function linkExistingRequestsAndReservations(
   let skipped = 0;
 
   for (const req of requests) {
-    if (!isRequestOpenForLink(req.status) || req.linked_reservation_id) {
+    if (!isRequestNeedingLink(req.status, req.linked_reservation_id)) {
       skipped++;
       continue;
     }
@@ -175,7 +182,7 @@ export async function linkExistingRequestsAndReservations(
       supabase
         .from("reservation_requests")
         .update({
-          status: "本予約連携済",
+          status: "承認済",
           linked_reservation_id: matched.reservation_id,
           updated_at: nowIso,
         })
@@ -221,7 +228,7 @@ export async function linkArchivedRequestsToReservations(
       .select(
         "request_id, status, linked_reservation_id, check_in, check_out, last_name, first_name, email, phone, is_archived"
       )
-      .in("status", ["承認済", "本予約連携済"]),
+      .in("status", ["承認済"]),
     supabase
       .from("reservations")
       .select(
@@ -243,7 +250,7 @@ export async function linkArchivedRequestsToReservations(
       skipped++;
       continue;
     }
-    if (req.status !== "承認済" && req.status !== "本予約連携済") {
+    if (req.status !== "承認済") {
       skipped++;
       continue;
     }
@@ -255,12 +262,11 @@ export async function linkArchivedRequestsToReservations(
     }
 
     const nowIso = new Date().toISOString();
-    const nextStatus = req.status === "承認済" ? "本予約連携済" : req.status;
     const [reqUpdate, resUpdate] = await Promise.all([
       supabase
         .from("reservation_requests")
         .update({
-          status: nextStatus,
+          status: "承認済",
           linked_reservation_id: matched.reservation_id,
           updated_at: nowIso,
         })

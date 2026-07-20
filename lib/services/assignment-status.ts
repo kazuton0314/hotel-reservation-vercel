@@ -4,6 +4,10 @@ import { DEFAULTS } from "@/lib/config/forms";
 const ASSIGNED = "割当済";
 const UNASSIGNED = DEFAULTS.assignmentStatus;
 
+/**
+ * assignment_status は room_assignments からの派生キャッシュ。
+ * 割当 CRUD のたびに必ず呼ぶ。直接書き込まず、ここに同期させる。
+ */
 export async function syncAssignmentStatus(
   supabase: SupabaseClient,
   reservationId: string

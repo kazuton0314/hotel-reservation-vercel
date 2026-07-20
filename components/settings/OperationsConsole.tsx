@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { confirmRequestReservationLinkAction } from "@/lib/actions/ops";
 import { mergeCustomersAction } from "@/lib/actions/customers";
-import type { CustomerMergeCandidate, LinkCandidate } from "@/lib/queries/ops";
+import type { CustomerMergeCandidate, LinkCandidate, LinkCandidateSide } from "@/lib/queries/ops";
 import { Button } from "@/components/ui/button";
+import { formatDisplayName } from "@/lib/utils/display-name";
 import { showErrorToast, showSuccessToast } from "@/lib/utils/toast";
 
 type Props = {
@@ -18,6 +19,47 @@ function scoreLabel(score: number) {
   if (score >= 80) return "高";
   if (score >= 70) return "中";
   return "低";
+}
+
+function stayLabel(side: LinkCandidateSide) {
+  const from = side.checkIn ?? "—";
+  const to = side.checkOut ?? "—";
+  return `${from}〜${to}`;
+}
+
+function guestLabel(side: LinkCandidateSide) {
+  const g = String(side.guestTotal ?? "").trim();
+  if (!g) return "人数—";
+  if (/^\d+$/.test(g)) return `${g}名`;
+  return g;
+}
+
+function CandidateSideCard({
+  kind,
+  side,
+  href,
+}: {
+  kind: "リクエスト" | "本予約";
+  side: LinkCandidateSide;
+  href: string;
+}) {
+  return (
+    <div>
+      <p className="settings-candidate-label">{kind}</p>
+      <p className="settings-candidate-name">
+        {formatDisplayName(side.name) || "—"}
+      </p>
+      <p className="settings-candidate-meta">
+        {side.id} / {stayLabel(side)}
+      </p>
+      <p className="settings-candidate-meta">
+        {side.status ?? "—"} · {guestLabel(side)}
+      </p>
+      <Link href={href} className="settings-link">
+        {kind}を開く
+      </Link>
+    </div>
+  );
 }
 
 export function OperationsConsole({ linkCandidates, mergeCandidates }: Props) {
@@ -71,7 +113,8 @@ export function OperationsConsole({ linkCandidates, mergeCandidates }: Props) {
           <p className="settings-section-desc">
             未連携のリクエストと本予約を照合し、同一人物の可能性が高い組を提案します。
             スコアは氏名40点・連絡先40点・宿泊日程20点（合計100点）で、60点以上を候補として表示します。
-            承認するとリクエストを「本予約連携済」にし、本予約側にも request_id を設定します。
+            承認するとリクエストを「承認済」にし、本予約側にも request_id を設定します。
+            連携の有無はステータスではなくリンク（linked_reservation_id）で管理します。
           </p>
         </div>
 
@@ -81,35 +124,40 @@ export function OperationsConsole({ linkCandidates, mergeCandidates }: Props) {
           <ul className="settings-candidate-list">
             {linkCandidates.map((c) => {
               const key = `${c.requestId}:${c.reservationId}`;
+              const parts = [
+                c.scoreParts.name ? "氏名" : null,
+                c.scoreParts.contact ? "連絡先" : null,
+                c.scoreParts.stay ? "日程" : null,
+              ].filter(Boolean);
               return (
                 <li key={key} className="settings-candidate-card">
                   <div className="settings-candidate-head">
                     <span className={`settings-score-badge score-${scoreLabel(c.score)}`}>
                       一致度 {c.score}
                     </span>
-                    <span className="settings-activity-meta">check-in {c.checkIn ?? "—"}</span>
+                    <span className="settings-activity-meta">
+                      {parts.length ? parts.join("・") : "部分一致"}
+                    </span>
                   </div>
+                  {!c.scoreParts.stay ? (
+                    <p className="settings-candidate-warning">
+                      宿泊日が一致していません。別日程の再予約の可能性があります。確認してから連携してください。
+                    </p>
+                  ) : null}
                   <div className="settings-candidate-body">
-                    <div>
-                      <p className="settings-candidate-label">リクエスト</p>
-                      <p className="settings-candidate-name">{c.requestName ?? "—"}</p>
-                      <Link href={`/requests/${encodeURIComponent(c.requestId)}`} className="settings-link">
-                        {c.requestId}
-                      </Link>
-                    </div>
+                    <CandidateSideCard
+                      kind="リクエスト"
+                      side={c.request}
+                      href={`/requests/${encodeURIComponent(c.requestId)}`}
+                    />
                     <div className="settings-candidate-arrow" aria-hidden>
                       →
                     </div>
-                    <div>
-                      <p className="settings-candidate-label">本予約</p>
-                      <p className="settings-candidate-name">{c.reservationName ?? "—"}</p>
-                      <Link
-                        href={`/reservations/${encodeURIComponent(c.reservationId)}`}
-                        className="settings-link"
-                      >
-                        {c.reservationId}
-                      </Link>
-                    </div>
+                    <CandidateSideCard
+                      kind="本予約"
+                      side={c.reservation}
+                      href={`/reservations/${encodeURIComponent(c.reservationId)}`}
+                    />
                   </div>
                   <div className="settings-candidate-actions">
                     <Button

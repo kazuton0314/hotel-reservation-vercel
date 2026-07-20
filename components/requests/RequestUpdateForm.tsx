@@ -5,6 +5,7 @@ import { updateRequestAction } from "@/lib/actions/requests";
 import { Button } from "@/components/ui/button";
 import { Select, Textarea } from "@/components/ui/input";
 import { REQUEST_STATUS_EDIT_OPTIONS } from "@/lib/config/field-options";
+import { displayRequestStatus, isApprovedRequestStatus } from "@/lib/domain/request-status";
 
 type Props = {
   requestId: string;
@@ -21,10 +22,10 @@ export function RequestUpdateForm(props: Props) {
     initialState
   );
 
-  const displayStatus =
-    props.status === "本予約連携済" ? "承認済" : props.status;
+  const displayStatus = displayRequestStatus(props.status);
+  // 承認済かつリンクありのときだけステータス変更をロック
   const isApprovedLocked =
-    props.status === "承認済" || props.status === "本予約連携済";
+    isApprovedRequestStatus(props.status) && Boolean(props.linkedReservationId);
   const [selectedStatus, setSelectedStatus] = useState(displayStatus);
   const showProvisionalOption =
     !props.linkedReservationId &&

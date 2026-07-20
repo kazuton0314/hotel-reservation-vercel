@@ -19,6 +19,10 @@ import {
   isTruthyFlag,
 } from "@/lib/import/parsers";
 import type { SheetRow } from "@/lib/sheets/client";
+import {
+  normalizeGuestBreakdownForStorage,
+  normalizeGuestTotalForStorage,
+} from "@/lib/utils/guest-count-format";
 
 export type ReservationInsert = {
   reservation_id: string;
@@ -151,13 +155,13 @@ export function mapLedgerCsvRow(
     check_in: checkIn,
     check_out: checkOut,
     nights: Number(record["泊数"]) || null,
-    guest_total: asTextField(record["宿泊人数"]) || null,
-    adult_male: asTextField(record["中学生以上男性"]) || null,
-    adult_female: asTextField(record["中学生以上女性"]) || null,
-    boy_student: asTextField(record["小学生男の子"]) || null,
-    girl_student: asTextField(record["小学生女の子"]) || null,
-    age_3plus: asTextField(record["3歳以上幼児"]) || null,
-    under_3: asTextField(record["3歳未満乳幼児"]) || null,
+    guest_total: normalizeGuestTotalForStorage(asTextField(record["宿泊人数"])),
+    adult_male: normalizeGuestBreakdownForStorage(asTextField(record["中学生以上男性"])),
+    adult_female: normalizeGuestBreakdownForStorage(asTextField(record["中学生以上女性"])),
+    boy_student: normalizeGuestBreakdownForStorage(asTextField(record["小学生男の子"])),
+    girl_student: normalizeGuestBreakdownForStorage(asTextField(record["小学生女の子"])),
+    age_3plus: normalizeGuestBreakdownForStorage(asTextField(record["3歳以上幼児"])),
+    under_3: normalizeGuestBreakdownForStorage(asTextField(record["3歳未満乳幼児"])),
     arrival_time: asTextField(record["到着時間"]) || null,
     transport: asTextField(record["交通手段"]) || null,
     vehicle_count: asTextField(record["車両台数"]) || null,
@@ -269,27 +273,29 @@ export function mapStudioFormRow(
     check_in: formatDateIso(checkIn),
     check_out: formatDateIso(checkOut),
     nights: calculateNights(checkIn, checkOut),
-    guest_total: asTextField(g(v, idx, "人数")) || null,
-    adult_male:
+    guest_total: normalizeGuestTotalForStorage(asTextField(g(v, idx, "人数"))),
+    adult_male: normalizeGuestBreakdownForStorage(
       asTextField(
         g(v, idx, "中学生以上の男性（大人）", "大人男", "中学生以上男性")
-      ) || null,
-    adult_female:
+      )
+    ),
+    adult_female: normalizeGuestBreakdownForStorage(
       asTextField(
         g(v, idx, "中学生以上の女性（大人）", "大人女", "中学生以上女性")
-      ) || null,
-    boy_student:
-      asTextField(g(v, idx, "小学生の男の子", "小学生男", "小学生男の子")) ||
-      null,
-    girl_student:
-      asTextField(g(v, idx, "小学生の女の子", "小学生女", "小学生女の子")) ||
-      null,
-    age_3plus:
-      asTextField(g(v, idx, "3歳以上のお子さま", "3歳以上", "3歳以上幼児")) ||
-      null,
-    under_3:
-      asTextField(g(v, idx, "3歳未満のお子さま", "3歳未満", "3歳未満乳幼児")) ||
-      null,
+      )
+    ),
+    boy_student: normalizeGuestBreakdownForStorage(
+      asTextField(g(v, idx, "小学生の男の子", "小学生男", "小学生男の子"))
+    ),
+    girl_student: normalizeGuestBreakdownForStorage(
+      asTextField(g(v, idx, "小学生の女の子", "小学生女", "小学生女の子"))
+    ),
+    age_3plus: normalizeGuestBreakdownForStorage(
+      asTextField(g(v, idx, "3歳以上のお子さま", "3歳以上", "3歳以上幼児"))
+    ),
+    under_3: normalizeGuestBreakdownForStorage(
+      asTextField(g(v, idx, "3歳未満のお子さま", "3歳未満", "3歳未満乳幼児"))
+    ),
     arrival_time: asTextField(g(v, idx, "到着時間")) || null,
     transport: asTextField(g(v, idx, "交通手段")) || null,
     vehicle_count: asTextField(g(v, idx, "車両台数")) || null,

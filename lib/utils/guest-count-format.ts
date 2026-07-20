@@ -21,20 +21,57 @@ export function normalizeGuestCountDigits(value: string): string {
 }
 
 /**
- * フォーム取り込みで「人数として確定」とみなす guest_total。
- * 例: 10 / 10人 / １０ / １０人（「10名」は不定扱い）
+ * 「人数として確定」できるか。
+ * 半角/全角数字と「人」「名」のみなら確定（例: 10 / 10人 / １０名 / 3人名）。
+ * ～・範囲・その他テキストを含む場合は不定。
  */
 export function isDefiniteGuestTotal(value: string | null | undefined): boolean {
+  return classifyGuestTotal(value).kind === "definite";
+}
+
+/**
+ * 保存用分類。
+ * - definite: 半角数字のみ（"１０人名" → "10"）
+ * - indefinite: 原文 trim（～・範囲・文言あり）
+ * - empty: null
+ */
+export function classifyGuestTotal(value: string | null | undefined): {
+  kind: "empty" | "definite" | "indefinite";
+  stored: string | null;
+} {
   const raw = guestFieldText(value);
-  if (!raw) return false;
-  const normalized = normalizeGuestCountDigits(raw);
-  return /^\d+(?:人)?$/.test(normalized);
+  if (!raw) return { kind: "empty", stored: null };
+
+  const digitsNorm = normalizeGuestCountDigits(raw);
+  const stripped = digitsNorm.replace(/[\s　]/g, "").replace(/[人名]/g, "");
+  if (/^\d+$/.test(stripped)) {
+    return { kind: "definite", stored: stripped };
+  }
+  return { kind: "indefinite", stored: raw };
+}
+
+/** DB保存用。確定なら半角数字、不定なら原文、空なら null */
+export function normalizeGuestTotalForStorage(
+  value: string | null | undefined
+): string | null {
+  return classifyGuestTotal(value).stored;
+}
+
+/** 内訳フィールド（男/女など）: 数字のみなら半角化、それ以外は原文 */
+export function normalizeGuestBreakdownForStorage(
+  value: string | null | undefined
+): string | null {
+  const raw = guestFieldText(value);
+  if (!raw) return null;
+  const digitsNorm = normalizeGuestCountDigits(raw).replace(/[\s　]/g, "");
+  if (/^\d+$/.test(digitsNorm)) return digitsNorm;
+  return raw;
 }
 
 function breakdownFieldIsDefinite(value: unknown): boolean {
   const raw = guestFieldText(value);
   if (!raw) return true;
-  return /^\d+$/.test(normalizeGuestCountDigits(raw));
+  return /^\d+$/.test(normalizeGuestCountDigits(raw).replace(/[\s　]/g, ""));
 }
 
 function breakdownSum(source: GuestSource): number {
@@ -47,17 +84,16 @@ function breakdownSum(source: GuestSource): number {
     source.under_3,
   ];
   return fields.reduce((sum, field) => {
-    const raw = guestFieldText(field);
-    if (!raw) return sum;
-    const normalized = normalizeGuestCountDigits(raw);
-    if (!/^\d+$/.test(normalized)) return sum;
+    const normalized = normalizeGuestBreakdownForStorage(
+      field == null ? null : String(field)
+    );
+    if (!normalized || !/^\d+$/.test(normalized)) return sum;
     return sum + Number(normalized);
   }, 0);
 }
 
 /** 一覧の「人数不定」絞り込み用 */
 export function hasIndefiniteGuestCount(source: GuestSource): boolean {
-  const totalText = guestFieldText(source.guest_total);
   const breakdownFields = [
     source.adult_male,
     source.adult_female,
@@ -71,9 +107,18 @@ export function hasIndefiniteGuestCount(source: GuestSource): boolean {
     return true;
   }
 
-  if (!totalText) {
+  const classified = classifyGuestTotal(source.guest_total);
+  if (classified.kind === "empty") {
     return breakdownSum(source) === 0;
   }
+  return classified.kind === "indefinite";
+}
 
-  return !isDefiniteGuestTotal(totalText);
+/** 集計用: 確定人数のみ数値化。不定・空は null */
+export function parseDefiniteGuestTotal(
+  value: string | null | undefined
+): number | null {
+  const classified = classifyGuestTotal(value);
+  if (classified.kind !== "definite" || !classified.stored) return null;
+  return Number(classified.stored);
 }
