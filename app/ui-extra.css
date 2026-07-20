@@ -109,7 +109,9 @@
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  padding: 12px 12px calc(12px + env(safe-area-inset-bottom, 0px));
+  /* ボトムナビの上にシートを出す（一覧カードの overflow 外＝body portal 前提） */
+  padding: 12px 12px calc(12px + var(--nav-h) + var(--safe-b));
+  box-sizing: border-box;
 }
 
 .action-dialog {

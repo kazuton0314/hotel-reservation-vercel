@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { filterListBySearch } from "@/lib/utils/list-search";
@@ -26,6 +27,19 @@ export function LinkReservationPicker({
   onSelect,
 }: Props) {
   const [q, setQ] = useState("");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
 
   const filtered = filterListBySearch(
     candidates.map((c) => ({
@@ -36,9 +50,21 @@ export function LinkReservationPicker({
     q
   );
 
-  return (
-    <div className="date-jump-overlay" role="dialog" aria-modal>
-      <div className="date-jump-popup" style={{ maxWidth: 420 }}>
+  if (!mounted) return null;
+
+  return createPortal(
+    <div
+      className="date-jump-overlay"
+      role="presentation"
+      onClick={onClose}
+    >
+      <div
+        className="date-jump-popup"
+        style={{ maxWidth: 420 }}
+        role="dialog"
+        aria-modal
+        onClick={(e) => e.stopPropagation()}
+      >
         <h4>本予約を紐づけ</h4>
         <Input
           type="search"
@@ -71,12 +97,16 @@ export function LinkReservationPicker({
             ))
           )}
         </div>
-        <div className="detail-actions detail-actions-inline" style={{ marginTop: 12 }}>
+        <div
+          className="detail-actions detail-actions-inline"
+          style={{ marginTop: 12 }}
+        >
           <Button type="button" variant="secondary" onClick={onClose}>
             閉じる
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

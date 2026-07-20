@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { batchRoomAssignmentChangesAction } from "@/lib/actions/room-assignments";
 import type { GuestDefaults } from "@/components/reservations/RoomGuestFields";
@@ -31,9 +32,23 @@ export function RoomBulkAddModal({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
   const available = rooms.filter((r) => !assignedRoomIds.includes(r.room_id));
 
-  if (!open) return null;
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
+  if (!open || !mounted) return null;
 
   function submit(form: HTMLFormElement) {
     const fd = new FormData(form);
@@ -81,7 +96,7 @@ export function RoomBulkAddModal({
     });
   }
 
-  return (
+  return createPortal(
     <div className="mail-modal-overlay" role="presentation" onClick={onClose}>
       <form
         className="mail-modal mail-modal-wide"
@@ -173,6 +188,7 @@ export function RoomBulkAddModal({
           </Button>
         </div>
       </form>
-    </div>
+    </div>,
+    document.body
   );
 }
