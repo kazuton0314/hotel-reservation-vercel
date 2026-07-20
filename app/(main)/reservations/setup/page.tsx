@@ -1,9 +1,13 @@
 import { Suspense } from "react";
 import { ConnectionError } from "@/components/SetupRequired";
+import { ListSearchBar } from "@/components/list/ListSearchBar";
+import { ListSearchProvider } from "@/components/list/ListSearchProvider";
+import { ReservationListFilterBar } from "@/components/list/ReservationListFilterBar";
 import { ListScopeBar } from "@/components/list/ListScopeBar";
 import { ListStatusTabs } from "@/components/list/ListStatusTabs";
 import { ReservationSetupBoard } from "@/components/setup/ReservationSetupBoard";
 import { SetupPageShell } from "@/components/setup/SetupPageShell";
+import { buildReservationListFilterFields } from "@/lib/list/reservation-filter-fields";
 import { getReservations } from "@/lib/queries/reservations";
 import { getRooms } from "@/lib/queries/rooms";
 import { parseListScope } from "@/lib/utils/list-scope";
@@ -13,6 +17,12 @@ type PageProps = {
     period?: string;
     status?: string;
     scope?: string;
+    filterField?: string;
+    filterValue?: string;
+    sort?: string;
+    dir?: string;
+    q?: string;
+    checkIn?: string;
   }>;
 };
 
@@ -47,48 +57,58 @@ export default async function ReservationsSetupPage({ searchParams }: PageProps)
     return <ConnectionError message={error || roomsError || ""} />;
   }
 
+  const filterFields = buildReservationListFilterFields(rooms);
+
   return (
-    <SetupPageShell
-      top={
-        <Suspense fallback={null}>
-          <ListScopeBar kind="reservation" scope={scope} />
-          <ListStatusTabs
-            className="tabs tabs-3 list-filter-tabs"
-            activeId={period}
-            tabs={[
-              {
-                id: "provisional",
-                label: "仮予約",
-                paramKey: "period",
-                paramValue: "provisional",
-              },
-              {
-                id: "confirmed",
-                label: "確定",
-                paramKey: "period",
-                paramValue: "confirmed",
-                emphasis: "primary",
-              },
-              {
-                id: "cancelled",
-                label: "キャンセル",
-                paramKey: "period",
-                paramValue: "cancelled",
-              },
-            ]}
+    <Suspense fallback={<div className="inline-loading">読み込み中…</div>}>
+      <ListSearchProvider>
+        <SetupPageShell
+          top={
+            <>
+              <ListScopeBar kind="reservation" scope={scope} />
+              <ListStatusTabs
+                className="tabs tabs-3 list-filter-tabs"
+                activeId={period}
+                tabs={[
+                  {
+                    id: "provisional",
+                    label: "仮予約",
+                    paramKey: "period",
+                    paramValue: "provisional",
+                  },
+                  {
+                    id: "confirmed",
+                    label: "確定",
+                    paramKey: "period",
+                    paramValue: "confirmed",
+                    emphasis: "primary",
+                  },
+                  {
+                    id: "cancelled",
+                    label: "キャンセル",
+                    paramKey: "period",
+                    paramValue: "cancelled",
+                  },
+                ]}
+              />
+              <ListSearchBar />
+              <ReservationListFilterBar
+                fields={filterFields}
+                activeField={params.filterField}
+                activeValue={params.filterValue}
+              />
+            </>
+          }
+        >
+          <ReservationSetupBoard
+            reservations={reservations}
+            rooms={rooms.map((r) => ({
+              room_id: r.room_id,
+              room_name: r.room_name,
+            }))}
           />
-        </Suspense>
-      }
-    >
-      <Suspense fallback={<div className="inline-loading">読み込み中…</div>}>
-        <ReservationSetupBoard
-          reservations={reservations}
-          rooms={rooms.map((r) => ({
-            room_id: r.room_id,
-            room_name: r.room_name,
-          }))}
-        />
-      </Suspense>
-    </SetupPageShell>
+        </SetupPageShell>
+      </ListSearchProvider>
+    </Suspense>
   );
 }

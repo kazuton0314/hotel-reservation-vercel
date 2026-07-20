@@ -1079,12 +1079,21 @@ body.setup-active .main {
 }
 .setup-page-chrome-top {
   flex-shrink: 0;
-  width: min(560px, 100%);
+  /* 一覧の .main(520px) と同じ中央寄せ。表だけ全幅 */
+  width: min(520px, 100%);
   max-width: 100%;
   margin-inline: auto;
   display: flex;
   flex-direction: column;
   gap: 6px;
+  box-sizing: border-box;
+  padding-inline: 4px;
+}
+.setup-page-chrome-top .list-scope-bar,
+.setup-page-chrome-top .tabs,
+.setup-page-chrome-top .list-search-bar,
+.setup-page-chrome-top .list-filter-bar {
+  margin-bottom: 0;
 }
 .setup-commit-bar {
   display: flex;

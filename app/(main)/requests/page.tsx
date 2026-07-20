@@ -57,7 +57,6 @@ async function RequestsContent({
       <ListScopeBar kind="request" scope={scope} />
       <Suspense fallback={null}>
         <ListSearchProvider>
-          <ListSearchBar />
           <ListStatusTabs
             className="tabs tabs-3 request-filter-tabs"
             activeId={status}
@@ -83,6 +82,7 @@ async function RequestsContent({
               },
             ]}
           />
+          <ListSearchBar />
           <RequestListFilterBar />
           <Suspense
             fallback={<div className="inline-loading">一覧を読み込み中…</div>}

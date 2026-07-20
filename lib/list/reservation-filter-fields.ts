@@ -1,0 +1,92 @@
+import type { ListFilterFieldDef } from "@/components/list/ReservationListFilterBar";
+import {
+  LIST_FILTER_BBQ_OPTIONS,
+  LIST_FILTER_CHANNEL_OPTIONS,
+  LIST_FILTER_MEAL_OPTIONS,
+  LIST_FILTER_PAYMENT_OPTIONS,
+} from "@/lib/config/field-options";
+import { CONTACT_LABELS } from "@/lib/config/contact-confirm-labels";
+import { UNASSIGNED_ROOM_FILTER } from "@/lib/services/reservation-list-filter";
+
+type RoomOption = { room_id: string; room_name: string };
+
+/** 本予約一覧・一覧設定で共通の絞り込み定義 */
+export function buildReservationListFilterFields(
+  rooms: RoomOption[]
+): ListFilterFieldDef[] {
+  return [
+    {
+      key: "channel",
+      label: "予約経路",
+      options: LIST_FILTER_CHANNEL_OPTIONS.map((value) => ({
+        value,
+        label: value,
+      })),
+    },
+    {
+      key: "roomId",
+      label: "部屋割",
+      options: [
+        { value: UNASSIGNED_ROOM_FILTER, label: "未割当" },
+        ...rooms.map((r) => ({
+          value: r.room_id,
+          label: r.room_name,
+        })),
+      ],
+    },
+    {
+      key: "payment_status",
+      label: "支払い",
+      options: LIST_FILTER_PAYMENT_OPTIONS.map((value) => ({
+        value,
+        label: value,
+      })),
+    },
+    {
+      key: "meal",
+      label: "食事",
+      options: LIST_FILTER_MEAL_OPTIONS.map((value) => ({
+        value,
+        label: value,
+      })),
+    },
+    {
+      key: "bbq",
+      label: "BBQ",
+      options: LIST_FILTER_BBQ_OPTIONS.map((value) => ({
+        value,
+        label: value,
+      })),
+    },
+    {
+      key: "companionInfo",
+      label: "同行者情報",
+      options: [
+        { value: "未回答", label: "同行者未回答" },
+        { value: "回答済み", label: "同行者回答済" },
+      ],
+    },
+    {
+      key: "guestTotal",
+      label: "宿泊人数",
+      options: [
+        { value: "不定", label: "人数不定" },
+        { value: "確定", label: "人数確定" },
+      ],
+    },
+    {
+      key: "completionEmail",
+      label: CONTACT_LABELS.filterFieldLabel,
+      options: [
+        {
+          value: CONTACT_LABELS.filterPending,
+          label: CONTACT_LABELS.filterPending,
+        },
+        {
+          value: CONTACT_LABELS.filterDone,
+          label: CONTACT_LABELS.filterDone,
+        },
+      ],
+    },
+  ];
+}
