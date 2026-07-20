@@ -288,7 +288,7 @@ async function syncReservationToGCalUnlocked(
       // insert 後にキャンセル等へ変わっていたら、作ったイベントを捨てて書き戻さない
       const { data: latest } = await supabase
         .from("reservations")
-        .select("status")
+        .select("status, check_in, check_out")
         .eq("reservation_id", reservationId)
         .maybeSingle();
       if (!latest || !isGCalTarget(latest)) {

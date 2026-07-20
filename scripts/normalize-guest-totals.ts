@@ -39,7 +39,7 @@ async function backfillTable(
     const rows = data ?? [];
     if (!rows.length) break;
 
-    for (const row of rows as Record<string, unknown>[]) {
+    for (const row of rows as unknown as Record<string, unknown>[]) {
       scanned++;
       const id = String(row[idColumn] ?? "");
       const patch: Record<string, unknown> = {};
