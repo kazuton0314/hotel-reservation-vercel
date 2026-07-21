@@ -71,6 +71,7 @@ export function buildReservationListFilterFields(
       label: "宿泊人数",
       options: [
         { value: "不定", label: "人数不定" },
+        { value: "不一致", label: "人数不一致" },
         { value: "確定", label: "人数確定" },
       ],
     },

@@ -63,14 +63,18 @@ function ConfirmRow({
   onConfirm: () => void;
   onUnconfirm: () => void;
 }) {
+  // 不要でも連絡済にでき、戻すと再び不要表示
   const pillClass =
-    notRequired && !sent
-      ? "mail-pill-skip"
-      : sent
-        ? "mail-pill-sent"
+    sent
+      ? "mail-pill-sent"
+      : notRequired
+        ? "mail-pill-skip"
         : "mail-pill-pending";
-  const pillLabel =
-    notRequired && !sent ? "不要" : sent ? CONTACT_LABELS.done : CONTACT_LABELS.pending;
+  const pillLabel = sent
+    ? CONTACT_LABELS.done
+    : notRequired
+      ? "不要"
+      : CONTACT_LABELS.pending;
   const title = sentAt || hint || undefined;
 
   return (
@@ -84,7 +88,7 @@ function ConfirmRow({
           type="button"
           variant="secondary"
           size="sm"
-          disabled={pending || sent || (notRequired && !sent)}
+          disabled={pending || sent}
           onClick={onConfirm}
         >
           {CONTACT_LABELS.done}
@@ -105,7 +109,7 @@ function ConfirmRow({
 }
 
 export function ReservationMailSection(props: Props) {
-  const isProvisional = props.status === "仮予約";
+  const isConfirmed = props.status === "確定";
   const [composeOpen, setComposeOpen] = useState(false);
   const [state, formAction, pending] = useActionState(
     setMailKindSentAction,
@@ -145,19 +149,9 @@ export function ReservationMailSection(props: Props) {
     formAction(fd);
   }
 
-  const rows = isProvisional
-    ? [
-        {
-          key: "provisional",
-          label: "仮予約連絡",
-          kind: "予約確定" as MailKind,
-          sent: props.completionEmailSent,
-          sentAt: props.completionEmailSentAt,
-          notRequired: false,
-          hint: undefined,
-        },
-      ]
-    : (
+  // 仮予約には連絡タスクなし（メール作成のみ可）
+  const rows = isConfirmed
+    ? (
         [
           {
             key: "confirmation",
@@ -188,12 +182,13 @@ export function ReservationMailSection(props: Props) {
           notRequired: st.notRequired,
           hint: st.reason || undefined,
         };
-      });
+      })
+    : [];
 
   return (
     <div
       className="detail-block confirm-section"
-      id={isProvisional ? "mail-action-block" : "reservation-mails-block"}
+      id="reservation-mails-block"
     >
       <div className="confirm-section-head">
         <h3>{CONTACT_LABELS.sectionTitle}</h3>
@@ -211,21 +206,27 @@ export function ReservationMailSection(props: Props) {
         )}
       </div>
 
-      <div className="confirm-rows">
-        {rows.map((row) => (
-          <ConfirmRow
-            key={row.key}
-            label={row.label}
-            sent={row.sent}
-            sentAt={formatSentAt(row.sentAt)}
-            notRequired={row.notRequired}
-            hint={row.hint}
-            pending={pending}
-            onConfirm={() => submitFlag(row.kind, true)}
-            onUnconfirm={() => submitFlag(row.kind, false)}
-          />
-        ))}
-      </div>
+      {isConfirmed ? (
+        <div className="confirm-rows">
+          {rows.map((row) => (
+            <ConfirmRow
+              key={row.key}
+              label={row.label}
+              sent={row.sent}
+              sentAt={formatSentAt(row.sentAt)}
+              notRequired={row.notRequired}
+              hint={row.hint}
+              pending={pending}
+              onConfirm={() => submitFlag(row.kind, true)}
+              onUnconfirm={() => submitFlag(row.kind, false)}
+            />
+          ))}
+        </div>
+      ) : (
+        <p className="detail-hint">
+          連絡タスク（予約確定・11日前・3日前）は確定予約のみです。
+        </p>
+      )}
 
       {state.ok === false ? (
         <p className="detail-hint confirm-section-error">{state.message}</p>

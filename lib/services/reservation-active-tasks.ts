@@ -67,6 +67,6 @@ export function reservationHasActiveConfirmationTask(
   const statuses = reservationMailStatuses(r, refDate);
   return (["confirmation", "day11", "day3"] as const).some((key) => {
     const chip = mailKindChipState(statuses[key], r.status);
-    return chip.state === "action";
+    return chip?.state === "action";
   });
 }

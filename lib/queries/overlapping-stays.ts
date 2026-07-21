@@ -44,7 +44,6 @@ export async function getOverlappingStays(
     .select(
       "reservation_id, representative_name, check_in, check_out, status, guest_total, is_archived"
     )
-    .eq("is_archived", false)
     .neq("status", "キャンセル");
 
   if (error) {

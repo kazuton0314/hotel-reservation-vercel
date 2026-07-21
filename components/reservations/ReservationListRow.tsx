@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReservationListItem } from "@/lib/queries/reservations";
+import { ListCardStayDetails } from "@/components/list/ListCardStayDetails";
 import { ReservationListStatusActions } from "@/components/reservations/ReservationListStatusActions";
 import { ReservationTaskChips } from "@/components/reservations/ReservationTaskChips";
 import { formatReceivedDate } from "@/lib/services/reservation-list-filter";
@@ -63,16 +64,16 @@ export function ReservationListRow({ item }: { item: ReservationListItem }) {
           under_3: item.under_3,
         }}
       />
-      {compact && compact !== "—" ? (
-        <p className="card-meta">
-          <span className="meta-guests">{compact}</span>
-        </p>
-      ) : null}
-      {item.assigned_rooms ? (
-        <p className="card-row">
-          <strong>部屋:</strong> {item.assigned_rooms}
-        </p>
-      ) : null}
+      <ListCardStayDetails
+        guests={compact}
+        rooms={item.assigned_rooms}
+        arrivalTime={item.arrival_time}
+        meal={item.meal}
+        bbq={item.bbq}
+        vehicleCount={item.vehicle_count}
+        inquiry={item.inquiry}
+        internalMemo={item.internal_memo}
+      />
     </Link>
   );
 }

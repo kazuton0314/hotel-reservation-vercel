@@ -6,18 +6,16 @@ import {
 } from "@/lib/domain/request-status";
 
 /**
- * タスクチップの表示思想（一覧・ホーム・詳細で共通）
+ * タスクチップの表示思想（一覧・ホームで共通）
  *
- * ラベルは固定（例: 同行者 / 部屋割 / 予約確定 / 11日前 / 3日前）。
- * 状態は色だけで伝える。未・済・— などの接尾辞は付けない。
- * 理由の区別は title（ホバー）に集約する。
- *
+ * 連絡系（リクエスト確定連絡・予約確定・11日前・3日前）は色3種のみ:
  * | 色 | 意味 |
  * |----|------|
- * | 緑 done | 完了（連絡済・割当済・同行者入力済） |
+ * | 緑 done | 連絡済・割当済・同行者入力済 |
  * | 橙 action | 今すぐ対応が必要 |
- * | 灰 wait | 対象だが連絡時期前（11日前/3日前のウィンドウ前） |
- * | 灰薄 skip | 業務上不要（リード不足・同行者不要・非確定など） |
+ * | 灰 wait | 対象だが連絡時期前（主に11日前） |
+ *
+ * 不要な連絡ラベルはチップ自体を出さない（薄いグレー skip は使わない）。
  */
 export type TaskChipState = "done" | "action" | "wait" | "skip" | "blocked";
 
@@ -43,10 +41,13 @@ export function assignmentChipState(
   return { state: "done", title: "部屋割当済み" };
 }
 
+/** null = 一覧に出さない（不要・時期前の3日前など） */
 export function mailKindChipState(
   st: MailKindStatus,
-  reservationStatus: string
-): { state: TaskChipState; title: string } {
+  _reservationStatus?: string
+): { state: TaskChipState; title: string } | null {
+  if (!st.showOnList) return null;
+
   const label = st.label;
 
   if (st.sent) {
@@ -58,17 +59,6 @@ export function mailKindChipState(
     };
   }
 
-  if (st.notRequired) {
-    const reason =
-      st.reason ||
-      (st.kind === "11日前"
-        ? "チェックインまで11日未満のため不要"
-        : st.kind === "3日前"
-          ? "送信条件を満たさないため不要"
-          : `${label}は不要です`);
-    return { state: "skip", title: reason };
-  }
-
   if (st.pending) {
     return {
       state: "action",
@@ -76,22 +66,18 @@ export function mailKindChipState(
     };
   }
 
-  if (st.applicable) {
+  if (st.applicable && !st.notRequired) {
     return { state: "wait", title: `${label}の連絡時期前です` };
   }
 
-  if (reservationStatus !== "確定") {
-    return { state: "skip", title: "確定予約のみ対象です" };
-  }
-
-  return { state: "skip", title: st.reason || `${label}は対象外です` };
+  return null;
 }
 
 function isRequestWorkflowSettled(status: string): boolean {
   return isApprovedRequestStatus(status) || isRejectedRequestStatus(status);
 }
 
-/** リクエスト一覧の確認チップ（本予約のメール種別チップと同じ位置づけ） */
+/** リクエスト一覧の確認チップ（緑／橙のみ） */
 export function requestConfirmChipState(
   status: string,
   confirmed: boolean

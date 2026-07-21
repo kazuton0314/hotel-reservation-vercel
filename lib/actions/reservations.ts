@@ -17,6 +17,7 @@ import {
 import {
   buildAddress,
   calculateNights,
+  formatDateIso,
   joinName,
   parseDateValue,
 } from "@/lib/import/date-utils";
@@ -177,8 +178,8 @@ export async function updateReservationAction(
     updated_at: new Date().toISOString(),
   };
 
-  if (checkIn) payload.check_in = checkIn.toISOString().slice(0, 10);
-  if (checkOut) payload.check_out = checkOut.toISOString().slice(0, 10);
+  if (checkIn) payload.check_in = formatDateIso(checkIn);
+  if (checkOut) payload.check_out = formatDateIso(checkOut);
   if (checkIn && checkOut) {
     payload.nights = calculateNights(checkIn, checkOut);
   }
@@ -418,8 +419,8 @@ export async function createManualReservationAction(
     city: city || null,
     address_line: addressLine || null,
     address: buildAddress(postalCode, prefecture, city, addressLine) || null,
-    check_in: checkIn.toISOString().slice(0, 10),
-    check_out: checkOut.toISOString().slice(0, 10),
+    check_in: formatDateIso(checkIn),
+    check_out: formatDateIso(checkOut),
     nights: calculateNights(checkIn, checkOut),
     guest_total: normalizeGuestTotalForStorage(
       String(formData.get("guest_total") ?? "")

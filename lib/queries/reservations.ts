@@ -32,6 +32,9 @@ export type ReservationListItem = {
   referral: string | null;
   travel_purpose: string | null;
   internal_memo: string | null;
+  inquiry: string | null;
+  arrival_time: string | null;
+  vehicle_count: string | null;
   is_archived: boolean;
   completion_email_sent: boolean;
   day11_email_sent: boolean;
@@ -91,7 +94,7 @@ export type ReservationFilters = {
 };
 
 const LIST_SELECT =
-  "reservation_id, representative_name, last_name, first_name, name_kana, last_name_kana, first_name_kana, group_name, phone, status, check_in, check_out, guest_total, assignment_status, channel, meal, bbq, payment_status, referral, travel_purpose, internal_memo, is_archived, completion_email_sent, day11_email_sent, day3_email_sent, companion_form_answered, email, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3, created_at, sheet_created_at, updated_at";
+  "reservation_id, representative_name, last_name, first_name, name_kana, last_name_kana, first_name_kana, group_name, phone, status, check_in, check_out, guest_total, assignment_status, channel, meal, bbq, payment_status, referral, travel_purpose, internal_memo, inquiry, arrival_time, vehicle_count, is_archived, completion_email_sent, day11_email_sent, day3_email_sent, companion_form_answered, email, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3, created_at, sheet_created_at, updated_at";
 
 type DbListRow = {
   reservation_id: string;
@@ -115,6 +118,9 @@ type DbListRow = {
   referral: string | null;
   travel_purpose: string | null;
   internal_memo: string | null;
+  inquiry: string | null;
+  arrival_time: string | null;
+  vehicle_count: string | null;
   is_archived: boolean;
   completion_email_sent: boolean;
   day11_email_sent: boolean;
@@ -184,6 +190,9 @@ function mapReservationListItem(
     referral: row.referral,
     travel_purpose: row.travel_purpose,
     internal_memo: row.internal_memo,
+    inquiry: row.inquiry,
+    arrival_time: row.arrival_time,
+    vehicle_count: row.vehicle_count,
     is_archived: row.is_archived,
     completion_email_sent: row.completion_email_sent,
     day11_email_sent: row.day11_email_sent,
@@ -277,13 +286,17 @@ async function getReservationsUncached(filters: ReservationFilters = {}) {
   >();
 
   if (ids.length) {
-    const { data: assignments } = await supabase
+    let assignQuery = supabase
       .from("room_assignments")
       .select(
         "room_assignment_id, reservation_id, room_id, room_name, stay_start, stay_end, updated_at"
       )
-      .eq("is_archived", false)
       .in("reservation_id", ids);
+    // アーカイブ一覧では割当もアーカイブ済みのため、スコープに応じて含める
+    if (filters.scope !== "archive" && filters.scope !== "past") {
+      assignQuery = assignQuery.eq("is_archived", false);
+    }
+    const { data: assignments } = await assignQuery;
 
     for (const a of assignments ?? []) {
       const list = assignmentsByReservation.get(a.reservation_id) ?? [];

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { DashboardListItem } from "@/lib/queries/dashboard";
+import { ListCardStayDetails } from "@/components/list/ListCardStayDetails";
 import { ReservationStatusBadge } from "@/components/list/ReservationListBadges";
 import { ReservationTaskChips } from "@/components/reservations/ReservationTaskChips";
 import { formatDisplayName } from "@/lib/utils/display-name";
@@ -64,21 +65,16 @@ export function ReservationDashboardCard({
           under_3: item.under3,
         }}
       />
-      {compact && compact !== "—" ? (
-        <p className="card-meta">
-          <span className="meta-guests">{compact}</span>
-        </p>
-      ) : null}
-      {item.assignedRooms ? (
-        <p className="card-row">
-          <strong>部屋:</strong> {item.assignedRooms}
-        </p>
-      ) : null}
-      {item.inquiry ? (
-        <p className="card-row">
-          <strong>問合せ:</strong> {item.inquiry}
-        </p>
-      ) : null}
+      <ListCardStayDetails
+        guests={compact}
+        rooms={item.assignedRooms}
+        arrivalTime={item.arrivalTime}
+        meal={item.meal}
+        bbq={item.bbq}
+        vehicleCount={item.vehicleCount}
+        inquiry={item.inquiry}
+        internalMemo={item.internalMemo}
+      />
     </Link>
   );
 }

@@ -58,12 +58,14 @@ function toDashboardItem(card: DayCalendarView["checkinCards"][0]): DashboardLis
     girlStudent: card.girlStudent,
     age3plus: card.age3plus,
     under3: card.under3,
-    arrivalTime: card.arrivalTime,
-    assignmentStatus: card.assignmentStatus,
-    assignedRooms: card.assignedRooms,
     meal: card.meal,
     bbq: card.bbq,
     inquiry: card.inquiry,
+    internalMemo: null,
+    arrivalTime: card.arrivalTime,
+    vehicleCount: null,
+    assignmentStatus: card.assignmentStatus,
+    assignedRooms: card.assignedRooms,
     companionPending: false,
     companionGuestRequired: false,
     email: null,
@@ -145,27 +147,25 @@ function MonthView({
               key={day.date}
               type="button"
               variant="secondary"
-              className={`cal-cell${day.isToday ? " today" : ""}${day.eventName ? " has-event" : ""}`}
+              className={`cal-cell${day.isToday ? " today" : ""}${
+                day.checkinLabel || day.checkoutLabel || day.stayingLabel
+                  ? " has-event"
+                  : ""
+              }`}
               onClick={() =>
                 router.push(calendarHref("day", year, month, day.date))
               }
             >
               <span className="cal-cell-num">{day.dayNum}</span>
               <div className="cal-cell-badges">
-                {day.checkinCount ? (
-                  <span className="cal-badge cal-badge-in">
-                    IN{day.checkinCount}
-                  </span>
+                {day.checkinLabel ? (
+                  <span className="cal-badge cal-badge-in">{day.checkinLabel}</span>
                 ) : null}
-                {day.checkoutCount ? (
-                  <span className="cal-badge cal-badge-out">
-                    OUT{day.checkoutCount}
-                  </span>
+                {day.checkoutLabel ? (
+                  <span className="cal-badge cal-badge-out">{day.checkoutLabel}</span>
                 ) : null}
-                {day.stayingCount ? (
-                  <span className="cal-badge cal-badge-stay">
-                    滞在中{day.stayingCount}
-                  </span>
+                {day.stayingLabel ? (
+                  <span className="cal-badge cal-badge-stay">{day.stayingLabel}</span>
                 ) : null}
               </div>
             </Button>
@@ -236,8 +236,9 @@ function WeekView({
                 {day.dateLabel}（{day.weekday}）
               </p>
               <p className="mini">
-                IN{day.checkinCount} OUT{day.checkoutCount} 滞
-                {day.stayingCount}
+                {[day.checkinLabel, day.checkoutLabel, day.stayingLabel]
+                  .filter(Boolean)
+                  .join(" ") || "予定なし"}
               </p>
             </Button>
             {day.events.map((ev) => (

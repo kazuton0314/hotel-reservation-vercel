@@ -9,12 +9,17 @@ import { stripTime } from "@/lib/import/date-utils";
 export type MailKindStatus = {
   kind: string;
   label: string;
+  /** 連絡対象になりうる（時期前含む） */
   applicable: boolean;
+  /** 詳細で「不要」表示（未連絡時）。連絡済なら false */
   notRequired: boolean;
+  /** 今すぐ対応（橙） */
   pending: boolean;
   sent: boolean;
   sentAtStr: string;
   reason: string;
+  /** 一覧・ホームのチップに出すか（不要は出さない。済は出す） */
+  showOnList: boolean;
 };
 
 type ReservationMailRow = {
@@ -72,6 +77,17 @@ function isConfirmedReservation(r: ReservationMailRow): boolean {
   return r.status === "確定";
 }
 
+function companionFollowUpNeeded(r: ReservationMailRow): boolean {
+  return (
+    effectiveGuestCountForCompanion(r) >= 2 && !r.companion_form_answered
+  );
+}
+
+/**
+ * 予約確定 … 確定したことを伝える（確定なら全員）
+ * 11日前 … 受付→CIが11日以上ある人へのリマインド＋キャンセル料案内
+ * 3日前 … 同行者未提出の催促（時期が来たら橙で出す。時期前は一覧非表示）
+ */
 export function buildReservationMailKindStatus(
   r: ReservationMailRow,
   kind: "予約確定" | "11日前" | "3日前",
@@ -83,46 +99,51 @@ export function buildReservationMailKindStatus(
 
   if (kind === "予約確定") {
     const sent = r.completion_email_sent;
+    const sentAtStr = formatSentAt(r.completion_email_sent_at);
+    if (sent) {
+      return {
+        kind,
+        label: "予約確定",
+        applicable: true,
+        notRequired: false,
+        pending: false,
+        sent: true,
+        sentAtStr,
+        reason: "",
+        showOnList: confirmed,
+      };
+    }
+    if (!confirmed) {
+      return {
+        kind,
+        label: "予約確定",
+        applicable: false,
+        notRequired: true,
+        pending: false,
+        sent: false,
+        sentAtStr: "",
+        reason: "確定予約のみ対象",
+        showOnList: false,
+      };
+    }
     return {
       kind,
       label: "予約確定",
-      applicable: confirmed,
-      notRequired: !confirmed,
-      pending: !sent && ["仮予約", "確定"].includes(r.status),
-      sent,
-      sentAtStr: formatSentAt(r.completion_email_sent_at),
+      applicable: true,
+      notRequired: false,
+      pending: true,
+      sent: false,
+      sentAtStr: "",
       reason: "",
+      showOnList: true,
     };
   }
 
   if (kind === "11日前") {
     const sent = r.day11_email_sent;
     const sentAtStr = formatSentAt(r.day11_email_sent_at);
-    const eligible = lead >= 11;
-    if (!confirmed) {
-      return {
-        kind,
-        label: "11日前",
-        applicable: false,
-        notRequired: true,
-        pending: false,
-        sent,
-        sentAtStr,
-        reason: "",
-      };
-    }
-    if (!eligible) {
-      return {
-        kind,
-        label: "11日前",
-        applicable: false,
-        notRequired: true,
-        pending: false,
-        sent,
-        sentAtStr,
-        reason: "予約が11日以内",
-      };
-    }
+    const longLead = lead >= 11;
+
     if (sent) {
       return {
         kind,
@@ -133,6 +154,33 @@ export function buildReservationMailKindStatus(
         sent: true,
         sentAtStr,
         reason: "",
+        showOnList: true,
+      };
+    }
+    if (!confirmed) {
+      return {
+        kind,
+        label: "11日前",
+        applicable: false,
+        notRequired: true,
+        pending: false,
+        sent: false,
+        sentAtStr: "",
+        reason: "確定予約のみ対象",
+        showOnList: false,
+      };
+    }
+    if (!longLead) {
+      return {
+        kind,
+        label: "11日前",
+        applicable: false,
+        notRequired: true,
+        pending: false,
+        sent: false,
+        sentAtStr: "",
+        reason: "受付からCIまで11日未満のため不要",
+        showOnList: false,
       };
     }
     const inWindow =
@@ -146,39 +194,17 @@ export function buildReservationMailKindStatus(
       sent: false,
       sentAtStr: "",
       reason: "",
+      showOnList: true,
     };
   }
 
+  // 3日前: 同行者催促。時期前は一覧非表示。リード日数は見ない。
   const sent = r.day3_email_sent;
   const sentAtStr = formatSentAt(r.day3_email_sent_at);
-  const eligible = lead >= 3;
-  const companionNeeded =
-    effectiveGuestCountForCompanion(r) >= 2 && !r.companion_form_answered;
+  const needsCompanion = companionFollowUpNeeded(r);
+  const inWindow =
+    daysUntil !== null && daysUntil <= 3 && daysUntil >= 0;
 
-  if (!confirmed) {
-    return {
-      kind,
-      label: "3日前",
-      applicable: false,
-      notRequired: true,
-      pending: false,
-      sent,
-      sentAtStr,
-      reason: "",
-    };
-  }
-  if (!eligible || !companionNeeded) {
-    return {
-      kind,
-      label: "3日前",
-      applicable: false,
-      notRequired: true,
-      pending: false,
-      sent,
-      sentAtStr,
-      reason: !eligible ? "予約が3日以内" : "同行者不要",
-    };
-  }
   if (sent) {
     return {
       kind,
@@ -189,18 +215,59 @@ export function buildReservationMailKindStatus(
       sent: true,
       sentAtStr,
       reason: "",
+      showOnList: true,
     };
   }
-  const inWindow = daysUntil !== null && daysUntil <= 3 && daysUntil >= 0;
+  if (!confirmed) {
+    return {
+      kind,
+      label: "3日前",
+      applicable: false,
+      notRequired: true,
+      pending: false,
+      sent: false,
+      sentAtStr: "",
+      reason: "確定予約のみ対象",
+      showOnList: false,
+    };
+  }
+  if (!needsCompanion) {
+    return {
+      kind,
+      label: "3日前",
+      applicable: false,
+      notRequired: true,
+      pending: false,
+      sent: false,
+      sentAtStr: "",
+      reason: "同行者連絡不要",
+      showOnList: false,
+    };
+  }
+  if (!inWindow) {
+    // 催促時期前: 詳細は「不要」、一覧は出さない（灰で待たない）
+    return {
+      kind,
+      label: "3日前",
+      applicable: false,
+      notRequired: true,
+      pending: false,
+      sent: false,
+      sentAtStr: "",
+      reason: "催促時期前",
+      showOnList: false,
+    };
+  }
   return {
     kind,
     label: "3日前",
     applicable: true,
     notRequired: false,
-    pending: inWindow,
+    pending: true,
     sent: false,
     sentAtStr: "",
     reason: "",
+    showOnList: true,
   };
 }
 

@@ -7,6 +7,7 @@ import { ListStatusTabs } from "@/components/list/ListStatusTabs";
 import { RequestListFilterBar } from "@/components/list/RequestListFilterBar";
 import { RequestSetupBoard } from "@/components/setup/RequestSetupBoard";
 import { SetupPageShell } from "@/components/setup/SetupPageShell";
+import { buildRequestListFilterFields } from "@/lib/list/request-filter-fields";
 import { getRequests } from "@/lib/queries/requests";
 import { parseListScope } from "@/lib/utils/list-scope";
 
@@ -18,6 +19,8 @@ type PageProps = {
     dir?: string;
     q?: string;
     checkIn?: string;
+    filterField?: string;
+    filterValue?: string;
   }>;
 };
 
@@ -25,6 +28,7 @@ export default async function RequestsSetupPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const scope = parseListScope(params.scope);
   const status = params.status || "リクエスト";
+  const filterFields = buildRequestListFilterFields();
 
   const { requests, error } = await getRequests({
     status,
@@ -68,7 +72,11 @@ export default async function RequestsSetupPage({ searchParams }: PageProps) {
                 ]}
               />
               <ListSearchBar />
-              <RequestListFilterBar />
+              <RequestListFilterBar
+                fields={filterFields}
+                activeField={params.filterField}
+                activeValue={params.filterValue}
+              />
             </>
           }
         >

@@ -60,6 +60,11 @@ export function ReservationTaskChips({ item }: { item: ReservationTaskChipSource
   });
 
   const assignment = assignmentChipState(item.assignment_status);
+  const mailChips = MAIL_KINDS.flatMap(({ key, label }) => {
+    const chip = mailKindChipState(mailStatuses[key], item.status);
+    if (!chip) return [];
+    return [{ key, label, ...chip }];
+  });
 
   return (
     <div className="status-groups compact">
@@ -67,13 +72,9 @@ export function ReservationTaskChips({ item }: { item: ReservationTaskChipSource
         <TaskChip label="同行者" {...companionChipState(item.companion_pending)} />
       ) : null}
       <TaskChip label="部屋割" state={assignment.state} title={assignment.title} />
-      {MAIL_KINDS.map(({ key, label }) => {
-        const st = mailStatuses[key];
-        const chip = mailKindChipState(st, item.status);
-        return (
-          <TaskChip key={key} label={label} state={chip.state} title={chip.title} />
-        );
-      })}
+      {mailChips.map(({ key, label, state, title }) => (
+        <TaskChip key={key} label={label} state={state} title={title} />
+      ))}
     </div>
   );
 }

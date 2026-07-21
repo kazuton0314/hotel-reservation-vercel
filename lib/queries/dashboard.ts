@@ -38,6 +38,8 @@ type DbReservation = {
   meal: string | null;
   bbq: string | null;
   inquiry: string | null;
+  internal_memo: string | null;
+  vehicle_count: string | null;
   assignment_status: string | null;
   companion_form_answered: boolean;
   email: string | null;
@@ -82,7 +84,9 @@ export type DashboardListItem = {
   meal: string | null;
   bbq: string | null;
   inquiry: string | null;
+  internalMemo: string | null;
   arrivalTime: string | null;
+  vehicleCount: string | null;
   assignmentStatus: string | null;
   assignedRooms: string;
   companionPending: boolean;
@@ -171,7 +175,9 @@ function toListItem(
     meal: r.meal,
     bbq: r.bbq,
     inquiry: r.inquiry,
+    internalMemo: r.internal_memo,
     arrivalTime: r.arrival_time,
+    vehicleCount: r.vehicle_count,
     assignmentStatus: r.assignment_status,
     assignedRooms,
     companionPending: reservationNeedsCompanionInfo(r, refDate),
@@ -295,7 +301,7 @@ async function getDashboardSummaryUncached(): Promise<{
     supabase
       .from("reservations")
       .select(
-        "reservation_id, representative_name, status, check_in, check_out, nights, guest_total, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3, arrival_time, meal, bbq, inquiry, assignment_status, companion_form_answered, email, completion_email_sent, day11_email_sent, day3_email_sent, created_at, sheet_created_at, is_archived"
+        "reservation_id, representative_name, status, check_in, check_out, nights, guest_total, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3, arrival_time, meal, bbq, inquiry, internal_memo, vehicle_count, assignment_status, companion_form_answered, email, completion_email_sent, day11_email_sent, day3_email_sent, created_at, sheet_created_at, is_archived"
       )
       .eq("is_archived", false),
     supabase
@@ -335,6 +341,23 @@ async function getDashboardSummaryUncached(): Promise<{
   }
   const reservationsById = new Map(all.map((r) => [r.reservation_id, r]));
 
+  const byArrivalThenName = (
+    a: DashboardListItem,
+    b: DashboardListItem
+  ) => {
+    const at = a.arrivalTime?.trim() ?? "";
+    const bt = b.arrivalTime?.trim() ?? "";
+    if (at !== bt) {
+      if (!at) return 1;
+      if (!bt) return -1;
+      return at < bt ? -1 : 1;
+    }
+    return (a.representativeName ?? "").localeCompare(
+      b.representativeName ?? "",
+      "ja"
+    );
+  };
+
   const todayCheckins = all
     .filter((r) => {
       const ci = parseReservationDate(r.check_in);
@@ -345,15 +368,7 @@ async function getDashboardSummaryUncached(): Promise<{
       );
     })
     .map((r) => toListItem(r, assignmentsByReservation, refDate))
-    .sort((a, b) => {
-      const at = a.arrivalTime ?? "";
-      const bt = b.arrivalTime ?? "";
-      if (at !== bt) return at < bt ? -1 : 1;
-      return (a.representativeName ?? "").localeCompare(
-        b.representativeName ?? "",
-        "ja"
-      );
-    });
+    .sort(byArrivalThenName);
 
   const todayCheckouts = all
     .filter((r) => {
@@ -365,9 +380,7 @@ async function getDashboardSummaryUncached(): Promise<{
       );
     })
     .map((r) => toListItem(r, assignmentsByReservation, refDate))
-    .sort((a, b) =>
-      (a.representativeName ?? "").localeCompare(b.representativeName ?? "", "ja")
-    );
+    .sort(byArrivalThenName);
 
   const staying = all
     .filter((r) => {
@@ -386,13 +399,7 @@ async function getDashboardSummaryUncached(): Promise<{
       );
       return item;
     })
-    .sort((a, b) => {
-      if (a.checkIn !== b.checkIn) return a.checkIn < b.checkIn ? -1 : 1;
-      return (a.representativeName ?? "").localeCompare(
-        b.representativeName ?? "",
-        "ja"
-      );
-    });
+    .sort(byArrivalThenName);
 
   const unassignedCount = all.filter((r) =>
     reservationHasActiveAssignmentTask(r)

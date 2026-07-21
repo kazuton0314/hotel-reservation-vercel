@@ -5,7 +5,6 @@ import { TaskChip } from "@/components/list/TaskChip";
 /** 詳細画面のメール種別チップ（一覧と同じ色体系） */
 export function MailKindBadge({
   status,
-  hasEmail = true,
   reservationStatus = "確定",
 }: {
   status: MailKindStatus;
@@ -13,6 +12,7 @@ export function MailKindBadge({
   reservationStatus?: string;
 }) {
   const chip = mailKindChipState(status, reservationStatus);
+  if (!chip) return null;
   return <TaskChip label={status.label} state={chip.state} title={chip.title} />;
 }
 
@@ -28,7 +28,6 @@ type Props = {
 
 export function MailKindBadgeGroup({
   statuses,
-  hasEmail = true,
   reservationStatus = "確定",
 }: Props) {
   const items = [statuses.confirmation, statuses.day11, statuses.day3];
@@ -38,7 +37,6 @@ export function MailKindBadgeGroup({
         <MailKindBadge
           key={st.kind}
           status={st}
-          hasEmail={hasEmail}
           reservationStatus={reservationStatus}
         />
       ))}

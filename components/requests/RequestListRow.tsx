@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { RequestListItem } from "@/lib/queries/requests";
+import { ListCardStayDetails } from "@/components/list/ListCardStayDetails";
 import { RequestListStatusActions } from "@/components/requests/RequestListStatusActions";
 import { RequestTaskChips } from "@/components/requests/RequestTaskChips";
 import { formatReceivedDate } from "@/lib/services/reservation-list-filter";
@@ -34,11 +35,11 @@ export function RequestListRow({ item }: { item: RequestListItem }) {
         email={item.email}
         replyEmailSent={item.reply_email_sent}
       />
-      {item.guest_total ? (
-        <p className="card-row">
-          <strong>宿泊人数:</strong> {item.guest_total}
-        </p>
-      ) : null}
+      <ListCardStayDetails
+        guests={item.guest_total}
+        inquiry={item.inquiry}
+        internalMemo={item.internal_memo}
+      />
     </Link>
   );
 }

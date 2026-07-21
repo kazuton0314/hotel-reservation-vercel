@@ -28,6 +28,7 @@ export type RequestListItem = {
   sheet_created_at: string | null;
   reply_email_sent: boolean;
   internal_memo: string | null;
+  inquiry: string | null;
   received_ms: number;
   updated_ms: number;
 };
@@ -55,7 +56,7 @@ async function getRequestsUncached(filters: RequestListFilters = {}) {
   let query = supabase
     .from("reservation_requests")
     .select(
-      "request_id, status, representative_name, last_name, first_name, name_kana, last_name_kana, first_name_kana, check_in, check_out, guest_total, email, phone, linked_reservation_id, is_archived, updated_at, created_at, sheet_created_at, reply_email_sent, internal_memo"
+      "request_id, status, representative_name, last_name, first_name, name_kana, last_name_kana, first_name_kana, check_in, check_out, guest_total, email, phone, linked_reservation_id, is_archived, updated_at, created_at, sheet_created_at, reply_email_sent, internal_memo, inquiry"
     )
     .order("check_in", { ascending: true, nullsFirst: false });
 

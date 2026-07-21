@@ -79,8 +79,6 @@ function reservationNeedsDay3Email(
 ): boolean {
   if (!r.email || r.status !== "確定") return false;
   if (r.day3_email_sent) return false;
-  const lead = reservationBookingLeadDays(r);
-  if (lead < 3) return false;
   const companionNeeded =
     effectiveGuestCountForCompanion(r) >= 2 && !r.companion_form_answered;
   if (!companionNeeded) return false;

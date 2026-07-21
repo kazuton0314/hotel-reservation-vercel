@@ -1,8 +1,23 @@
 import type { ReservationListItem } from "@/lib/queries/reservations";
-import { hasIndefiniteGuestCount } from "@/lib/utils/guest-count-format";
+import {
+  hasIndefiniteGuestCount,
+  hasMismatchedGuestCount,
+} from "@/lib/utils/guest-count-format";
 import { CONTACT_LABELS } from "@/lib/config/contact-confirm-labels";
 
 export const UNASSIGNED_ROOM_FILTER = "__unassigned__";
+
+function guestSourceFromItem(r: ReservationListItem) {
+  return {
+    guest_total: r.guest_total,
+    adult_male: r.adult_male,
+    adult_female: r.adult_female,
+    boy_student: r.boy_student,
+    girl_student: r.girl_student,
+    age_3plus: r.age_3plus,
+    under_3: r.under_3,
+  };
+}
 
 export function applyReservationListFilter(
   items: ReservationListItem[],
@@ -48,31 +63,18 @@ export function applyReservationListFilter(
 
   if (field === "guestTotal") {
     if (value === "不定") {
-      return items.filter((r) =>
-        hasIndefiniteGuestCount({
-          guest_total: r.guest_total,
-          adult_male: r.adult_male,
-          adult_female: r.adult_female,
-          boy_student: r.boy_student,
-          girl_student: r.girl_student,
-          age_3plus: r.age_3plus,
-          under_3: r.under_3,
-        })
-      );
+      return items.filter((r) => hasIndefiniteGuestCount(guestSourceFromItem(r)));
+    }
+    if (value === "不一致") {
+      return items.filter((r) => hasMismatchedGuestCount(guestSourceFromItem(r)));
     }
     if (value === "確定") {
-      return items.filter(
-        (r) =>
-          !hasIndefiniteGuestCount({
-            guest_total: r.guest_total,
-            adult_male: r.adult_male,
-            adult_female: r.adult_female,
-            boy_student: r.boy_student,
-            girl_student: r.girl_student,
-            age_3plus: r.age_3plus,
-            under_3: r.under_3,
-          })
-      );
+      return items.filter((r) => {
+        const src = guestSourceFromItem(r);
+        return (
+          !hasIndefiniteGuestCount(src) && !hasMismatchedGuestCount(src)
+        );
+      });
     }
     return items;
   }

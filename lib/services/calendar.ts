@@ -7,7 +7,7 @@ import {
   todayIso,
   weekdayJa,
 } from "@/lib/utils/date-label";
-import { formatGuestCompact } from "@/lib/utils/guest-display";
+import { formatGuestCompact, formatGuestCountWithInfants, guestMainCount, guestUnder3Count } from "@/lib/utils/guest-display";
 import type { TodayRoomBoardItem } from "@/lib/queries/dashboard";
 
 const ACTIVE_STATUSES = ["仮予約", "確定"] as const;
@@ -83,9 +83,10 @@ export type MonthCalendarView = {
     date: string;
     dayNum: number;
     isToday: boolean;
-    checkinCount: number;
-    checkoutCount: number;
-    stayingCount: number;
+    /** 例: IN(1組4人) */
+    checkinLabel: string;
+    checkoutLabel: string;
+    stayingLabel: string;
     eventName: string;
   }[];
   gridStartOffset: number;
@@ -100,9 +101,9 @@ export type WeekCalendarView = {
     dateLabel: string;
     weekday: string;
     isToday: boolean;
-    checkinCount: number;
-    checkoutCount: number;
-    stayingCount: number;
+    checkinLabel: string;
+    checkoutLabel: string;
+    stayingLabel: string;
     events: CalendarEvent[];
   }[];
 };
@@ -164,6 +165,42 @@ function isStayingOn(r: CalendarReservation, iso: string): boolean {
   const endMs = stripTime(co).getTime();
   // チェックイン当日は「滞在中」に含めない（ホーム画面と同じ）
   return startMs < dayMs && dayMs < endMs;
+}
+
+function partyCountSummary(list: CalendarReservation[]): string {
+  if (!list.length) return "";
+  let main = 0;
+  let under3 = 0;
+  for (const r of list) {
+    main += guestMainCount(r);
+    under3 += guestUnder3Count(r);
+  }
+  const guests = formatGuestCountWithInfants(main, under3);
+  return guests ? `${list.length}組${guests}人` : `${list.length}組`;
+}
+
+/** 例: IN(1組4人) / OUT(3組20+1人) */
+function calPartyBadge(
+  prefix: string,
+  list: CalendarReservation[]
+): string {
+  const summary = partyCountSummary(list);
+  return summary ? `${prefix}(${summary})` : "";
+}
+
+function dayPartyLabels(reservations: CalendarReservation[], iso: string) {
+  const checkins = reservations.filter(
+    (r) => isActiveReservation(r) && r.check_in === iso
+  );
+  const checkouts = reservations.filter(
+    (r) => isActiveReservation(r) && r.check_out === iso
+  );
+  const staying = reservations.filter((r) => isStayingOn(r, iso));
+  return {
+    checkinLabel: calPartyBadge("IN", checkins),
+    checkoutLabel: calPartyBadge("OUT", checkouts),
+    stayingLabel: calPartyBadge("滞", staying),
+  };
 }
 
 export function buildCalendarEventsForRange(
@@ -274,18 +311,9 @@ export function buildMonthCalendarView(
   year: number,
   month: number,
   reservations: CalendarReservation[],
-  assignmentsByReservation: Map<string, CalendarAssignment[]>
+  _assignmentsByReservation: Map<string, CalendarAssignment[]>
 ): MonthCalendarView {
   const lastDay = new Date(year, month, 0);
-  const monthStart = formatDateIso(new Date(year, month - 1, 1));
-  const monthEnd = formatDateIso(lastDay);
-  const allEvents = buildCalendarEventsForRange(
-    reservations,
-    assignmentsByReservation,
-    monthStart,
-    monthEnd
-  );
-  const eventsByDate = indexEventsByDate(allEvents);
   const todayIsoStr = todayIso();
   const firstDate = new Date(year, month - 1, 1);
   const gridStartOffset = (firstDate.getDay() + 6) % 7;
@@ -294,17 +322,12 @@ export function buildMonthCalendarView(
   for (let d = 1; d <= lastDay.getDate(); d++) {
     const date = new Date(year, month - 1, d);
     const iso = formatDateIso(date);
-    const events = eventsByDate[iso] || [];
-    const checkins = events.filter((e) => e.type === "checkin");
-    const checkouts = events.filter((e) => e.type === "checkout");
-    const staying = reservations.filter((r) => isStayingOn(r, iso));
+    const labels = dayPartyLabels(reservations, iso);
     days.push({
       date: iso,
       dayNum: d,
       isToday: iso === todayIsoStr,
-      checkinCount: checkins.length,
-      checkoutCount: checkouts.length,
-      stayingCount: staying.length,
+      ...labels,
       eventName: "",
     });
   }
@@ -347,17 +370,13 @@ export function buildWeekCalendarView(
     d.setDate(monday.getDate() + i);
     const iso = formatDateIso(d);
     const events = eventsByDate[iso] || [];
-    const checkins = events.filter((e) => e.type === "checkin");
-    const checkouts = events.filter((e) => e.type === "checkout");
-    const staying = reservations.filter((r) => isStayingOn(r, iso));
+    const labels = dayPartyLabels(reservations, iso);
     days.push({
       date: iso,
       dateLabel: `${d.getMonth() + 1}/${d.getDate()}`,
       weekday: weekdayJa(d),
       isToday: iso === todayIsoStr,
-      checkinCount: checkins.length,
-      checkoutCount: checkouts.length,
-      stayingCount: staying.length,
+      ...labels,
       events,
     });
   }
@@ -388,9 +407,16 @@ export function buildDayCalendarView(
   const checkoutCards = reservations
     .filter((r) => isActiveReservation(r) && r.check_out === iso)
     .map((r) => toDayCard(r, assignmentsByReservation))
-    .sort((a, b) =>
-      a.representativeName.localeCompare(b.representativeName, "ja")
-    );
+    .sort((a, b) => {
+      const at = a.arrivalTime?.trim() ?? "";
+      const bt = b.arrivalTime?.trim() ?? "";
+      if (at !== bt) {
+        if (!at) return 1;
+        if (!bt) return -1;
+        return at < bt ? -1 : 1;
+      }
+      return a.representativeName.localeCompare(b.representativeName, "ja");
+    });
 
   const staying = reservations
     .filter((r) => isStayingOn(r, iso))
@@ -415,7 +441,13 @@ export function buildDayCalendarView(
       return toDayCard(r, assignmentsByReservation, nightNumber);
     })
     .sort((a, b) => {
-      if (a.checkIn !== b.checkIn) return a.checkIn < b.checkIn ? -1 : 1;
+      const at = a.arrivalTime?.trim() ?? "";
+      const bt = b.arrivalTime?.trim() ?? "";
+      if (at !== bt) {
+        if (!at) return 1;
+        if (!bt) return -1;
+        return at < bt ? -1 : 1;
+      }
       return a.representativeName.localeCompare(b.representativeName, "ja");
     });
 

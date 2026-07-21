@@ -92,6 +92,24 @@ function breakdownSum(source: GuestSource): number {
   }, 0);
 }
 
+/** 3歳未満を除いた内訳合計（空欄は0） */
+export function breakdownSumExcludingUnder3(source: GuestSource): number {
+  const fields = [
+    source.adult_male,
+    source.adult_female,
+    source.boy_student,
+    source.girl_student,
+    source.age_3plus,
+  ];
+  return fields.reduce((sum, field) => {
+    const normalized = normalizeGuestBreakdownForStorage(
+      field == null ? null : String(field)
+    );
+    if (!normalized || !/^\d+$/.test(normalized)) return sum;
+    return sum + Number(normalized);
+  }, 0);
+}
+
 /** 一覧の「人数不定」絞り込み用 */
 export function hasIndefiniteGuestCount(source: GuestSource): boolean {
   const breakdownFields = [
@@ -112,6 +130,29 @@ export function hasIndefiniteGuestCount(source: GuestSource): boolean {
     return breakdownSum(source) === 0;
   }
   return classified.kind === "indefinite";
+}
+
+/**
+ * 宿泊人数が確定数字で、3歳未満を除いた内訳合計と一致しない。
+ * （人数不定のグループは対象外。不一致絞り込み用）
+ */
+export function hasMismatchedGuestCount(source: GuestSource): boolean {
+  const classified = classifyGuestTotal(source.guest_total);
+  if (classified.kind !== "definite" || !classified.stored) return false;
+
+  const comparedFields = [
+    source.adult_male,
+    source.adult_female,
+    source.boy_student,
+    source.girl_student,
+    source.age_3plus,
+  ];
+  // 内訳に不定テキストがある場合は不一致判定しない（不定側で拾う）
+  if (comparedFields.some((field) => !breakdownFieldIsDefinite(field))) {
+    return false;
+  }
+
+  return Number(classified.stored) !== breakdownSumExcludingUnder3(source);
 }
 
 /** 集計用: 確定人数のみ数値化。不定・空は null */

@@ -22,6 +22,7 @@ import {
   toRequestSetupEditable,
   type RequestSetupEditable,
 } from "@/lib/services/setup-diff";
+import { applyRequestListFilter } from "@/lib/services/request-list-filter";
 import { filterListBySearch } from "@/lib/utils/list-search";
 import { parseListSort, sortListItems } from "@/lib/utils/list-sort";
 import { markLocalDataMutation } from "@/lib/utils/local-mutation";
@@ -48,19 +49,22 @@ export function RequestSetupBoard({ requests }: Props) {
   const draftKey = setupDraftStorageKey(fullPath);
   const q = searchParams.get("q") ?? undefined;
   const checkIn = searchParams.get("checkIn") ?? undefined;
+  const filterField = searchParams.get("filterField") ?? undefined;
+  const filterValue = searchParams.get("filterValue") ?? undefined;
   const sort =
     searchParams.get("sort") || searchParams.get("dir")
       ? parseListSort(searchParams.get("sort"), searchParams.get("dir"))
       : ({ field: "received", dir: "desc" } as const);
 
   const filteredSource = useMemo(() => {
+    const filtered = applyRequestListFilter(requests, filterField, filterValue);
     const searched = filterListBySearch(
-      requests.map((item) => ({ ...item, id: item.request_id })),
+      filtered.map((item) => ({ ...item, id: item.request_id })),
       q,
       checkIn
     );
     return sortListItems(searched, sort);
-  }, [requests, q, checkIn, sort]);
+  }, [requests, filterField, filterValue, q, checkIn, sort]);
 
   const sourceKey = useMemo(
     () =>

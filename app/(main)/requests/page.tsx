@@ -8,6 +8,7 @@ import { ListStatusTabs } from "@/components/list/ListStatusTabs";
 import { RequestListFilterBar } from "@/components/list/RequestListFilterBar";
 import { RequestsListResults } from "@/components/requests/RequestsListResults";
 import { ListSetupEntryLink } from "@/components/setup/ListSetupEntryLink";
+import { buildRequestListFilterFields } from "@/lib/list/request-filter-fields";
 import { getRequests } from "@/lib/queries/requests";
 
 type PageProps = {
@@ -19,6 +20,8 @@ type PageProps = {
     page?: string;
     q?: string;
     checkIn?: string;
+    filterField?: string;
+    filterValue?: string;
   }>;
 };
 
@@ -33,10 +36,13 @@ async function RequestsContent({
   params: {
     status?: string;
     scope?: string;
+    filterField?: string;
+    filterValue?: string;
   };
 }) {
   const scope = parseListScope(params.scope);
   const status = params.status || "リクエスト";
+  const filterFields = buildRequestListFilterFields();
 
   const { requests, error } = await getRequests({
     status,
@@ -83,7 +89,11 @@ async function RequestsContent({
             ]}
           />
           <ListSearchBar />
-          <RequestListFilterBar />
+          <RequestListFilterBar
+            fields={filterFields}
+            activeField={params.filterField}
+            activeValue={params.filterValue}
+          />
           <Suspense
             fallback={<div className="inline-loading">一覧を読み込み中…</div>}
           >

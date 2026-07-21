@@ -6,6 +6,7 @@ import { ListPagination } from "@/components/list/ListPagination";
 import { useListSearch } from "@/components/list/ListSearchProvider";
 import { RequestListRow } from "@/components/requests/RequestListRow";
 import type { RequestListItem } from "@/lib/queries/requests";
+import { applyRequestListFilter } from "@/lib/services/request-list-filter";
 import {
   DEFAULT_LIST_PAGE_SIZE,
   paginateItems,
@@ -30,6 +31,8 @@ export function RequestsListResults({ requests, scope }: Props) {
   const { keyword, checkIn } = useListSearch();
   const q = keyword.trim() || undefined;
   const checkInFilter = checkIn.trim() || undefined;
+  const filterField = searchParams.get("filterField") ?? undefined;
+  const filterValue = searchParams.get("filterValue") ?? undefined;
   const sort =
     searchParams.get("sort") || searchParams.get("dir")
       ? parseListSort(searchParams.get("sort"), searchParams.get("dir"))
@@ -39,13 +42,14 @@ export function RequestsListResults({ requests, scope }: Props) {
   const paramsRecord = searchParamsToRecord(searchParams);
 
   const sorted = useMemo(() => {
+    const filtered = applyRequestListFilter(requests, filterField, filterValue);
     const searched = filterListBySearch(
-      requests.map((item) => ({ ...item, id: item.request_id })),
+      filtered.map((item) => ({ ...item, id: item.request_id })),
       q,
       checkInFilter
     );
     return sortListItems(searched, sort);
-  }, [requests, q, checkInFilter, sort]);
+  }, [requests, filterField, filterValue, q, checkInFilter, sort]);
 
   const paged = useMemo(
     () => paginateItems(sorted, page, DEFAULT_LIST_PAGE_SIZE),
@@ -57,6 +61,7 @@ export function RequestsListResults({ requests, scope }: Props) {
       <p className="list-sort-summary">
         {sorted.length}件（{scopeLabel}） / {listSortDirLabel(sort)}
         {q?.trim() ? ` / 検索「${q.trim()}」` : ""}
+        {filterField && filterValue ? ` / 絞込` : ""}
       </p>
       {sorted.length ? (
         <>
