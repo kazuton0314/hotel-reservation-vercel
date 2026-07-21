@@ -154,6 +154,8 @@ async function DetailContent({
         status={status}
         checkIn={asString(r.check_in)}
         checkOut={asString(r.check_out)}
+        createdAt={asString(r.created_at)}
+        sheetCreatedAt={asString(r.sheet_created_at)}
         guestTotal={asString(r.guest_total)}
         adultMale={asString(r.adult_male)}
         adultFemale={asString(r.adult_female)}

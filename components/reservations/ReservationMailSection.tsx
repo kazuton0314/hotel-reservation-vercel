@@ -17,6 +17,8 @@ type Props = {
   status: string;
   checkIn: string | null;
   checkOut: string | null;
+  createdAt?: string | null;
+  sheetCreatedAt?: string | null;
   guestTotal: string | null;
   adultMale: string | null;
   adultFemale: string | null;
@@ -117,6 +119,8 @@ export function ReservationMailSection(props: Props) {
     email: props.email,
     check_in: props.checkIn,
     check_out: props.checkOut,
+    created_at: props.createdAt,
+    sheet_created_at: props.sheetCreatedAt,
     completion_email_sent: props.completionEmailSent,
     day11_email_sent: props.day11EmailSent,
     day3_email_sent: props.day3EmailSent,
