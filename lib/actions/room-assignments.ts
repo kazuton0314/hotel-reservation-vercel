@@ -11,6 +11,11 @@ import {
   SHARED_ROOM_CONFIRM_MSG,
   type BatchSimAssignment,
 } from "@/lib/services/room-conflicts";
+import {
+  clearRoomAssignmentsForReservation,
+  isActiveReservationForRoomAssignment,
+  shouldClearRoomAssignmentsOnStatus,
+} from "@/lib/services/room-assignment-lifecycle";
 import { createAdminClient, createStaffClient } from "@/lib/supabase/server";
 import { CONFLICT_MESSAGE } from "@/lib/utils/optimistic-lock";
 
@@ -74,6 +79,8 @@ export async function createRoomAssignmentAction(
     .maybeSingle();
 
   if (duplicate) {
+    await syncAssignmentStatus(supabase, reservationId);
+    revalidateReservationPaths(reservationId);
     return { ok: true, assignmentId: duplicate.room_assignment_id };
   }
 
@@ -364,38 +371,64 @@ async function loadBaselineForBatchConflict(
 
   const byId = new Map<string, BatchSimAssignment>();
 
+  type DbRow = {
+    room_assignment_id: string;
+    reservation_id: string;
+    room_id: string | null;
+    stay_start: string;
+    stay_end: string;
+    reservations: { status: string; is_archived: boolean } | { status: string; is_archived: boolean }[];
+  };
+
+  const addRow = (row: DbRow) => {
+    if (!row.room_id) return;
+    const res = Array.isArray(row.reservations)
+      ? row.reservations[0]
+      : row.reservations;
+    const sim: BatchSimAssignment = {
+      room_assignment_id: row.room_assignment_id,
+      reservation_id: row.reservation_id,
+      room_id: row.room_id,
+      stay_start: row.stay_start,
+      stay_end: row.stay_end,
+      reservation_status: res?.status ?? null,
+      reservation_is_archived: res?.is_archived ?? null,
+    };
+    if (
+      !isActiveReservationForRoomAssignment(
+        sim.reservation_status,
+        sim.reservation_is_archived
+      )
+    ) {
+      return;
+    }
+    byId.set(sim.room_assignment_id, sim);
+  };
+
   if (touchedAssignmentIds.length) {
     const { data: touched } = await supabase
       .from("room_assignments")
-      .select("room_assignment_id, reservation_id, room_id, stay_start, stay_end")
+      .select(
+        "room_assignment_id, reservation_id, room_id, stay_start, stay_end, reservations!inner(status, is_archived)"
+      )
       .in("room_assignment_id", touchedAssignmentIds)
       .eq("is_archived", false);
-    for (const row of touched ?? []) {
+    for (const row of (touched as DbRow[] | null) ?? []) {
       if (row.room_id) roomIds.add(row.room_id);
-      byId.set(row.room_assignment_id, {
-        room_assignment_id: row.room_assignment_id,
-        reservation_id: row.reservation_id,
-        room_id: row.room_id,
-        stay_start: row.stay_start,
-        stay_end: row.stay_end,
-      });
+      addRow(row);
     }
   }
 
   if (roomIds.size) {
     const { data: inRooms } = await supabase
       .from("room_assignments")
-      .select("room_assignment_id, reservation_id, room_id, stay_start, stay_end")
+      .select(
+        "room_assignment_id, reservation_id, room_id, stay_start, stay_end, reservations!inner(status, is_archived)"
+      )
       .in("room_id", [...roomIds])
       .eq("is_archived", false);
-    for (const row of inRooms ?? []) {
-      byId.set(row.room_assignment_id, {
-        room_assignment_id: row.room_assignment_id,
-        reservation_id: row.reservation_id,
-        room_id: row.room_id,
-        stay_start: row.stay_start,
-        stay_end: row.stay_end,
-      });
+    for (const row of (inRooms as DbRow[] | null) ?? []) {
+      addRow(row);
     }
   }
 

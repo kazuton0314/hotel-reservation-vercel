@@ -9,6 +9,10 @@ import {
   type SetupRoomOption,
 } from "@/components/setup/SetupRoomPicker";
 import { SetupMultiCheckPicker } from "@/components/setup/SetupMultiCheckPicker";
+import {
+  RESERVATION_MAIL_COLUMN_LABELS,
+  SetupReservationMailCells,
+} from "@/components/setup/SetupReservationMailCells";
 import { batchRoomAssignmentChangesAction } from "@/lib/actions/room-assignments";
 import { batchUpdateReservationsSetupAction } from "@/lib/actions/setup-batch";
 import {
@@ -95,6 +99,11 @@ export function ReservationSetupBoard({ reservations, rooms }: Props) {
     );
     return sortListItems(searched, sort);
   }, [reservations, filterField, filterValue, q, checkIn, sort]);
+
+  const sourceById = useMemo(
+    () => new Map(filteredSource.map((r) => [r.reservation_id, r])),
+    [filteredSource]
+  );
 
   const sourceKey = useMemo(
     () =>
@@ -256,9 +265,9 @@ export function ReservationSetupBoard({ reservations, rooms }: Props) {
               <th>部屋割</th>
               <th>旅行の目的</th>
               <th>きっかけ</th>
-              <th>確定M</th>
-              <th>11前M</th>
-              <th>3前M</th>
+              {RESERVATION_MAIL_COLUMN_LABELS.map((label) => (
+                <th key={label}>{label}</th>
+              ))}
               <th>支払</th>
               <th>メモ</th>
             </tr>
@@ -273,6 +282,7 @@ export function ReservationSetupBoard({ reservations, rooms }: Props) {
             ) : (
               draftRows.map((row) => {
                 const dirty = dirtyIds.has(row.reservation_id);
+                const source = sourceById.get(row.reservation_id);
                 return (
                   <tr
                     key={row.reservation_id}
@@ -370,42 +380,21 @@ export function ReservationSetupBoard({ reservations, rooms }: Props) {
                         )}
                       </select>
                     </td>
-                    <td className="setup-col-flag">
-                      <input
-                        type="checkbox"
-                        checked={row.completion_email_sent}
-                        onChange={(e) =>
-                          updateRow(row.reservation_id, {
-                            completion_email_sent: e.target.checked,
-                          })
+                    {source ? (
+                      <SetupReservationMailCells
+                        source={source}
+                        row={row}
+                        onChange={(field, sent) =>
+                          updateRow(row.reservation_id, { [field]: sent })
                         }
-                        aria-label="確定メール済"
                       />
-                    </td>
-                    <td className="setup-col-flag">
-                      <input
-                        type="checkbox"
-                        checked={row.day11_email_sent}
-                        onChange={(e) =>
-                          updateRow(row.reservation_id, {
-                            day11_email_sent: e.target.checked,
-                          })
-                        }
-                        aria-label="11日前メール済"
-                      />
-                    </td>
-                    <td className="setup-col-flag">
-                      <input
-                        type="checkbox"
-                        checked={row.day3_email_sent}
-                        onChange={(e) =>
-                          updateRow(row.reservation_id, {
-                            day3_email_sent: e.target.checked,
-                          })
-                        }
-                        aria-label="3日前メール済"
-                      />
-                    </td>
+                    ) : (
+                      <>
+                        <td className="setup-col-contact">—</td>
+                        <td className="setup-col-contact">—</td>
+                        <td className="setup-col-contact">—</td>
+                      </>
+                    )}
                     <td>
                       <select
                         className="setup-cell"

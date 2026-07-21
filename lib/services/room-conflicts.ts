@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { parseDateValue } from "@/lib/import/date-utils";
+import { isActiveReservationForRoomAssignment } from "@/lib/services/room-assignment-lifecycle";
 
 export type RoomConflictItem = {
   room_assignment_id: string;
@@ -31,7 +32,16 @@ export type BatchSimAssignment = {
   room_id: string;
   stay_start: string;
   stay_end: string;
+  reservation_status?: string | null;
+  reservation_is_archived?: boolean | null;
 };
+
+function isActiveBatchSimRow(row: BatchSimAssignment): boolean {
+  return isActiveReservationForRoomAssignment(
+    row.reservation_status,
+    row.reservation_is_archived
+  );
+}
 
 export type BatchRoomChangeForConflict =
   | {
@@ -96,14 +106,29 @@ export async function checkRoomConflict(
   const { data: roomAssignments } = await supabase
     .from("room_assignments")
     .select(
-      "room_assignment_id, reservation_id, room_name, stay_start, stay_end"
+      "room_assignment_id, reservation_id, room_name, stay_start, stay_end, reservations!inner(status, is_archived)"
     )
     .eq("room_id", input.roomId)
     .eq("is_archived", false)
     .lt("stay_start", endIso)
     .gt("stay_end", startIso);
 
-  const conflicts = (roomAssignments ?? []).filter((a) => {
+  type Row = {
+    room_assignment_id: string;
+    reservation_id: string;
+    room_name: string | null;
+    stay_start: string;
+    stay_end: string;
+    reservations: { status: string; is_archived: boolean } | { status: string; is_archived: boolean }[];
+  };
+
+  const conflicts = (roomAssignments as Row[] | null ?? []).filter((a) => {
+    const res = Array.isArray(a.reservations)
+      ? a.reservations[0]
+      : a.reservations;
+    if (!isActiveReservationForRoomAssignment(res?.status, res?.is_archived)) {
+      return false;
+    }
     if (excludeIds.has(a.room_assignment_id)) return false;
     const aStart = parseDateValue(a.stay_start);
     const aEnd = parseDateValue(a.stay_end);
@@ -138,6 +163,7 @@ export function hasOtherReservationConflictInFinalState(
 ): boolean {
   const byId = new Map<string, BatchSimAssignment>();
   for (const row of baseline) {
+    if (!isActiveBatchSimRow(row)) continue;
     byId.set(row.room_assignment_id, { ...row });
   }
 
@@ -164,7 +190,7 @@ export function hasOtherReservationConflictInFinalState(
     });
   }
 
-  const finalRows = [...byId.values()];
+  const finalRows = [...byId.values()].filter(isActiveBatchSimRow);
   for (let i = 0; i < finalRows.length; i++) {
     const a = finalRows[i]!;
     const aStart = parseDateValue(a.stay_start);

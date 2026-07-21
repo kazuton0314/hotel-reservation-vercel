@@ -86,7 +86,11 @@ export function RoomBulkAddModal({
       },
     }));
     startTransition(async () => {
-      const res = await batchRoomAssignmentChangesAction(changes);
+      let res = await batchRoomAssignmentChangesAction(changes);
+      if (!res.ok && res.needsConfirm) {
+        if (!window.confirm(res.message)) return;
+        res = await batchRoomAssignmentChangesAction(changes, true);
+      }
       if (!res.ok) {
         setError(res.message);
         return;

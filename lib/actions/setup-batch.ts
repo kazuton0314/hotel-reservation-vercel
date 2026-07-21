@@ -16,6 +16,10 @@ import { deleteLinkedProvisionalIfAny } from "@/lib/actions/request-provisional"
 import { syncReservationToGCal } from "@/lib/services/gcal-sync";
 import { applyRequestLinkAfterStatusChange } from "@/lib/services/request-reservation-link";
 import { syncRoomAssignmentGuestBreakdown } from "@/lib/services/room-assignment-guest-sync";
+import {
+  clearRoomAssignmentsForReservation,
+  shouldClearRoomAssignmentsOnStatus,
+} from "@/lib/services/room-assignment-lifecycle";
 import { createAdminClient, createStaffClient } from "@/lib/supabase/server";
 import { updateRowWithLock } from "@/lib/utils/optimistic-lock";
 import {
@@ -156,6 +160,10 @@ export async function batchUpdateReservationsSetupAction(
     if (!result.ok) {
       failures.push({ id: change.reservationId, message: result.message });
       continue;
+    }
+
+    if (p.status !== undefined && shouldClearRoomAssignmentsOnStatus(p.status)) {
+      await clearRoomAssignmentsForReservation(supabase, change.reservationId);
     }
 
     const guestTouched =

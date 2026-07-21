@@ -302,6 +302,7 @@ export function useOccBoardDrag({
     function onPointerDown(e: PointerEvent) {
       if (!editMode) return;
       if (e.pointerType === "touch") return;
+      if ((e.target as Element).closest(".occ-event-action")) return;
       const el = (e.target as Element).closest(".occ-event[data-id]");
       if (!el || !(el instanceof HTMLElement)) return;
       const payload = payloadFromElement(el);
@@ -343,6 +344,7 @@ export function useOccBoardDrag({
 
     function onTouchStart(e: TouchEvent) {
       if (e.touches.length !== 1) return;
+      if ((e.target as Element).closest(".occ-event-action")) return;
       const el = (e.target as Element).closest(".occ-event[data-id]");
       if (!el || !(el instanceof HTMLElement)) return;
 

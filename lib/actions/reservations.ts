@@ -29,6 +29,10 @@ import { updateRowWithLock } from "@/lib/utils/optimistic-lock";
 import { syncReservationToGCal } from "@/lib/services/gcal-sync";
 import { syncRoomAssignmentGuestBreakdown } from "@/lib/services/room-assignment-guest-sync";
 import {
+  clearRoomAssignmentsForReservation,
+  shouldClearRoomAssignmentsOnStatus,
+} from "@/lib/services/room-assignment-lifecycle";
+import {
   normalizeGuestBreakdownForStorage,
   normalizeGuestTotalForStorage,
 } from "@/lib/utils/guest-count-format";
@@ -199,6 +203,15 @@ export async function updateReservationAction(
       message: updatedResult.message,
       conflict: updatedResult.conflict,
     };
+  }
+
+  const nextStatus = String(payload.status ?? current.status ?? "");
+  const prevStatus = String(current.status ?? "");
+  if (
+    shouldClearRoomAssignmentsOnStatus(nextStatus) &&
+    !shouldClearRoomAssignmentsOnStatus(prevStatus)
+  ) {
+    await clearRoomAssignmentsForReservation(supabase, reservationId);
   }
 
   const { data: updated } = await supabase

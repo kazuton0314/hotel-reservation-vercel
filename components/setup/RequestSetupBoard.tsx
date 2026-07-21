@@ -4,11 +4,13 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { SetupCommitBar } from "@/components/setup/SetupCommitBar";
+import { SetupContactStatusSelect } from "@/components/setup/SetupContactStatusSelect";
 import { batchUpdateRequestsSetupAction } from "@/lib/actions/setup-batch";
 import {
   optionsWithCurrent,
   REQUEST_STATUS_EDIT_OPTIONS,
 } from "@/lib/config/field-options";
+import { normalizeRequestStatus } from "@/lib/domain/request-status";
 import {
   getFullPath,
   loadJson,
@@ -195,7 +197,7 @@ export function RequestSetupBoard({ requests }: Props) {
               <th>希望日</th>
               <th>人数</th>
               <th>ステータス</th>
-              <th>返信M</th>
+              <th>返信</th>
               <th>メモ</th>
             </tr>
           </thead>
@@ -245,16 +247,13 @@ export function RequestSetupBoard({ requests }: Props) {
                         ))}
                       </select>
                     </td>
-                    <td className="setup-col-flag">
-                      <input
-                        type="checkbox"
-                        checked={row.reply_email_sent}
-                        onChange={(e) =>
-                          updateRow(row.request_id, {
-                            reply_email_sent: e.target.checked,
-                          })
+                    <td className="setup-col-contact">
+                      <SetupContactStatusSelect
+                        sent={row.reply_email_sent}
+                        disabled={!normalizeRequestStatus(row.status)}
+                        onChange={(sent) =>
+                          updateRow(row.request_id, { reply_email_sent: sent })
                         }
-                        aria-label="返信メール済"
                       />
                     </td>
                     <td>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { startTransition, useActionState, useState } from "react";
 import { setMailKindSentAction } from "@/lib/actions/reservations";
 import { MailComposeModal } from "@/components/mail/MailComposeModal";
 import { Button } from "@/components/ui/button";
@@ -146,7 +146,9 @@ export function ReservationMailSection(props: Props) {
     fd.set("reservation_id", props.reservationId);
     fd.set("mail_kind", kind);
     fd.set("sent", sent ? "true" : "false");
-    formAction(fd);
+    startTransition(() => {
+      formAction(fd);
+    });
   }
 
   // 仮予約には連絡タスクなし（メール作成のみ可）

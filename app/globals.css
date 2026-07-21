@@ -1277,6 +1277,21 @@ body.setup-active .main {
   text-align: center;
   width: 36px;
 }
+.setup-col-contact {
+  min-width: 4.75rem;
+  white-space: nowrap;
+}
+.setup-contact-muted {
+  display: inline-block;
+  width: 100%;
+  text-align: center;
+  color: var(--muted);
+}
+.setup-cell-contact {
+  min-width: 4.5rem;
+  padding-left: 4px;
+  padding-right: 4px;
+}
 .setup-col-rooms {
   min-width: 9rem;
 }
@@ -1444,8 +1459,9 @@ html[data-theme="dark"] .setup-room-trigger {
 }
 .nav-date-input {
   position: absolute;
-  width: 1px;
-  height: 1px;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   opacity: 0;
   pointer-events: none;
   border: none;
@@ -1644,6 +1660,7 @@ html[data-theme="dark"] .setup-room-trigger {
 .occ-event {
   display: block;
   padding: 4px 5px;
+  padding-right: 30px;
   margin-bottom: 3px;
   border-radius: 6px;
   cursor: pointer;
@@ -1651,9 +1668,37 @@ html[data-theme="dark"] .setup-room-trigger {
   border: 1px solid transparent;
   text-decoration: none;
   color: inherit;
+  position: relative;
 }
 .occ-event:last-child {
   margin-bottom: 0;
+}
+.occ-event-actions {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  display: inline-flex;
+  justify-content: flex-end;
+  gap: 2px;
+}
+.occ-event-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.92);
+  color: inherit;
+  font-size: 0.75rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.occ-event-action:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 .occ-stay {
   background: #ecfdf5;

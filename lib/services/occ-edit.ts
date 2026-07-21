@@ -240,7 +240,7 @@ export function computeOccEditChanges(
   return changes;
 }
 
-function countOccRoomAssignmentsForReservation(
+export function countOccRoomAssignmentsForReservation(
   data: RoomOccupancyMonthView,
   reservationId: string
 ): number {
@@ -489,4 +489,99 @@ export function commitOccDraftUnassign(
 ): RoomOccupancyMonthView | null {
   if (!d.assignmentId || d.isUnassigned) return null;
   return applyOccUnassignLocally(data, d.assignmentId);
+}
+
+export function occAssignedRoomIdsForReservation(
+  data: RoomOccupancyMonthView,
+  reservationId: string
+): Set<string> {
+  const ids = new Set<string>();
+  for (const day of data.days) {
+    for (const cell of day.cells) {
+      if (cell.roomId === UNASSIGNED_ROOM_ID) continue;
+      for (const ev of cell.events || []) {
+        if (ev.reservationId === reservationId) {
+          ids.add(cell.roomId);
+        }
+      }
+    }
+  }
+  return ids;
+}
+
+function buildOccAddRoomPendingId(
+  data: RoomOccupancyMonthView,
+  reservationId: string,
+  roomId: string
+): string {
+  const base = `pending:${reservationId}:add:${roomId}`;
+  const index = collectOccPlacementIndex(data);
+  if (!index[base]) return base;
+  let n = 2;
+  while (index[`${base}:${n}`]) n += 1;
+  return `${base}:${n}`;
+}
+
+export function applyOccAddRoomLocally(
+  data: RoomOccupancyMonthView,
+  d: OccDragPayload,
+  toRoomId: string
+): RoomOccupancyMonthView | null {
+  if (
+    !d.reservationId ||
+    d.isUnassigned ||
+    !d.assignmentId ||
+    !toRoomId ||
+    toRoomId === UNASSIGNED_ROOM_ID
+  ) {
+    return null;
+  }
+  if (reservationAlreadyInRoom(data, d.reservationId, toRoomId)) {
+    return null;
+  }
+
+  const pendingId = buildOccAddRoomPendingId(data, d.reservationId, toRoomId);
+  const next = cloneRoomMonthData(data);
+
+  for (const day of next.days) {
+    let source: OccEvent | null = null;
+    for (const cell of day.cells) {
+      if (cell.roomId === UNASSIGNED_ROOM_ID) continue;
+      const match = (cell.events || []).find(
+        (ev) =>
+          ev.reservationId === d.reservationId &&
+          ev.roomAssignmentId === d.assignmentId
+      );
+      if (match) {
+        source = match;
+        break;
+      }
+    }
+    if (!source) continue;
+
+    const targetCell = day.cells.find((c) => c.roomId === toRoomId);
+    if (!targetCell) continue;
+
+    const copy: OccEvent = {
+      ...source,
+      roomAssignmentId: pendingId,
+      roomId: toRoomId,
+      isUnassigned: false,
+      isDraft: true,
+    };
+    targetCell.events = sortOccCellEvents([...(targetCell.events || []), copy]);
+    markDraftEvents([copy]);
+    refreshOccCellShared(targetCell);
+  }
+
+  return next;
+}
+
+export function commitOccDraftAddRoom(
+  data: RoomOccupancyMonthView,
+  d: OccDragPayload,
+  toRoomId: string
+): RoomOccupancyMonthView | null {
+  if (d.isUnassigned) return null;
+  return applyOccAddRoomLocally(data, d, toRoomId);
 }

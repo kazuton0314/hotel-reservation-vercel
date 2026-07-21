@@ -12,14 +12,18 @@ import { batchRoomAssignmentChangesAction } from "@/lib/actions/room-assignments
 import { showErrorToast, showSuccessToast } from "@/lib/utils/toast";
 import {
   cloneRoomMonthData,
+  commitOccDraftAddRoom,
   commitOccDraftAssign,
   commitOccDraftMove,
   commitOccDraftUnassign,
   computeOccEditChanges,
+  countOccRoomAssignmentsForReservation,
+  occAssignedRoomIdsForReservation,
   type OccDragPayload,
 } from "@/lib/services/occ-edit";
 import {
   UNASSIGNED_ROOM_ID,
+  type OccEvent,
   type RoomOccupancyMonthView,
 } from "@/lib/services/room-occupancy";
 import {
@@ -29,8 +33,8 @@ import {
   formatOccNightLabel,
 } from "@/lib/utils/occ-display";
 import { useOccBoardDrag } from "@/components/rooms/useOccBoardDrag";
+import { NavDatePicker } from "@/components/calendar/NavDatePicker";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 
 type RoomOccupancyBoardProps = {
   data: RoomOccupancyMonthView;
@@ -47,18 +51,53 @@ function monthHref(year: number, month: number, scrollToToday = false) {
   return scrollToToday ? `/rooms?month=${m}&today=1` : `/rooms?month=${m}`;
 }
 
+function payloadFromOccEvent(
+  ev: OccEvent,
+  fromRoomId: string
+): OccDragPayload | null {
+  if (!ev.reservationId) return null;
+  const isUnassigned = Boolean(ev.isUnassigned);
+  if (!isUnassigned && !ev.roomAssignmentId) return null;
+  return {
+    reservationId: ev.reservationId,
+    assignmentId: ev.roomAssignmentId || "",
+    isUnassigned,
+    fromRoomId,
+    startDateStr: ev.startDateStr || "",
+    endDateStr: ev.endDateStr || "",
+    guestCount: Number(ev.guestCount) || Number(ev.guestTotal) || 0,
+    adultMale: Number(ev.adultMale) || 0,
+    adultFemale: Number(ev.adultFemale) || 0,
+    boyStudent: Number(ev.boyStudent) || 0,
+    girlStudent: Number(ev.girlStudent) || 0,
+    age3plus: Number(ev.age3plus) || 0,
+    under3: Number(ev.under3) || 0,
+  };
+}
+
 function OccEventBlock({
   ev,
   isShared,
   editMode,
+  assignmentCount,
+  onAddRoom,
+  onRemoveRoom,
 }: {
   ev: RoomOccupancyMonthView["days"][0]["cells"][0]["events"][0];
   isShared: boolean;
   editMode: boolean;
+  assignmentCount: number;
+  onAddRoom?: () => void;
+  onRemoveRoom?: () => void;
 }) {
   const nightLbl = formatOccNightLabel(ev);
   const meta = formatOccGuestMeta(ev);
   const bbqLabel = formatBbqBadgeLabel(ev.bbq);
+  const canRemoveRoom =
+    editMode &&
+    !ev.isUnassigned &&
+    Boolean(ev.roomAssignmentId) &&
+    assignmentCount >= 2;
 
   return (
     <div
@@ -79,6 +118,42 @@ function OccEventBlock({
       {...(ev.isUnassigned ? { "data-unassigned": "1" } : {})}
       style={editMode ? undefined : { cursor: "pointer" }}
     >
+      {editMode ? (
+        <div className="occ-event-actions">
+          <button
+            type="button"
+            className="occ-event-action"
+            title="部屋を追加"
+            aria-label="部屋を追加"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              onAddRoom?.();
+            }}
+          >
+            ＋
+          </button>
+          <button
+            type="button"
+            className="occ-event-action"
+            title={
+              canRemoveRoom
+                ? "この部屋を削除"
+                : "最後の1部屋は削除できません"
+            }
+            aria-label="部屋を削除"
+            disabled={!canRemoveRoom}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (!canRemoveRoom) return;
+              onRemoveRoom?.();
+            }}
+          >
+            −
+          </button>
+        </div>
+      ) : null}
       <span className="occ-name">{ev.representativeName}</span>
       {nightLbl ? <span className="occ-nights">{nightLbl}</span> : null}
       <span className="occ-meta">
@@ -94,9 +169,17 @@ function OccEventBlock({
 function OccCellContent({
   cell,
   editMode,
+  assignmentCountByReservation,
+  onAddRoom,
+  onRemoveRoom,
 }: {
   cell: RoomOccupancyMonthView["days"][0]["cells"][0];
   editMode: boolean;
+  assignmentCountByReservation: Map<string, number>;
+  onAddRoom: (ev: RoomOccupancyMonthView["days"][0]["cells"][0]["events"][0]) => void;
+  onRemoveRoom: (
+    ev: RoomOccupancyMonthView["days"][0]["cells"][0]["events"][0]
+  ) => void;
 }) {
   if (!cell.events.length) {
     return <span className="occ-empty">—</span>;
@@ -110,6 +193,11 @@ function OccCellContent({
           ev={ev}
           isShared={cell.isShared}
           editMode={editMode}
+          assignmentCount={
+            assignmentCountByReservation.get(ev.reservationId) ?? 0
+          }
+          onAddRoom={() => onAddRoom(ev)}
+          onRemoveRoom={() => onRemoveRoom(ev)}
         />
       ))}
     </>
@@ -142,6 +230,25 @@ export function RoomOccupancyBoard({
   }, [editMode, editBase, draftData]);
 
   const isDirty = changeCount > 0;
+
+  const assignmentCountByReservation = useMemo(() => {
+    const map = new Map<string, number>();
+    if (!editMode || !draftData) return map;
+    const seen = new Set<string>();
+    for (const day of draftData.days) {
+      for (const cell of day.cells) {
+        for (const ev of cell.events || []) {
+          if (!ev.reservationId || seen.has(ev.reservationId)) continue;
+          seen.add(ev.reservationId);
+          map.set(
+            ev.reservationId,
+            countOccRoomAssignmentsForReservation(draftData, ev.reservationId)
+          );
+        }
+      }
+    }
+    return map;
+  }, [editMode, draftData]);
 
   const showToast = useCallback((message: string, type: "success" | "error" = "success") => {
     if (type === "error") showErrorToast(message);
@@ -233,6 +340,79 @@ export function RoomOccupancyBoard({
     [draftData, editBase, showToast]
   );
 
+  const handleAddRoomRequest = useCallback(
+    (ev: OccEvent, fromRoomId: string) => {
+      if (!editMode || !draftData) return;
+      const payload = payloadFromOccEvent(ev, fromRoomId);
+      if (!payload) return;
+      const roomIds = displayData.rooms
+        .filter((r) => !r.isUnassignedColumn)
+        .map((r) => r.roomId);
+      if (!roomIds.length) {
+        showToast("追加先の部屋がありません", "error");
+        return;
+      }
+
+      const assigned = occAssignedRoomIdsForReservation(
+        draftData,
+        payload.reservationId
+      );
+
+      const pickTarget = (): string | null => {
+        if (payload.isUnassigned) {
+          return roomIds.find((id) => !assigned.has(id)) ?? roomIds[0] ?? null;
+        }
+        const i = roomIds.indexOf(fromRoomId);
+        const candidates =
+          i >= 0
+            ? [roomIds[i + 1], roomIds[i - 1], ...roomIds]
+            : roomIds;
+        for (const id of candidates) {
+          if (!id) continue;
+          if (assigned.has(id)) continue;
+          return id;
+        }
+        return null;
+      };
+
+      const toRoomId = pickTarget();
+      if (!toRoomId) {
+        showToast("追加できる隣室がありません");
+        return;
+      }
+
+      const next = payload.isUnassigned
+        ? commitOccDraftAssign(draftData, payload, toRoomId, editBase)
+        : commitOccDraftAddRoom(draftData, payload, toRoomId);
+      if (!next) {
+        showToast("この部屋はすでにこの予約に割り当て済みです");
+        return;
+      }
+      setDraftData(next);
+    },
+    [editMode, draftData, displayData.rooms, editBase, showToast]
+  );
+
+  const handleRemoveRoom = useCallback(
+    (ev: OccEvent, fromRoomId: string) => {
+      if (!draftData) return;
+      const payload = payloadFromOccEvent(ev, fromRoomId);
+      if (!payload || payload.isUnassigned || !payload.assignmentId) return;
+      const count = countOccRoomAssignmentsForReservation(
+        draftData,
+        payload.reservationId
+      );
+      if (count < 2) return;
+      const next = commitOccDraftUnassign(draftData, payload);
+      if (!next) {
+        showToast("部屋の削除に失敗しました", "error");
+        return;
+      }
+      setDraftData(next);
+    },
+    [draftData, showToast]
+  );
+
   useOccBoardDrag({
     editMode,
     boardRef,
@@ -287,9 +467,9 @@ export function RoomOccupancyBoard({
     }
   }, [scrollToToday, displayData.year, displayData.month, router, searchParams]);
 
-  const onMonthInputChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const parts = (e.target.value || "").split("-");
+  const onMonthChange = useCallback(
+    (nextValue: string) => {
+      const parts = (nextValue || "").split("-");
       if (parts.length === 2 && parts[0] && parts[1]) {
         const y = Number(parts[0]);
         const m = Number(parts[1]);
@@ -359,18 +539,13 @@ export function RoomOccupancyBoard({
         >
           ←
         </Button>
-        <div className="nav-date-picker">
-          <label htmlFor="occ-month-input" className="nav-date-label">
-            {displayData.monthLabel}
-          </label>
-          <Input
-            type="month"
-            id="occ-month-input"
-            className="nav-date-input"
-            value={monthValue}
-            onChange={onMonthInputChange}
-          />
-        </div>
+        <NavDatePicker
+          id="occ-month-input"
+          label={`${displayData.year}年${displayData.month}月`}
+          type="month"
+          value={monthValue}
+          onChange={onMonthChange}
+        />
         <Button
           type="button"
           variant="secondary"
@@ -512,7 +687,19 @@ export function RoomOccupancyBoard({
                         data-room-id={cell.roomId}
                       >
                         <div className="occ-cell-inner">
-                          <OccCellContent cell={cell} editMode={editMode} />
+                          <OccCellContent
+                            cell={cell}
+                            editMode={editMode}
+                            assignmentCountByReservation={
+                              assignmentCountByReservation
+                            }
+                            onAddRoom={(ev) =>
+                              handleAddRoomRequest(ev, cell.roomId)
+                            }
+                            onRemoveRoom={(ev) =>
+                              handleRemoveRoom(ev, cell.roomId)
+                            }
+                          />
                         </div>
                       </td>
                     );
@@ -535,6 +722,7 @@ export function RoomOccupancyBoard({
           <span className="occ-legend-today">今日の行</span>
         ) : null}
       </div>
+
     </div>
   );
 }
