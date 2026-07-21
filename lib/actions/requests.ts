@@ -2,6 +2,7 @@
 
 import {
   revalidateRequestDetail,
+  revalidateRequestMailFlags,
   revalidateReservationDetail,
   revalidateReservationsList,
 } from "@/lib/cache/revalidate";
@@ -321,7 +322,7 @@ export async function updateRequestReplyMailAction(
     .eq("request_id", requestId);
   if (error) return { ok: false, message: error.message };
 
-  revalidateRequestPaths(requestId);
+  revalidateRequestMailFlags(requestId);
   return { ok: true };
 }
 

@@ -49,24 +49,23 @@ async function RequestDetailContent({ id }: { id: string }) {
   const checkOut = asString(request.check_out);
   const linkedId = asString(request.linked_reservation_id);
 
-  const [{ stays }, { reservations: linkCandidates }] = await Promise.all([
-    checkIn
-      ? getOverlappingStays(checkIn, checkOut, linkedId)
-      : Promise.resolve({ stays: [], error: null }),
-    getReservationsForLinking(),
-  ]);
+  const [{ stays }, { reservations: linkCandidates }, placeholderContext] =
+    await Promise.all([
+      checkIn
+        ? getOverlappingStays(checkIn, checkOut, linkedId)
+        : Promise.resolve({ stays: [], error: null }),
+      getReservationsForLinking(),
+      (async () => {
+        const supabase = await createReadClient();
+        return buildMailEntityContext(supabase, "request", id);
+      })(),
+    ]);
 
   const receivedAt = formatReceivedDateFromIso(
     asString(request.sheet_created_at) || asString(request.created_at)
   );
 
   const representativeName = asString(request.representative_name) || id;
-  const supabase = await createReadClient();
-  const placeholderContext = await buildMailEntityContext(
-    supabase,
-    "request",
-    id
-  );
 
   return (
     <>

@@ -12,6 +12,28 @@ type Props = {
   notify?: boolean;
 };
 
+const GCAL_ONLY_RESERVATION_FIELDS = new Set(["gcal_event_id", "updated_at"]);
+
+function shouldIgnoreRealtimePayload(
+  table: string,
+  payload: {
+    eventType?: string;
+    new?: Record<string, unknown>;
+    old?: Record<string, unknown>;
+  }
+): boolean {
+  if (payload.eventType !== "UPDATE") return false;
+  const next = payload.new ?? {};
+  const prev = payload.old ?? {};
+  const changedKeys = Object.keys(next).filter((key) => next[key] !== prev[key]);
+  if (!changedKeys.length) return true;
+
+  if (table === "reservations") {
+    return changedKeys.every((key) => GCAL_ONLY_RESERVATION_FIELDS.has(key));
+  }
+  return false;
+}
+
 export function RealtimeRefresh({
   tables,
   label = "データ",
@@ -43,7 +65,11 @@ export function RealtimeRefresh({
       channel.on(
         "postgres_changes",
         { event: "*", schema: "public", table },
-        scheduleRefresh
+        (payload) => {
+          if (isLocalDataMutationActive()) return;
+          if (shouldIgnoreRealtimePayload(table, payload)) return;
+          scheduleRefresh();
+        }
       );
     }
 

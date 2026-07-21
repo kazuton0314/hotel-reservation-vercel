@@ -80,56 +80,30 @@ async function fetchCalendarData(from: string, to: string) {
   };
 }
 
-async function fetchTodayRooms(iso: string): Promise<TodayRoomBoardItem[]> {
-  const supabase = await createReadClient();
-  const refDate = parseReservationDate(iso);
-  if (!refDate) return [];
-  const dayMs = stripTime(refDate).getTime();
-  const withArchived = includeArchivedForDateRange(iso);
+const DAY_RESERVATION_SELECT =
+  "reservation_id, representative_name, status, check_in, check_out, nights, guest_total, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3, arrival_time, meal, bbq, inquiry, assignment_status";
 
-  let assignmentsQuery = supabase
-    .from("room_assignments")
-    .select(
-      "room_assignment_id, reservation_id, room_id, room_name, stay_start, stay_end, assigned_guest_count, is_archived"
-    )
-    .lte("stay_start", iso)
-    .gte("stay_end", iso);
+const DAY_ASSIGNMENT_SELECT =
+  "room_assignment_id, reservation_id, room_id, room_name, stay_start, stay_end";
 
-  let reservationsQuery = supabase
-    .from("reservations")
-    .select(
-      "reservation_id, representative_name, status, check_in, check_out, nights, guest_total, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3, arrival_time, bbq"
-    )
-    .lte("check_in", iso)
-    .gte("check_out", iso);
-
-  if (!withArchived) {
-    assignmentsQuery = assignmentsQuery.eq("is_archived", false);
-    reservationsQuery = reservationsQuery.eq("is_archived", false);
+function buildTodayRoomsFromDayData(
+  iso: string,
+  dayMs: number,
+  rooms: { room_id: string; room_name: string }[],
+  assignments: CalendarAssignment[],
+  reservationsById: Map<string, CalendarReservation>
+): TodayRoomBoardItem[] {
+  const assignmentsByRoom = new Map<string, CalendarAssignment[]>();
+  for (const a of assignments) {
+    if (!a.room_id) continue;
+    const list = assignmentsByRoom.get(a.room_id) ?? [];
+    list.push(a);
+    assignmentsByRoom.set(a.room_id, list);
   }
 
-  const [
-    { data: rooms },
-    { data: assignments },
-    { data: reservations },
-  ] = await Promise.all([
-    supabase
-      .from("rooms")
-      .select("room_id, room_name, sort_order")
-      .eq("is_active", true)
-      .order("sort_order", { ascending: true }),
-    assignmentsQuery,
-    reservationsQuery,
-  ]);
-
-  const reservationsById = new Map(
-    (reservations ?? []).map((r) => [r.reservation_id, r])
-  );
-
-  return (rooms ?? []).map((room) => {
+  return rooms.map((room) => {
     const events: TodayRoomBoardItem["events"] = [];
-    for (const a of assignments ?? []) {
-      if (a.room_id !== room.room_id) continue;
+    for (const a of assignmentsByRoom.get(room.room_id) ?? []) {
       const res = reservationsById.get(a.reservation_id);
       if (res && (res.status === "キャンセル" || res.status === "不可")) continue;
       const start = parseReservationDate(a.stay_start);
@@ -163,6 +137,81 @@ async function fetchTodayRooms(iso: string): Promise<TodayRoomBoardItem[]> {
       events,
     };
   });
+}
+
+/** 日表示用: 予約・割当・部屋を1回だけ取得し、一覧と部屋ボードの両方に使う */
+async function fetchDayCalendarSnapshot(iso: string) {
+  const supabase = await createReadClient();
+  const refDate = parseReservationDate(iso);
+  if (!refDate) {
+    return {
+      reservations: [] as CalendarReservation[],
+      assignmentsByReservation: new Map<string, CalendarAssignment[]>(),
+      todayRooms: [] as TodayRoomBoardItem[],
+      error: "日付が不正です",
+    };
+  }
+  const dayMs = stripTime(refDate).getTime();
+  const withArchived = includeArchivedForDateRange(iso);
+
+  let reservationsQuery = supabase
+    .from("reservations")
+    .select(DAY_RESERVATION_SELECT)
+    .lte("check_in", iso)
+    .gte("check_out", iso);
+
+  let assignmentsQuery = supabase
+    .from("room_assignments")
+    .select(DAY_ASSIGNMENT_SELECT)
+    .lte("stay_start", iso)
+    .gte("stay_end", iso);
+
+  if (!withArchived) {
+    reservationsQuery = reservationsQuery.eq("is_archived", false);
+    assignmentsQuery = assignmentsQuery.eq("is_archived", false);
+  }
+
+  const [
+    { data: rooms, error: roomsError },
+    { data: reservations, error: resError },
+    { data: assignments, error: assignError },
+  ] = await Promise.all([
+    supabase
+      .from("rooms")
+      .select("room_id, room_name, sort_order")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true }),
+    reservationsQuery,
+    assignmentsQuery,
+  ]);
+
+  const reservationRows = (reservations ?? []) as CalendarReservation[];
+  const assignmentRows = (assignments ?? []) as CalendarAssignment[];
+
+  const assignmentsByReservation = new Map<string, CalendarAssignment[]>();
+  for (const a of assignmentRows) {
+    const list = assignmentsByReservation.get(a.reservation_id) ?? [];
+    list.push(a);
+    assignmentsByReservation.set(a.reservation_id, list);
+  }
+
+  const reservationsById = new Map(
+    reservationRows.map((r) => [r.reservation_id, r])
+  );
+
+  return {
+    reservations: reservationRows,
+    assignmentsByReservation,
+    todayRooms: buildTodayRoomsFromDayData(
+      iso,
+      dayMs,
+      rooms ?? [],
+      assignmentRows,
+      reservationsById
+    ),
+    error:
+      roomsError?.message ?? resError?.message ?? assignError?.message ?? null,
+  };
 }
 
 export async function getMonthCalendar(
@@ -216,15 +265,14 @@ export async function getDayCalendar(
 ): Promise<{ data: DayCalendarView | null; error: string | null }> {
   return unstable_cache(
     async () => {
-      const snap = await fetchCalendarData(date, date);
+      const snap = await fetchDayCalendarSnapshot(date);
       if (snap.error) return { data: null, error: snap.error };
-      const todayRooms = await fetchTodayRooms(date);
       return {
         data: buildDayCalendarView(
           date,
           snap.reservations,
           snap.assignmentsByReservation,
-          todayRooms
+          snap.todayRooms
         ),
         error: null,
       };

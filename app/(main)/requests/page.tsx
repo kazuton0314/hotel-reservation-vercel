@@ -10,6 +10,7 @@ import { RequestsListResults } from "@/components/requests/RequestsListResults";
 import { ListSetupEntryLink } from "@/components/setup/ListSetupEntryLink";
 import { buildRequestListFilterFields } from "@/lib/list/request-filter-fields";
 import { getRequests } from "@/lib/queries/requests";
+import { parsePageParam } from "@/lib/utils/list-pagination";
 
 type PageProps = {
   searchParams: Promise<{
@@ -36,6 +37,11 @@ async function RequestsContent({
   params: {
     status?: string;
     scope?: string;
+    sort?: string;
+    dir?: string;
+    page?: string;
+    q?: string;
+    checkIn?: string;
     filterField?: string;
     filterValue?: string;
   };
@@ -44,9 +50,18 @@ async function RequestsContent({
   const status = params.status || "リクエスト";
   const filterFields = buildRequestListFilterFields();
 
-  const { requests, error } = await getRequests({
+  const { requests, total, error } = await getRequests({
     status,
     scope,
+    list: {
+      q: params.q,
+      checkIn: params.checkIn,
+      filterField: params.filterField,
+      filterValue: params.filterValue,
+      sort: params.sort,
+      dir: params.dir,
+      page: parsePageParam(params.page),
+    },
   });
 
   if (error) {
@@ -97,7 +112,11 @@ async function RequestsContent({
           <Suspense
             fallback={<div className="inline-loading">一覧を読み込み中…</div>}
           >
-            <RequestsListResults requests={requests} scope={scope} />
+            <RequestsListResults
+              requests={requests}
+              scope={scope}
+              total={total}
+            />
           </Suspense>
         </ListSearchProvider>
       </Suspense>

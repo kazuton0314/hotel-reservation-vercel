@@ -89,13 +89,19 @@ export async function checkRoomConflict(
     if (id) excludeIds.add(id);
   }
 
+  // datesOverlap: stay_start < end && stay_end > start（入力は YYYY-MM-DD）
+  const startIso = String(input.startDate).trim().slice(0, 10);
+  const endIso = String(input.endDate).trim().slice(0, 10);
+
   const { data: roomAssignments } = await supabase
     .from("room_assignments")
     .select(
       "room_assignment_id, reservation_id, room_name, stay_start, stay_end"
     )
     .eq("room_id", input.roomId)
-    .eq("is_archived", false);
+    .eq("is_archived", false)
+    .lt("stay_start", endIso)
+    .gt("stay_end", startIso);
 
   const conflicts = (roomAssignments ?? []).filter((a) => {
     if (excludeIds.has(a.room_assignment_id)) return false;

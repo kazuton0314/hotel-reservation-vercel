@@ -10,6 +10,7 @@ import { ConnectionError } from "@/components/SetupRequired";
 import { getReservations } from "@/lib/queries/reservations";
 import { getRooms } from "@/lib/queries/rooms";
 import { buildReservationListFilterFields } from "@/lib/list/reservation-filter-fields";
+import { parsePageParam } from "@/lib/utils/list-pagination";
 import { parseListScope } from "@/lib/utils/list-scope";
 
 type PageProps = {
@@ -53,16 +54,30 @@ async function ReservationsContent({
     scope?: string;
     filterField?: string;
     filterValue?: string;
+    sort?: string;
+    dir?: string;
+    page?: string;
+    q?: string;
+    checkIn?: string;
   };
 }) {
   const scope = parseListScope(params.scope);
   const period = resolvePeriod(params);
 
-  const [{ reservations, error }, { rooms }] = await Promise.all([
+  const [{ reservations, total, error }, { rooms }] = await Promise.all([
     getReservations({
       period,
       status: params.status,
       scope,
+      list: {
+        q: params.q,
+        checkIn: params.checkIn,
+        filterField: params.filterField,
+        filterValue: params.filterValue,
+        sort: params.sort,
+        dir: params.dir,
+        page: parsePageParam(params.page),
+      },
     }),
     getRooms(),
   ]);
@@ -113,7 +128,11 @@ async function ReservationsContent({
           <Suspense
             fallback={<div className="inline-loading">一覧を読み込み中…</div>}
           >
-            <ReservationsListResults reservations={reservations} scope={scope} />
+            <ReservationsListResults
+              reservations={reservations}
+              scope={scope}
+              total={total}
+            />
           </Suspense>
         </ListSearchProvider>
       </Suspense>

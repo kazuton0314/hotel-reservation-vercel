@@ -28,7 +28,7 @@ export function SyncImportButton() {
       disabled={pending}
       onClick={handleImport}
     >
-      {pending ? "取込中…" : "フォーム回答を取り込む"}
+      {pending ? "開始中…" : "フォーム回答を取り込む"}
     </Button>
   );
 }

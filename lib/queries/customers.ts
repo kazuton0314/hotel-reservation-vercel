@@ -70,9 +70,7 @@ function rowToListItem(row: DbCustomer): CustomerListItem {
   };
 }
 
-function escapeIlike(value: string): string {
-  return value.replace(/[%_\\]/g, "\\$&");
-}
+import { escapeIlike } from "@/lib/utils/sql-ilike";
 
 type ReservationProfileRow = {
   reservation_id: string;
@@ -140,17 +138,43 @@ async function addReservationSearchHits(
   items: Map<string, CustomerListItem>,
   reservations: ReservationProfileRow[]
 ) {
+  const keys = new Set<string>();
+  const ephemeralRows: ReservationProfileRow[] = [];
+
   for (const r of reservations) {
-    const indexed = await loadIndexedCustomerByReservation(supabase, r);
-    if (indexed) {
-      items.set(indexed.customer_key, rowToListItem(indexed));
+    const key = buildCustomerKey(r);
+    if (key) {
+      keys.add(key);
       continue;
     }
     if (!String(r.representative_name ?? "").trim()) continue;
-    items.set(
-      buildEphemeralCustomerKey(r.reservation_id),
-      ephemeralListItem(r)
+    ephemeralRows.push(r);
+  }
+
+  if (keys.size) {
+    const { data: customers } = await supabase
+      .from("customers")
+      .select(
+        "customer_id, customer_key, representative_name, name_kana, email, phone, visit_count, last_check_out, is_repeater"
+      )
+      .in("customer_key", [...keys]);
+
+    const byKey = new Map(
+      ((customers ?? []) as DbCustomer[]).map((row) => [row.customer_key, row])
     );
+
+    for (const r of reservations) {
+      const key = buildCustomerKey(r);
+      if (!key) continue;
+      const indexed = byKey.get(key);
+      if (indexed) {
+        items.set(indexed.customer_key, rowToListItem(indexed));
+      }
+    }
+  }
+
+  for (const r of ephemeralRows) {
+    items.set(buildEphemeralCustomerKey(r.reservation_id), ephemeralListItem(r));
   }
 }
 

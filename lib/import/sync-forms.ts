@@ -313,6 +313,7 @@ export async function importStudioFormRows(
   let skippedAlreadyInDb = 0;
   let skippedNotImportable = 0;
   const errors: string[] = [];
+  const pendingGCalIds: string[] = [];
   const allReservations = await loadAllReservationsForImport(supabase);
   const activeReservations = await loadActiveReservationsForMatching(supabase);
   const activeRequests = await loadActiveRequestsForMatching(supabase);
@@ -429,11 +430,7 @@ export async function importStudioFormRows(
       );
       if (upsertError) throw upsertError;
 
-      try {
-        await syncReservationToGCal(supabase, record.reservation_id);
-      } catch {
-        /* best-effort */
-      }
+      pendingGCalIds.push(record.reservation_id);
 
       if (matchedRequest) {
         const { error: requestUpdateError } = await supabase
@@ -483,6 +480,14 @@ export async function importStudioFormRows(
       imported++;
     } catch (e) {
       errors.push(`行${row.sheetRow}: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
+  for (const reservationId of pendingGCalIds) {
+    try {
+      await syncReservationToGCal(supabase, reservationId);
+    } catch {
+      /* best-effort */
     }
   }
 

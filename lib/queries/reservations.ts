@@ -6,9 +6,23 @@ import {
   reservationHasActiveConfirmationTask,
 } from "@/lib/services/reservation-active-tasks";
 import { reservationNeedsCompanionInfo } from "@/lib/services/mail-pending";
+import {
+  needsInMemoryReservationListProcessing,
+  reservationIdsForRoomFilter,
+} from "@/lib/services/reservation-list-query";
+import { UNASSIGNED_ROOM_FILTER } from "@/lib/services/reservation-list-filter";
+import { applyReservationListFilter } from "@/lib/services/reservation-list-filter";
 import { effectiveGuestCountForCompanion } from "@/lib/utils/guest-display";
 import { idPrefixIlikePattern, isIdLikeQuery } from "@/lib/utils/id-search";
 import { todayIso } from "@/lib/utils/date-label";
+import { escapeIlike } from "@/lib/utils/sql-ilike";
+import {
+  DEFAULT_LIST_PAGE_SIZE,
+  paginateItems,
+  parsePageParam,
+} from "@/lib/utils/list-pagination";
+import { filterListBySearch } from "@/lib/utils/list-search";
+import { parseListSort, sortListItems } from "@/lib/utils/list-sort";
 
 export type ReservationListItem = {
   reservation_id: string;
@@ -84,6 +98,17 @@ export type RoomAssignmentItem = {
   is_archived: boolean;
 };
 
+export type ReservationListQuery = {
+  q?: string;
+  checkIn?: string;
+  filterField?: string;
+  filterValue?: string;
+  sort?: string;
+  dir?: string;
+  page?: number;
+  pageSize?: number;
+};
+
 export type ReservationFilters = {
   period?: "provisional" | "confirmed" | "cancelled";
   status?: string;
@@ -91,6 +116,17 @@ export type ReservationFilters = {
   assignment?: "unassigned";
   mailPending?: boolean;
   companionPending?: boolean;
+  /** 一覧ページ用。指定時は検索・絞込・並び・ページをサーバー側で適用 */
+  list?: ReservationListQuery;
+};
+
+type AssignmentListRow = {
+  room_assignment_id: string;
+  room_id: string | null;
+  room_name: string | null;
+  stay_start: string;
+  stay_end: string;
+  updated_at: string | null;
 };
 
 const LIST_SELECT =
@@ -227,10 +263,183 @@ export async function getReservations(filters: ReservationFilters = {}) {
   )();
 }
 
+async function loadAssignmentsByReservationIds(
+  supabase: Awaited<ReturnType<typeof createReadClient>>,
+  ids: string[],
+  includeArchivedAssignments: boolean
+) {
+  const assignmentsByReservation = new Map<string, AssignmentListRow[]>();
+  if (!ids.length) return assignmentsByReservation;
+
+  const chunkSize = 100;
+  for (let i = 0; i < ids.length; i += chunkSize) {
+    const chunk = ids.slice(i, i + chunkSize);
+    let assignQuery = supabase
+      .from("room_assignments")
+      .select(
+        "room_assignment_id, reservation_id, room_id, room_name, stay_start, stay_end, updated_at"
+      )
+      .in("reservation_id", chunk);
+    if (!includeArchivedAssignments) {
+      assignQuery = assignQuery.eq("is_archived", false);
+    }
+    const { data: assignments } = await assignQuery;
+    for (const a of assignments ?? []) {
+      const list = assignmentsByReservation.get(a.reservation_id) ?? [];
+      list.push({
+        room_assignment_id: a.room_assignment_id,
+        room_id: a.room_id,
+        room_name: a.room_name,
+        stay_start: a.stay_start,
+        stay_end: a.stay_end,
+        updated_at: a.updated_at,
+      });
+      assignmentsByReservation.set(a.reservation_id, list);
+    }
+  }
+  return assignmentsByReservation;
+}
+
+function buildReservationBaseQuery(
+  supabase: Awaited<ReturnType<typeof createReadClient>>,
+  filters: ReservationFilters,
+  list?: ReservationListQuery,
+  roomReservationIds?: string[] | null
+) {
+  const today = todayIso();
+  let query = supabase.from("reservations").select(LIST_SELECT, { count: "exact" });
+
+  if (filters.scope === "archive" || filters.scope === "past") {
+    query = query.or(`is_archived.eq.true,check_out.lt.${today}`);
+  } else {
+    query = query.eq("is_archived", false).gte("check_out", today);
+  }
+
+  const statusFilter = filters.period
+    ? periodToStatus(filters.period)
+    : filters.status;
+  if (statusFilter) {
+    query = query.eq("status", statusFilter);
+  }
+
+  if (filters.assignment === "unassigned") {
+    query = query.eq("assignment_status", "未割当").eq("status", "確定");
+  }
+
+  const checkIn = String(list?.checkIn ?? "").trim();
+  if (checkIn) {
+    query = query.eq("check_in", checkIn);
+  }
+
+  const keyword = String(list?.q ?? "").trim();
+  if (keyword) {
+    if (isIdLikeQuery(keyword)) {
+      query = query.ilike("reservation_id", `${idPrefixIlikePattern(keyword)}%`);
+    } else {
+      const q = escapeIlike(keyword);
+      query = query.or(
+        [
+          `representative_name.ilike.%${q}%`,
+          `name_kana.ilike.%${q}%`,
+          `last_name.ilike.%${q}%`,
+          `first_name.ilike.%${q}%`,
+          `last_name_kana.ilike.%${q}%`,
+          `first_name_kana.ilike.%${q}%`,
+          `group_name.ilike.%${q}%`,
+          `email.ilike.%${q}%`,
+          `phone.ilike.%${q}%`,
+        ].join(",")
+      );
+    }
+  }
+
+  if (list?.filterField === "roomId" && list.filterValue) {
+    if (list.filterValue === UNASSIGNED_ROOM_FILTER) {
+      query = query.eq("assignment_status", "未割当");
+    } else if (roomReservationIds?.length) {
+      query = query.in("reservation_id", roomReservationIds);
+    } else {
+      query = query.eq("reservation_id", "__none__");
+    }
+  }
+
+  return query;
+}
+
 async function getReservationsUncached(filters: ReservationFilters = {}) {
   const supabase = await createReadClient();
   const today = todayIso();
   const refDate = new Date();
+  const includeArchivedAssignments =
+    filters.scope === "archive" || filters.scope === "past";
+  const list = filters.list;
+  const paged = Boolean(list);
+  const useSqlPagination =
+    paged && !needsInMemoryReservationListProcessing(filters, list);
+
+  if (useSqlPagination && list) {
+    const sort = parseListSort(list.sort, list.dir);
+    const page = list.page ?? parsePageParam(undefined);
+    const pageSize = list.pageSize ?? DEFAULT_LIST_PAGE_SIZE;
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+
+    let roomReservationIds: string[] | null = null;
+    if (
+      list.filterField === "roomId" &&
+      list.filterValue &&
+      list.filterValue !== UNASSIGNED_ROOM_FILTER
+    ) {
+      roomReservationIds = await reservationIdsForRoomFilter(
+        supabase,
+        list.filterValue,
+        includeArchivedAssignments
+      );
+    }
+
+    let query = buildReservationBaseQuery(
+      supabase,
+      filters,
+      list,
+      roomReservationIds
+    );
+    const asc = sort.dir === "asc";
+    if (sort.field === "stay") {
+      query = query.order("check_in", { ascending: asc, nullsFirst: false });
+    } else if (sort.field === "received") {
+      query = query
+        .order("sheet_created_at", { ascending: asc, nullsFirst: false })
+        .order("created_at", { ascending: asc, nullsFirst: false });
+    } else {
+      query = query.order("updated_at", { ascending: asc, nullsFirst: false });
+    }
+
+    const { data, error, count } = await query.range(from, to);
+    if (error) {
+      return {
+        reservations: [] as ReservationListItem[],
+        total: 0,
+        error: error.message,
+      };
+    }
+
+    const rows = (data ?? []) as DbListRow[];
+    const pageIds = rows.map((r) => r.reservation_id);
+    const assignmentsByReservation = await loadAssignmentsByReservationIds(
+      supabase,
+      pageIds,
+      includeArchivedAssignments
+    );
+    const reservations = rows.map((row) =>
+      mapReservationListItem(row, assignmentsByReservation, refDate)
+    );
+
+    return {
+      reservations,
+      total: count ?? reservations.length,
+      error: null,
+    };
+  }
 
   let query = supabase
     .from("reservations")
@@ -256,7 +465,11 @@ async function getReservationsUncached(filters: ReservationFilters = {}) {
 
   const { data, error } = await query;
   if (error) {
-    return { reservations: [] as ReservationListItem[], error: error.message };
+    return {
+      reservations: [] as ReservationListItem[],
+      total: 0,
+      error: error.message,
+    };
   }
 
   let rows = (data ?? []) as DbListRow[];
@@ -272,51 +485,70 @@ async function getReservationsUncached(filters: ReservationFilters = {}) {
     );
   }
 
-  const ids = rows.map((r) => r.reservation_id);
-  const assignmentsByReservation = new Map<
-    string,
-    {
-      room_assignment_id: string;
-      room_id: string | null;
-      room_name: string | null;
-      stay_start: string;
-      stay_end: string;
-      updated_at: string | null;
-    }[]
-  >();
+  const needsAllAssignments =
+    !paged ||
+    (list?.filterField === "roomId" &&
+      list.filterValue &&
+      list.filterValue !== UNASSIGNED_ROOM_FILTER);
 
-  if (ids.length) {
-    let assignQuery = supabase
-      .from("room_assignments")
-      .select(
-        "room_assignment_id, reservation_id, room_id, room_name, stay_start, stay_end, updated_at"
-      )
-      .in("reservation_id", ids);
-    // アーカイブ一覧では割当もアーカイブ済みのため、スコープに応じて含める
-    if (filters.scope !== "archive" && filters.scope !== "past") {
-      assignQuery = assignQuery.eq("is_archived", false);
-    }
-    const { data: assignments } = await assignQuery;
-
-    for (const a of assignments ?? []) {
-      const list = assignmentsByReservation.get(a.reservation_id) ?? [];
-      list.push({
-        room_assignment_id: a.room_assignment_id,
-        room_id: a.room_id,
-        room_name: a.room_name,
-        stay_start: a.stay_start,
-        stay_end: a.stay_end,
-        updated_at: a.updated_at,
-      });
-      assignmentsByReservation.set(a.reservation_id, list);
-    }
+  let assignmentsByReservation = new Map<string, AssignmentListRow[]>();
+  if (needsAllAssignments) {
+    assignmentsByReservation = await loadAssignmentsByReservationIds(
+      supabase,
+      rows.map((r) => r.reservation_id),
+      includeArchivedAssignments
+    );
   }
 
-  const reservations = rows.map((row) =>
+  let reservations = rows.map((row) =>
     mapReservationListItem(row, assignmentsByReservation, refDate)
   );
 
-  return { reservations, error: null };
+  if (!paged) {
+    return { reservations, total: reservations.length, error: null };
+  }
+
+  const filtered = applyReservationListFilter(
+    reservations,
+    list?.filterField,
+    list?.filterValue
+  );
+  const searched = filterListBySearch(
+    filtered.map((item) => ({ ...item, id: item.reservation_id })),
+    list?.q,
+    list?.checkIn
+  );
+  const sort = parseListSort(list?.sort, list?.dir);
+  const sorted = sortListItems(searched, sort);
+  const page = list?.page ?? parsePageParam(undefined);
+  const pageSize = list?.pageSize ?? DEFAULT_LIST_PAGE_SIZE;
+  const pagedResult = paginateItems(sorted, page, pageSize);
+
+  if (!needsAllAssignments) {
+    const pageIds = pagedResult.items.map((r) => r.reservation_id);
+    const pageAssignments = await loadAssignmentsByReservationIds(
+      supabase,
+      pageIds,
+      includeArchivedAssignments
+    );
+    const rowById = new Map(rows.map((r) => [r.reservation_id, r]));
+    const hydrated = pagedResult.items.map((item) => {
+      const row = rowById.get(item.reservation_id);
+      if (!row) return item;
+      return mapReservationListItem(row, pageAssignments, refDate);
+    });
+    return {
+      reservations: hydrated,
+      total: pagedResult.total,
+      error: null,
+    };
+  }
+
+  return {
+    reservations: pagedResult.items,
+    total: pagedResult.total,
+    error: null,
+  };
 }
 
 export async function getReservationById(id: string) {

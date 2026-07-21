@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidateMailLogs, revalidateRequestDetail, revalidateReservationDetail } from "@/lib/cache/revalidate";
+import { revalidateMailLogs } from "@/lib/cache/revalidate";
 import { buildMailEntityContext } from "@/lib/services/mail-context";
 import { substituteMailPlaceholders } from "@/lib/services/mail-placeholders";
 import { sendMail, resolveMailProvider } from "@/lib/services/mail-send";
@@ -87,13 +87,6 @@ export async function sendComposeMailAction(
     console.error("mail_logs insert failed:", logError.message);
   }
 
-  if (entityId && entityType !== "general") {
-    if (entityType === "reservation") {
-      revalidateReservationDetail(entityId);
-    } else if (entityType === "request") {
-      revalidateRequestDetail(entityId);
-    }
-  }
-
+  // 送信ログのみ更新。連絡フラグは別アクションで付けるため一覧・カレンダーは触らない
   return result;
 }

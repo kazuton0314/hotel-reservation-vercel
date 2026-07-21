@@ -9,22 +9,10 @@ export type OverlapStayItem = {
   guest_total: string | null;
 };
 
-function parseDateOnly(value: string | null): Date | null {
-  if (!value) return null;
-  const d = new Date(`${value}T00:00:00`);
-  return Number.isNaN(d.getTime()) ? null : d;
-}
-
-function overlapsPeriod(
-  checkIn: string | null,
-  checkOut: string | null,
-  periodStart: Date,
-  periodEnd: Date
-): boolean {
-  const start = parseDateOnly(checkIn);
-  const end = parseDateOnly(checkOut);
-  if (!start || !end) return false;
-  return start.getTime() <= periodEnd.getTime() && end.getTime() >= periodStart.getTime();
+function toDateIso(value: string | null | undefined): string | null {
+  const raw = String(value ?? "").trim().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null;
+  return raw;
 }
 
 export async function getOverlappingStays(
@@ -32,39 +20,37 @@ export async function getOverlappingStays(
   checkOut: string | null,
   excludeReservationId?: string | null
 ) {
-  const periodStart = parseDateOnly(checkIn);
-  const periodEnd = parseDateOnly(checkOut || checkIn);
+  const periodStart = toDateIso(checkIn);
+  const periodEnd = toDateIso(checkOut || checkIn);
   if (!periodStart || !periodEnd) {
     return { stays: [] as OverlapStayItem[], error: null };
   }
 
   const supabase = await createReadClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("reservations")
     .select(
-      "reservation_id, representative_name, check_in, check_out, status, guest_total, is_archived"
+      "reservation_id, representative_name, check_in, check_out, status, guest_total"
     )
-    .neq("status", "キャンセル");
+    .neq("status", "キャンセル")
+    .lte("check_in", periodEnd)
+    .gte("check_out", periodStart)
+    .order("check_in", { ascending: true, nullsFirst: false })
+    .order("representative_name", { ascending: true, nullsFirst: false });
+
+  const excludeId = String(excludeReservationId || "").trim();
+  if (excludeId) {
+    query = query.neq("reservation_id", excludeId);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     return { stays: [] as OverlapStayItem[], error: error.message };
   }
 
-  const excludeId = String(excludeReservationId || "").trim();
-  const stays = (data ?? [])
-    .filter((row) => {
-      if (excludeId && row.reservation_id === excludeId) return false;
-      return overlapsPeriod(row.check_in, row.check_out, periodStart, periodEnd);
-    })
-    .sort((a, b) => {
-      const aIn = a.check_in || "";
-      const bIn = b.check_in || "";
-      if (aIn !== bIn) return aIn < bIn ? -1 : 1;
-      return (a.representative_name || "").localeCompare(
-        b.representative_name || "",
-        "ja"
-      );
-    }) as OverlapStayItem[];
-
-  return { stays, error: null };
+  return {
+    stays: (data ?? []) as OverlapStayItem[],
+    error: null,
+  };
 }

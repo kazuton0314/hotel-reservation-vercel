@@ -1,7 +1,7 @@
 "use server";
 
 import { after } from "next/server";
-import { revalidateReservationDetail } from "@/lib/cache/revalidate";
+import { revalidateReservationDetail, revalidateReservationDetailsBatch } from "@/lib/cache/revalidate";
 import { nextRoomAssignmentId } from "@/lib/import/id-generation";
 import { syncAssignmentStatus } from "@/lib/services/assignment-status";
 import { syncReservationToGCal } from "@/lib/services/gcal-sync";
@@ -431,7 +431,9 @@ export async function batchRoomAssignmentChangesAction(
     if (ch.type === "move") {
       const { data: existing, error: existingError } = await supabase
         .from("room_assignments")
-        .select("*")
+        .select(
+          "room_assignment_id, reservation_id, room_id, room_name, stay_start, stay_end, updated_at"
+        )
         .eq("room_assignment_id", ch.roomAssignmentId)
         .maybeSingle();
 
@@ -553,15 +555,24 @@ export async function batchRoomAssignmentChangesAction(
     }
   }
 
-  for (const rid of affected) {
-    await syncAssignmentStatus(supabase, rid);
-    revalidateReservationPaths(rid);
+  const affectedList = [...affected];
+  await Promise.all(
+    affectedList.map((rid) => syncAssignmentStatus(supabase, rid))
+  );
+  revalidateReservationDetailsBatch(affectedList);
+  if (affectedList.length) {
+    after(async () => {
+      const admin = createAdminClient();
+      for (const id of affectedList) {
+        await syncReservationToGCal(admin, id);
+      }
+    });
   }
 
   return {
     ok: true,
     applied,
-    affectedReservationIds: [...affected],
+    affectedReservationIds: affectedList,
   };
 }
 

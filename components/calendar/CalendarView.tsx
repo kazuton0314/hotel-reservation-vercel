@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import type {
   DayCalendarView,
   MonthCalendarView,
@@ -13,6 +12,7 @@ import type {
 import { shiftIsoDate, shiftMonth } from "@/lib/services/calendar";
 import { TodayRoomsBoard } from "@/components/dashboard/TodayRoomsBoard";
 import { ReservationDashboardCard } from "@/components/dashboard/ReservationDashboardCard";
+import { NavDatePicker } from "@/components/calendar/NavDatePicker";
 import type { DashboardListItem } from "@/lib/queries/dashboard";
 
 type CalendarMode = "month" | "week" | "day";
@@ -100,25 +100,20 @@ function MonthView({
         <Link href={prevHref} className="btn btn-secondary btn-sm cal-nav-btn">
           ←
         </Link>
-        <div className="nav-date-picker">
-          <label htmlFor="cal-month-input" className="nav-date-label">
-            {year}年{month}月
-          </label>
-          <Input
-            type="month"
-            id="cal-month-input"
-            className="nav-date-input"
-            value={monthValue}
-            onChange={(e) => {
-              const parts = (e.target.value || "").split("-");
-              if (parts.length === 2) {
-                router.push(
-                  calendarHref("month", Number(parts[0]), Number(parts[1]), "")
-                );
-              }
-            }}
-          />
-        </div>
+        <NavDatePicker
+          id="cal-month-input"
+          label={`${year}年${month}月`}
+          type="month"
+          value={monthValue}
+          onChange={(nextValue) => {
+            const parts = nextValue.split("-");
+            if (parts.length === 2) {
+              router.push(
+                calendarHref("month", Number(parts[0]), Number(parts[1]), "")
+              );
+            }
+          }}
+        />
         <Link href={nextHref} className="btn btn-secondary btn-sm cal-nav-btn">
           →
         </Link>
@@ -198,22 +193,17 @@ function WeekView({
         <Link href={prevHref} className="btn btn-secondary btn-sm cal-nav-btn">
           ←
         </Link>
-        <div className="nav-date-picker">
-          <label htmlFor="cal-week-input" className="nav-date-label">
-            {data.weekStart} 〜
-          </label>
-          <Input
-            type="date"
-            id="cal-week-input"
-            className="nav-date-input"
-            value={data.weekStart}
-            onChange={(e) => {
-              if (e.target.value) {
-                router.push(calendarHref("week", 0, 0, e.target.value));
-              }
-            }}
-          />
-        </div>
+        <NavDatePicker
+          id="cal-week-input"
+          label={`${data.weekStart} 〜`}
+          type="date"
+          value={data.weekStart}
+          onChange={(nextValue) => {
+            if (nextValue) {
+              router.push(calendarHref("week", 0, 0, nextValue));
+            }
+          }}
+        />
         <Link href={nextHref} className="btn btn-secondary btn-sm cal-nav-btn">
           →
         </Link>
@@ -273,22 +263,17 @@ function DayView({ data, anchor }: { data: DayCalendarView; anchor: string }) {
         <Link href={prevHref} className="btn btn-secondary btn-sm cal-nav-btn">
           ←
         </Link>
-        <div className="nav-date-picker">
-          <label htmlFor="cal-day-input" className="nav-date-label">
-            {data.dateLabel}
-          </label>
-          <Input
-            type="date"
-            id="cal-day-input"
-            className="nav-date-input"
-            value={data.date}
-            onChange={(e) => {
-              if (e.target.value) {
-                router.push(calendarHref("day", 0, 0, e.target.value));
-              }
-            }}
-          />
-        </div>
+        <NavDatePicker
+          id="cal-day-input"
+          label={data.dateLabel}
+          type="date"
+          value={data.date}
+          onChange={(nextValue) => {
+            if (nextValue) {
+              router.push(calendarHref("day", 0, 0, nextValue));
+            }
+          }}
+        />
         <Link href={nextHref} className="btn btn-secondary btn-sm cal-nav-btn">
           →
         </Link>

@@ -5,6 +5,7 @@ import { after } from "next/server";
 import {
   revalidateCustomers,
   revalidateReservationDetail,
+  revalidateReservationMailFlags,
   revalidateReservationsList,
 } from "@/lib/cache/revalidate";
 import { upsertCustomerFromReservation } from "@/lib/services/customer-index";
@@ -268,7 +269,7 @@ export async function updateMailFlagsAction(
 
   if (error) return { ok: false, message: error.message };
 
-  revalidateReservationDetail(reservationId);
+  revalidateReservationMailFlags(reservationId);
   return { ok: true };
 }
 
@@ -302,7 +303,7 @@ export async function setMailKindSentAction(
     .eq("reservation_id", reservationId);
   if (error) return { ok: false, message: error.message };
 
-  revalidateReservationDetail(reservationId);
+  revalidateReservationMailFlags(reservationId);
   return { ok: true };
 }
 

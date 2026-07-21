@@ -86,17 +86,16 @@ async function DetailContent({
   const r = reservation as Record<string, unknown>;
   const checkIn = asString(r.check_in);
   const checkOut = asString(r.check_out);
-  const { stays, error: overlapError } = checkIn
-    ? await getOverlappingStays(checkIn, checkOut, id)
-    : { stays: [], error: null };
-  if (overlapError) return <ConnectionError message={overlapError} />;
 
   const supabase = await createReadClient();
-  const placeholderContext = await buildMailEntityContext(
-    supabase,
-    "reservation",
-    id
-  );
+  const [{ stays, error: overlapError }, placeholderContext] =
+    await Promise.all([
+      checkIn
+        ? getOverlappingStays(checkIn, checkOut, id)
+        : Promise.resolve({ stays: [], error: null }),
+      buildMailEntityContext(supabase, "reservation", id),
+    ]);
+  if (overlapError) return <ConnectionError message={overlapError} />;
 
   const status = String(r.status ?? "");
   const representativeName = asString(r.representative_name) || id;

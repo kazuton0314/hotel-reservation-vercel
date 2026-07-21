@@ -1429,7 +1429,6 @@ html[data-theme="dark"] .setup-room-trigger {
   align-items: center;
   justify-content: center;
   min-width: 7em;
-  overflow: hidden;
   z-index: 1;
 }
 .nav-date-label {
@@ -1437,15 +1436,23 @@ html[data-theme="dark"] .setup-room-trigger {
   font-weight: 700;
   cursor: pointer;
   padding: 4px 8px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
   border-bottom: 1.5px dashed rgba(0, 0, 0, 0.25);
 }
 .nav-date-input {
   position: absolute;
-  inset: 0;
+  width: 1px;
+  height: 1px;
   opacity: 0;
-  width: 100%;
-  height: 100%;
-  cursor: pointer;
+  pointer-events: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  box-shadow: none;
+  background: transparent;
 }
 
 .inline-loading {

@@ -3,7 +3,6 @@ import { CACHE_TAGS } from "@/lib/cache/tags";
 import { createReadClient } from "@/lib/supabase/read";
 import { stripTime } from "@/lib/import/date-utils";
 import {
-  reservationHasActiveAssignmentTask,
   reservationHasActiveCompanionTask,
   reservationHasActiveConfirmationTask,
 } from "@/lib/services/reservation-active-tasks";
@@ -225,10 +224,17 @@ function buildTodayRoomsBoard(
   iso: string,
   dayMs: number
 ): TodayRoomBoardItem[] {
+  const assignmentsByRoom = new Map<string, DbAssignment[]>();
+  for (const a of assignments) {
+    if (!a.room_id) continue;
+    const list = assignmentsByRoom.get(a.room_id) ?? [];
+    list.push(a);
+    assignmentsByRoom.set(a.room_id, list);
+  }
+
   return rooms.map((room) => {
     const events: TodayRoomEvent[] = [];
-    for (const a of assignments) {
-      if (a.room_id !== room.room_id) continue;
+    for (const a of assignmentsByRoom.get(room.room_id) ?? []) {
       const res = reservationsById.get(a.reservation_id);
       if (res && (res.status === "キャンセル" || res.status === "不可")) continue;
 
@@ -290,12 +296,20 @@ async function getDashboardSummaryUncached(): Promise<{
   const iso = todayIso();
   const refDate = businessToday();
   const dayMs = refDate.getTime();
+  const todayOrClause = `check_in.eq.${iso},check_out.eq.${iso},and(check_in.lt.${iso},check_out.gt.${iso})`;
+
+  const TASK_COUNTER_SELECT =
+    "reservation_id, status, check_out, assignment_status, completion_email_sent, day11_email_sent, day3_email_sent, companion_form_answered, email, check_in, created_at, sheet_created_at, guest_total, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3";
 
   const [
-    { data: reservations, error: resError },
+    { data: todayReservations, error: resError },
+    { data: counterRows, error: counterError },
     { data: assignments, error: assignError },
     { data: rooms, error: roomsError },
-    { data: requests, error: reqError },
+    { count: requestCountRaw, error: reqError },
+    { count: provisionalCount, error: provisionalError },
+    { count: confirmedCount, error: confirmedError },
+    { count: unassignedCount, error: unassignedError },
     { data: syncRuns },
   ] = await Promise.all([
     supabase
@@ -303,13 +317,21 @@ async function getDashboardSummaryUncached(): Promise<{
       .select(
         "reservation_id, representative_name, status, check_in, check_out, nights, guest_total, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3, arrival_time, meal, bbq, inquiry, internal_memo, vehicle_count, assignment_status, companion_form_answered, email, completion_email_sent, day11_email_sent, day3_email_sent, created_at, sheet_created_at, is_archived"
       )
-      .eq("is_archived", false),
+      .eq("is_archived", false)
+      .or(todayOrClause),
+    supabase
+      .from("reservations")
+      .select(TASK_COUNTER_SELECT)
+      .eq("is_archived", false)
+      .gte("check_out", iso),
     supabase
       .from("room_assignments")
       .select(
         "room_assignment_id, reservation_id, room_id, room_name, stay_start, stay_end, assigned_guest_count, is_archived"
       )
-      .eq("is_archived", false),
+      .eq("is_archived", false)
+      .lte("stay_start", iso)
+      .gte("stay_end", iso),
     supabase
       .from("rooms")
       .select("room_id, room_name, sort_order")
@@ -317,8 +339,26 @@ async function getDashboardSummaryUncached(): Promise<{
       .order("sort_order", { ascending: true }),
     supabase
       .from("reservation_requests")
-      .select("request_id, status")
-      .eq("is_archived", false),
+      .select("request_id", { count: "exact", head: true })
+      .eq("is_archived", false)
+      .eq("status", "リクエスト"),
+    supabase
+      .from("reservations")
+      .select("reservation_id", { count: "exact", head: true })
+      .eq("is_archived", false)
+      .eq("status", "仮予約"),
+    supabase
+      .from("reservations")
+      .select("reservation_id", { count: "exact", head: true })
+      .eq("is_archived", false)
+      .eq("status", "確定"),
+    supabase
+      .from("reservations")
+      .select("reservation_id", { count: "exact", head: true })
+      .eq("is_archived", false)
+      .eq("status", "確定")
+      .eq("assignment_status", "未割当")
+      .gte("check_out", iso),
     supabase
       .from("sync_runs")
       .select("status, started_at")
@@ -327,14 +367,19 @@ async function getDashboardSummaryUncached(): Promise<{
   ]);
 
   if (resError) return { dashboard: null, error: resError.message };
+  if (counterError) return { dashboard: null, error: counterError.message };
   if (assignError) return { dashboard: null, error: assignError.message };
   if (roomsError) return { dashboard: null, error: roomsError.message };
   if (reqError) return { dashboard: null, error: reqError.message };
+  if (provisionalError) return { dashboard: null, error: provisionalError.message };
+  if (confirmedError) return { dashboard: null, error: confirmedError.message };
+  if (unassignedError) return { dashboard: null, error: unassignedError.message };
 
-  const all = (reservations ?? []) as DbReservation[];
-  const allAssignments = (assignments ?? []) as DbAssignment[];
+  const all = (todayReservations ?? []) as DbReservation[];
+  const taskRows = (counterRows ?? []) as DbReservation[];
+  const dayAssignments = (assignments ?? []) as DbAssignment[];
   const assignmentsByReservation = new Map<string, DbAssignment[]>();
-  for (const a of allAssignments) {
+  for (const a of dayAssignments) {
     const list = assignmentsByReservation.get(a.reservation_id) ?? [];
     list.push(a);
     assignmentsByReservation.set(a.reservation_id, list);
@@ -401,23 +446,17 @@ async function getDashboardSummaryUncached(): Promise<{
     })
     .sort(byArrivalThenName);
 
-  const unassignedCount = all.filter((r) =>
-    reservationHasActiveAssignmentTask(r)
-  ).length;
-  const provisionalCount = all.filter((r) => r.status === "仮予約").length;
-  const confirmedCount = all.filter((r) => r.status === "確定").length;
-  const requestCount = (requests ?? []).filter((r) => r.status === "リクエスト")
-    .length;
-  const companionPendingCount = all.filter((r) =>
+  const requestCount = requestCountRaw ?? 0;
+  const companionPendingCount = taskRows.filter((r) =>
     reservationHasActiveCompanionTask(r, refDate)
   ).length;
-  const reservationMailPendingCount = all.filter((r) =>
+  const reservationMailPendingCount = taskRows.filter((r) =>
     reservationHasActiveConfirmationTask(r, refDate)
   ).length;
 
   const todayRooms = buildTodayRoomsBoard(
     (rooms ?? []) as DbRoom[],
-    allAssignments,
+    dayAssignments,
     reservationsById,
     iso,
     dayMs
@@ -436,11 +475,11 @@ async function getDashboardSummaryUncached(): Promise<{
       todayCheckoutCount: todayCheckouts.length,
       stayingCount: staying.length,
       requestCount,
-      provisionalCount,
-      confirmedCount,
+      provisionalCount: provisionalCount ?? 0,
+      confirmedCount: confirmedCount ?? 0,
       companionPendingCount,
       reservationMailPendingCount,
-      unassignedCount,
+      unassignedCount: unassignedCount ?? 0,
       todayCheckins,
       todayCheckouts,
       staying,

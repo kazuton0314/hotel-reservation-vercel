@@ -2,9 +2,9 @@
 
 import { after } from "next/server";
 import {
-  revalidateRequestDetail,
-  revalidateReservationDetail,
-  revalidateReservationsList,
+  revalidateRequestDetailsBatch,
+  revalidateReservationDetailsBatch,
+  revalidateReservationMailFlagsBatch,
 } from "@/lib/cache/revalidate";
 import {
   validateRequestSetupPatch,
@@ -48,6 +48,22 @@ function applyMailFlag(
   patch[at] = value ? nowIso : null;
 }
 
+function isReservationMailOnlyPatch(
+  patch: ReservationSetupChange["patch"]
+): boolean {
+  const keys = Object.entries(patch)
+    .filter(([, value]) => value !== undefined)
+    .map(([key]) => key);
+  return (
+    keys.length > 0 &&
+    keys.every((key) =>
+      ["completion_email_sent", "day11_email_sent", "day3_email_sent"].includes(
+        key
+      )
+    )
+  );
+}
+
 export async function batchUpdateReservationsSetupAction(
   changes: ReservationSetupChange[]
 ): Promise<SetupBatchResult> {
@@ -59,6 +75,8 @@ export async function batchUpdateReservationsSetupAction(
   const failures: { id: string; message: string }[] = [];
   let updated = 0;
   const gcalIds: string[] = [];
+  const detailRevalidateIds: string[] = [];
+  const mailRevalidateIds: string[] = [];
 
   for (const change of changes) {
     const invalid = validateReservationSetupPatch(change.patch);
@@ -170,9 +188,19 @@ export async function batchUpdateReservationsSetupAction(
 
     // タイトル・説明に出る項目（人数・ステータス・メモ等）は GCal へ反映
     gcalIds.push(change.reservationId);
-
-    revalidateReservationDetail(change.reservationId);
+    if (isReservationMailOnlyPatch(change.patch)) {
+      mailRevalidateIds.push(change.reservationId);
+    } else {
+      detailRevalidateIds.push(change.reservationId);
+    }
     updated += 1;
+  }
+
+  if (mailRevalidateIds.length) {
+    revalidateReservationMailFlagsBatch(mailRevalidateIds);
+  }
+  if (detailRevalidateIds.length) {
+    revalidateReservationDetailsBatch(detailRevalidateIds);
   }
 
   if (gcalIds.length) {
@@ -206,6 +234,8 @@ export async function batchUpdateRequestsSetupAction(
   const supabase = await createStaffClient();
   const failures: { id: string; message: string }[] = [];
   let updated = 0;
+  const requestRevalidateIds: string[] = [];
+  const linkedReservationIds: string[] = [];
 
   for (const change of changes) {
     const invalid = validateRequestSetupPatch(change.patch);
@@ -216,7 +246,9 @@ export async function batchUpdateRequestsSetupAction(
 
     const { data: current, error: loadError } = await supabase
       .from("reservation_requests")
-      .select("*")
+      .select(
+        "request_id, status, linked_reservation_id, access_key, updated_at"
+      )
       .eq("request_id", change.requestId)
       .maybeSingle();
 
@@ -291,13 +323,15 @@ export async function batchUpdateRequestsSetupAction(
       }
     }
 
-    revalidateRequestDetail(change.requestId);
-    revalidateReservationsList();
-    if (nextLinked || previousLinked) {
-      revalidateReservationDetail(nextLinked ?? previousLinked!);
+    requestRevalidateIds.push(change.requestId);
+    if (nextLinked) linkedReservationIds.push(nextLinked);
+    if (previousLinked && previousLinked !== nextLinked) {
+      linkedReservationIds.push(previousLinked);
     }
     updated += 1;
   }
+
+  revalidateRequestDetailsBatch(requestRevalidateIds, linkedReservationIds);
 
   if (updated === 0 && failures.length) {
     return {
