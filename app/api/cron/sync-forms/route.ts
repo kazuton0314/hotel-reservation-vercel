@@ -25,14 +25,18 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    const supabase = createAdminClient();
+    // 同期が止まっていても DB へ触れて Pause を防ぐ
+    await supabase.from("rooms").select("room_id", { count: "exact", head: true });
+
     if (process.env.FORM_SYNC_DISABLED === "true") {
       return NextResponse.json({
         ok: false,
         paused: true,
+        keepalive: true,
         error: "フォーム同期は一時停止中です（FORM_SYNC_DISABLED=true）",
       });
     }
-    const supabase = createAdminClient();
     const result = await syncAllForms(supabase);
     revalidateAfterCronSync();
     return NextResponse.json({
