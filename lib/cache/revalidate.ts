@@ -39,6 +39,16 @@ export function revalidateReservationStatus(reservationId: string) {
   revalidateDashboard();
 }
 
+/**
+ * 同行者のみの更新。部屋・顧客キャッシュは触らない。
+ * 一覧の同行者チップ・ダッシュボード未回答には反映する。
+ */
+export function revalidateReservationCompanions(reservationId: string) {
+  updateTag(CACHE_TAGS.reservation(reservationId));
+  updateTag(CACHE_TAGS.reservations);
+  updateTag(CACHE_TAGS.dashboard);
+}
+
 /** リクエストのステータスのみ */
 export function revalidateRequestStatus(requestId: string) {
   updateTag(CACHE_TAGS.request(requestId));

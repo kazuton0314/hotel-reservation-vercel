@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidateReservationDetail } from "@/lib/cache/revalidate";
+import { revalidateReservationCompanions } from "@/lib/cache/revalidate";
 import {
   normalizeCompanionAgeInput,
   validateCompanionAge,
@@ -75,7 +75,7 @@ export async function addCompanionAction(
     })
     .eq("reservation_id", reservationId);
 
-  revalidateReservationDetail(reservationId);
+  revalidateReservationCompanions(reservationId);
   return { ok: true };
 }
 
@@ -109,6 +109,6 @@ export async function deleteCompanionAction(
       .eq("reservation_id", reservationId);
   }
 
-  revalidateReservationDetail(reservationId);
+  revalidateReservationCompanions(reservationId);
   return { ok: true };
 }

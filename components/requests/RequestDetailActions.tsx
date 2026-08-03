@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useOptimistic, useState, useTransition } from "react";
 import {
   createProvisionalFromRequestAction,
   linkRequestReservationAction,
@@ -13,6 +13,7 @@ import { LinkReservationPicker } from "@/components/requests/LinkReservationPick
 import { RequestApproveDialog } from "@/components/requests/RequestApproveDialog";
 import { Button } from "@/components/ui/button";
 import { isApprovedRequestStatus } from "@/lib/domain/request-status";
+import { markLocalDataMutation } from "@/lib/utils/local-mutation";
 import { showErrorToast, showSuccessToast } from "@/lib/utils/toast";
 
 type LinkCandidate = {
@@ -42,6 +43,7 @@ export function RequestDetailActions({
   updatedAt,
 }: Props) {
   const router = useRouter();
+  const [optimisticStatus, setOptimisticStatus] = useOptimistic(status);
   const [quickPending, startQuick] = useTransition();
   const [provisionalState, provisionalAction, provisionalPending] =
     useActionState(createProvisionalFromRequestAction, initialState);
@@ -67,13 +69,15 @@ export function RequestDetailActions({
     null;
 
   const showLinkedActions =
-    isApprovedRequestStatus(status) && Boolean(linkedReservationId);
+    isApprovedRequestStatus(optimisticStatus) && Boolean(linkedReservationId);
   const showApprovedNoLink =
-    isApprovedRequestStatus(status) && !linkedReservationId;
+    isApprovedRequestStatus(optimisticStatus) && !linkedReservationId;
 
   function submitQuick(nextStatus: string, createProvisional = false) {
     startQuick(async () => {
       setQuickError(null);
+      setOptimisticStatus(nextStatus);
+      markLocalDataMutation();
       const fd = new FormData();
       fd.set("request_id", requestId);
       fd.set("status", nextStatus);
@@ -81,20 +85,24 @@ export function RequestDetailActions({
       if (updatedAt) fd.set("expected_updated_at", updatedAt);
       const result = await quickRequestStatusAction({ ok: true }, fd);
       if (!result.ok) {
+        setOptimisticStatus(status);
         setQuickError(result.message ?? "更新に失敗しました");
         showErrorToast(result.message ?? "更新に失敗しました");
         return;
       }
       showSuccessToast("ステータスを更新しました");
       setApproveOpen(false);
-      router.refresh();
+      // 仮予約作成でリンク先が変わる場合だけ再取得（ボタン構成が変わる）
+      if (createProvisional) {
+        router.refresh();
+      }
     });
   }
 
   return (
     <div className="detail-status-actions">
       <div className="detail-actions detail-actions-inline">
-        {status === "リクエスト" ? (
+        {optimisticStatus === "リクエスト" ? (
           <>
             <Button
               type="button"
@@ -149,7 +157,13 @@ export function RequestDetailActions({
 
         {showApprovedNoLink ? (
           <>
-            <form action={provisionalAction}>
+            <form
+              action={(fd) => {
+                markLocalDataMutation();
+                provisionalAction(fd);
+                router.refresh();
+              }}
+            >
               <input type="hidden" name="request_id" value={requestId} />
               <Button
                 type="submit"
@@ -182,7 +196,7 @@ export function RequestDetailActions({
           </>
         ) : null}
 
-        {status !== "リクエスト" &&
+        {optimisticStatus !== "リクエスト" &&
         !showLinkedActions &&
         !showApprovedNoLink ? (
           <Button
@@ -222,6 +236,7 @@ export function RequestDetailActions({
             const fd = new FormData();
             fd.set("request_id", requestId);
             fd.set("reservation_id", reservationId);
+            markLocalDataMutation();
             linkAction(fd);
             setPickerOpen(false);
             router.refresh();
