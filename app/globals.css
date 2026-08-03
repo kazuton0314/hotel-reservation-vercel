@@ -2641,52 +2641,29 @@ select.ui-input {
   padding-right: 28px;
 }
 
-/* 画面遷移のクリックフィードバック */
+/* 画面遷移のクリックフィードバック（文言なし・押下感のみ） */
 .pending-nav-link {
   position: relative;
+  transition: transform 0.12s ease, opacity 0.12s ease, box-shadow 0.12s ease;
+}
+.pending-nav-link:active {
+  transform: scale(0.985);
 }
 .pending-nav-link:has([data-pending="true"]) {
-  opacity: 0.72;
-  pointer-events: none;
-  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent);
-  filter: saturate(0.9);
-}
-.pending-nav-badge {
-  position: absolute;
-  right: 10px;
-  top: 10px;
-  z-index: 2;
-  font-size: 0.7rem;
-  font-weight: 600;
-  line-height: 1;
-  padding: 5px 8px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--accent) 92%, #fff);
-  color: #fff;
-  box-shadow: 0 2px 8px rgba(28, 38, 34, 0.16);
+  opacity: 0.78;
+  transform: scale(0.985);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent);
 }
 .nav-btn.pending-nav-link:has([data-pending="true"]) {
   opacity: 1;
-  background: color-mix(in srgb, var(--accent) 16%, var(--card));
+  background: color-mix(in srgb, var(--accent) 14%, var(--card));
 }
-.nav-btn .pending-nav-badge {
-  display: none;
-}
-.today-room-guest.pending-nav-link {
-  display: inline-block;
-}
-.today-room-guest .pending-nav-badge {
-  position: static;
-  margin-left: 6px;
-  vertical-align: middle;
-}
-.stat.is-navigating,
-.stat-btn.is-navigating,
-.stat-todo.is-navigating {
-  opacity: 0.72;
-  pointer-events: none;
-  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent);
+.stat.is-pressed,
+.stat-btn.is-pressed,
+.stat-todo.is-pressed {
+  opacity: 0.78;
   transform: scale(0.985);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
 

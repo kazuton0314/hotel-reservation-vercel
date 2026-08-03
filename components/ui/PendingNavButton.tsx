@@ -13,7 +13,7 @@ type Props = {
   variant?: "status" | "todo";
 };
 
-/** ホーム統計など、router.push するボタンの押下フィードバック */
+/** ホーム統計など、押下感だけ出す遷移ボタン */
 export function PendingNavButton({
   href,
   value,
@@ -31,9 +31,8 @@ export function PendingNavButton({
     <Button
       type="button"
       variant="secondary"
-      className={cn(base, pending && "is-navigating")}
+      className={cn(base, pending && "is-pressed")}
       title={title}
-      disabled={pending}
       aria-busy={pending}
       onClick={() => {
         startTransition(() => {
@@ -42,7 +41,7 @@ export function PendingNavButton({
       }}
     >
       <div className="num">{value}</div>
-      <div className="label">{pending ? "開いています…" : label}</div>
+      <div className="label">{label}</div>
     </Button>
   );
 }

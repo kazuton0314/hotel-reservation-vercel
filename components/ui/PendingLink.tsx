@@ -7,30 +7,23 @@ import { cn } from "@/lib/utils/cn";
 
 type Props = ComponentProps<typeof Link>;
 
-/** 遷移待ちを視覚化する Link（子で useLinkStatus を使う） */
+/** 遷移中も押下感だけ出す Link（文言は出さない） */
 export function PendingLink({ className, children, ...props }: Props) {
   return (
     <Link {...props} className={cn("pending-nav-link", className)}>
-      <PendingLinkChrome>{children}</PendingLinkChrome>
+      <PendingLinkState />
+      {children}
     </Link>
   );
 }
 
-function PendingLinkChrome({ children }: { children: React.ReactNode }) {
+function PendingLinkState() {
   const { pending } = useLinkStatus();
   return (
-    <>
-      <span
-        className="pending-nav-state"
-        data-pending={pending ? "true" : undefined}
-        hidden
-      />
-      {children}
-      {pending ? (
-        <span className="pending-nav-badge" aria-live="polite">
-          開いています…
-        </span>
-      ) : null}
-    </>
+    <span
+      className="pending-nav-state"
+      data-pending={pending ? "true" : undefined}
+      hidden
+    />
   );
 }
