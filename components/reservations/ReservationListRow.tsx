@@ -1,8 +1,8 @@
+import Link from "next/link";
 import type { ReservationListItem } from "@/lib/queries/reservations";
 import { ListCardStayDetails } from "@/components/list/ListCardStayDetails";
 import { ReservationListStatusActions } from "@/components/reservations/ReservationListStatusActions";
 import { ReservationTaskChips } from "@/components/reservations/ReservationTaskChips";
-import { PendingLink } from "@/components/ui/PendingLink";
 import { formatReceivedDate } from "@/lib/services/reservation-list-filter";
 import { formatDisplayName } from "@/lib/utils/display-name";
 import { formatGuestCompact } from "@/lib/utils/guest-display";
@@ -21,7 +21,7 @@ export function ReservationListRow({ item }: { item: ReservationListItem }) {
   const displayName = formatDisplayName(item.representative_name);
 
   return (
-    <PendingLink
+    <Link
       href={`/reservations/${encodeURIComponent(item.reservation_id)}`}
       prefetch
       className="card list-card reservation-row-card block"
@@ -74,6 +74,6 @@ export function ReservationListRow({ item }: { item: ReservationListItem }) {
         inquiry={item.inquiry}
         internalMemo={item.internal_memo}
       />
-    </PendingLink>
+    </Link>
   );
 }

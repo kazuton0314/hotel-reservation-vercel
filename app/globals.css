@@ -181,6 +181,15 @@ body {
   text-align: center;
   width: 100%;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+.stat-btn:hover:not(:disabled) {
+  transform: scale(1.04);
+  box-shadow: 0 6px 14px rgba(28, 38, 34, 0.1);
+}
+.stat-btn:active:not(:disabled) {
+  transform: scale(0.96);
+  box-shadow: 0 1px 3px rgba(28, 38, 34, 0.08);
 }
 .stat-btn .num {
   font-size: 1.4rem;
@@ -200,6 +209,15 @@ body {
   cursor: pointer;
   text-align: center;
   width: 100%;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+.stat-todo:hover:not(:disabled) {
+  transform: scale(1.04);
+  box-shadow: 0 6px 14px rgba(28, 38, 34, 0.08);
+}
+.stat-todo:active:not(:disabled) {
+  transform: scale(0.96);
+  box-shadow: 0 1px 3px rgba(28, 38, 34, 0.06);
 }
 .stat-todo .num {
   font-size: 1.25rem;
@@ -1952,6 +1970,13 @@ body.occ-fullscreen .occ-legend {
   padding: 4px 2px 2px;
   text-decoration: none;
   position: relative;
+  transition: transform 0.12s ease, background 0.12s ease, color 0.12s ease;
+}
+.nav-btn:hover {
+  transform: scale(1.08);
+}
+.nav-btn:active {
+  transform: scale(0.94);
 }
 .nav-btn.active {
   color: var(--accent);
@@ -2009,19 +2034,99 @@ body.occ-fullscreen .occ-legend {
 }
 a.card:hover,
 .card[role="button"]:hover {
-  transform: scale(1.015) translateY(-2px);
+  transform: scale(1.02) translateY(-1px);
   box-shadow: 0 10px 22px rgba(28, 38, 34, 0.1);
 }
 a.card:active,
 .card[role="button"]:active {
-  transform: scale(0.985);
+  transform: scale(0.98);
   box-shadow: 0 2px 6px rgba(28, 38, 34, 0.08);
 }
-.btn {
+.btn,
+button.btn,
+a.btn {
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease,
+    border-color 0.12s ease;
+}
+.btn:hover:not(:disabled),
+button.btn:hover:not(:disabled),
+a.btn:hover {
+  transform: scale(1.04);
+}
+.btn:active:not(:disabled),
+button.btn:active:not(:disabled),
+a.btn:active {
+  transform: scale(0.96);
+}
+.nav-btn {
+  transition: transform 0.12s ease, background 0.12s ease, color 0.12s ease;
+}
+.nav-btn:hover {
+  transform: scale(1.08);
+}
+.nav-btn:active {
+  transform: scale(0.94);
+}
+.header-action-btn,
+.header-actions .btn {
   transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
 }
-.btn:active:not(:disabled) {
-  transform: scale(0.97);
+.header-action-btn:hover:not(:disabled),
+.header-actions .btn:hover:not(:disabled) {
+  transform: scale(1.05);
+}
+.header-action-btn:active:not(:disabled),
+.header-actions .btn:active:not(:disabled) {
+  transform: scale(0.96);
+}
+.today-room-guest {
+  display: inline-block;
+  transition: transform 0.12s ease;
+}
+.today-room-guest:hover {
+  transform: scale(1.06);
+}
+.today-room-guest:active {
+  transform: scale(0.96);
+}
+/* 部屋割ボード */
+.occ-nav .btn,
+.occ-nav button,
+#occ-edit-chrome .btn,
+#occ-edit-chrome button {
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+}
+.occ-nav .btn:hover:not(:disabled),
+.occ-nav button:hover:not(:disabled),
+#occ-edit-chrome .btn:hover:not(:disabled),
+#occ-edit-chrome button:hover:not(:disabled) {
+  transform: scale(1.05);
+}
+.occ-nav .btn:active:not(:disabled),
+.occ-nav button:active:not(:disabled),
+#occ-edit-chrome .btn:active:not(:disabled),
+#occ-edit-chrome button:active:not(:disabled) {
+  transform: scale(0.96);
+}
+.occ-event-action {
+  transition: transform 0.1s ease, background 0.1s ease, box-shadow 0.1s ease;
+}
+.occ-event-action:hover:not(:disabled) {
+  transform: scale(1.12);
+  box-shadow: 0 2px 6px rgba(28, 38, 34, 0.12);
+}
+.occ-event-action:active:not(:disabled) {
+  transform: scale(0.92);
+}
+.occ-event {
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.occ-event:hover {
+  transform: scale(1.02);
+  box-shadow: 0 2px 8px rgba(28, 38, 34, 0.1);
+}
+.occ-event:active {
+  transform: scale(0.98);
 }
 .skeleton {
   background: linear-gradient(90deg, #e9efeb 25%, #f6faf8 50%, #e9efeb 75%);
@@ -2645,30 +2750,4 @@ select.ui-input {
   cursor: pointer;
   padding-right: 28px;
 }
-
-/* 画面遷移のクリックフィードバック（文言なし・押下感のみ） */
-.pending-nav-link {
-  position: relative;
-  transition: transform 0.12s ease, opacity 0.12s ease, box-shadow 0.12s ease;
-}
-.pending-nav-link:active {
-  transform: scale(0.985);
-}
-.pending-nav-link:has([data-pending="true"]) {
-  opacity: 0.78;
-  transform: scale(0.985);
-  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent);
-}
-.nav-btn.pending-nav-link:has([data-pending="true"]) {
-  opacity: 1;
-  background: color-mix(in srgb, var(--accent) 14%, var(--card));
-}
-.stat.is-pressed,
-.stat-btn.is-pressed,
-.stat-todo.is-pressed {
-  opacity: 0.78;
-  transform: scale(0.985);
-  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent);
-}
-
 

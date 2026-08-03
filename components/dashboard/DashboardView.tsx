@@ -1,8 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import type { DashboardSummary } from "@/lib/queries/dashboard";
 import { CONTACT_LABELS } from "@/lib/config/contact-confirm-labels";
-import { PendingNavButton } from "@/components/ui/PendingNavButton";
 import {
   DashboardEmpty,
   DashboardSection,
@@ -21,6 +21,31 @@ function StatInfo({ value, label }: { value: number; label: string }) {
       <div className="num">{value}</div>
       <div className="label">{label}</div>
     </div>
+  );
+}
+
+function StatNavLink({
+  href,
+  value,
+  label,
+  title,
+  variant = "status",
+}: {
+  href: string;
+  value: number;
+  label: string;
+  title?: string;
+  variant?: "status" | "todo";
+}) {
+  const urgent = variant === "todo" && value > 0 ? " stat-todo-urgent" : "";
+  const className =
+    variant === "todo" ? `stat stat-todo${urgent}` : "stat stat-btn";
+
+  return (
+    <Link href={href} prefetch className={className} title={title}>
+      <div className="num">{value}</div>
+      <div className="label">{label}</div>
+    </Link>
   );
 }
 
@@ -44,17 +69,17 @@ export function DashboardView({ dashboard: d }: Props) {
       </div>
 
       <div className="stats-status">
-        <PendingNavButton
+        <StatNavLink
           href="/requests?status=リクエスト"
           value={d.requestCount}
           label="リクエスト"
         />
-        <PendingNavButton
+        <StatNavLink
           href="/reservations?period=provisional"
           value={d.provisionalCount}
           label="仮予約"
         />
-        <PendingNavButton
+        <StatNavLink
           href="/reservations?period=confirmed"
           value={d.confirmedCount}
           label="確定"
@@ -62,7 +87,7 @@ export function DashboardView({ dashboard: d }: Props) {
       </div>
 
       <div className="stats-todos">
-        <PendingNavButton
+        <StatNavLink
           variant="todo"
           value={d.companionPendingCount}
           label="同行者未回答"
@@ -71,7 +96,7 @@ export function DashboardView({ dashboard: d }: Props) {
             encodeURIComponent("未回答")
           }
         />
-        <PendingNavButton
+        <StatNavLink
           variant="todo"
           value={d.reservationMailPendingCount}
           label={CONTACT_LABELS.todoLabel}
@@ -81,14 +106,13 @@ export function DashboardView({ dashboard: d }: Props) {
             encodeURIComponent(CONTACT_LABELS.filterPending)
           }
         />
-        <PendingNavButton
+        <StatNavLink
           variant="todo"
           value={d.unassignedCount}
           label="部屋未割当"
           href="/reservations?period=confirmed&filterField=roomId&filterValue=__unassigned__"
         />
       </div>
-
 
       <DashboardSection title="部屋割（今日）">
         <TodayRoomsBoard rooms={d.todayRooms} />

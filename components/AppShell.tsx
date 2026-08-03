@@ -1,9 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { PendingLink } from "@/components/ui/PendingLink";
 import { RefreshButton } from "@/components/RefreshButton";
 import { SettingsMenu } from "@/components/SettingsMenu";
 import { signOutAction } from "@/lib/actions/auth";
@@ -80,7 +80,7 @@ function BottomNav({ activeView }: { activeView: NavView | null }) {
   return (
     <nav className="nav" id="bottom-nav">
       {NAV.map((item) => (
-        <PendingLink
+        <Link
           key={item.view}
           href={hrefs[item.section]}
           prefetch
@@ -91,7 +91,7 @@ function BottomNav({ activeView }: { activeView: NavView | null }) {
         >
           <span className="ni">{item.icon}</span>
           {item.label}
-        </PendingLink>
+        </Link>
       ))}
     </nav>
   );

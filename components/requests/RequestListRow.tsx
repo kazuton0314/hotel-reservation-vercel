@@ -1,8 +1,8 @@
+import Link from "next/link";
 import type { RequestListItem } from "@/lib/queries/requests";
 import { ListCardStayDetails } from "@/components/list/ListCardStayDetails";
 import { RequestListStatusActions } from "@/components/requests/RequestListStatusActions";
 import { RequestTaskChips } from "@/components/requests/RequestTaskChips";
-import { PendingLink } from "@/components/ui/PendingLink";
 import { formatReceivedDate } from "@/lib/services/reservation-list-filter";
 import { formatDisplayName } from "@/lib/utils/display-name";
 
@@ -11,7 +11,7 @@ export function RequestListRow({ item }: { item: RequestListItem }) {
   const displayName = formatDisplayName(item.representative_name);
 
   return (
-    <PendingLink
+    <Link
       href={`/requests/${encodeURIComponent(item.request_id)}`}
       prefetch
       className="card request-card list-card request-row-card block"
@@ -40,6 +40,6 @@ export function RequestListRow({ item }: { item: RequestListItem }) {
         inquiry={item.inquiry}
         internalMemo={item.internal_memo}
       />
-    </PendingLink>
+    </Link>
   );
 }
