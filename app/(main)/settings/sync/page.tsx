@@ -6,6 +6,7 @@ import {
   getFormImportCounts,
   getRecentSyncRuns,
 } from "@/lib/queries/reservations";
+import { formatDateTimeJa } from "@/lib/utils/date-label";
 
 export default async function SyncSettingsPage() {
   return <SyncContent />;
@@ -73,7 +74,7 @@ async function SyncContent() {
                   </span>
                 </div>
                 <p className="settings-activity-meta">
-                  {new Date(run.started_at).toLocaleString("ja-JP")}
+                  {formatDateTimeJa(run.started_at)}
                   {run.rows_imported != null
                     ? ` · 取込 ${run.rows_imported} / スキップ ${run.rows_skipped ?? 0}`
                     : ""}

@@ -8,6 +8,7 @@ import {
 } from "@/lib/utils/notification-center";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { formatDateTimeJa } from "@/lib/utils/date-label";
 
 export function NotificationCenter() {
   const [open, setOpen] = useState(false);
@@ -44,7 +45,7 @@ export function NotificationCenter() {
             items.map((item) => (
               <article key={item.id} className={`notify-item ${item.kind}`}>
                 <p>{item.message}</p>
-                <small>{new Date(item.createdAt).toLocaleString("ja-JP")}</small>
+                <small>{formatDateTimeJa(item.createdAt)}</small>
               </article>
             ))
           )}

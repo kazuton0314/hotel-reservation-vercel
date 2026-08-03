@@ -9,6 +9,7 @@ import {
   ReservationDashboardCard,
 } from "@/components/dashboard/ReservationDashboardCard";
 import { TodayRoomsBoard } from "@/components/dashboard/TodayRoomsBoard";
+import { formatDateTimeJa } from "@/lib/utils/date-label";
 
 type Props = {
   dashboard: DashboardSummary;
@@ -25,7 +26,7 @@ function StatInfo({ value, label }: { value: number; label: string }) {
 
 export function DashboardView({ dashboard: d }: Props) {
   const syncText = d.lastSyncAt
-    ? `${new Date(d.lastSyncAt).toLocaleString("ja-JP")} (${d.lastSyncStatus ?? "unknown"})`
+    ? `${formatDateTimeJa(d.lastSyncAt)} (${d.lastSyncStatus ?? "unknown"})`
     : "同期履歴なし";
 
   return (

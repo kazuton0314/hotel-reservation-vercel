@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { CONTACT_LABELS } from "@/lib/config/contact-confirm-labels";
 import type { MailTemplate } from "@/lib/config/mail-templates";
 import type { MailEntityContext } from "@/lib/services/mail-placeholders";
+import { formatDateTimeJa } from "@/lib/utils/date-label";
 import { buildReservationMailKindStatus } from "@/lib/utils/mail-kind-status";
 
 type MailKind = "予約確定" | "11日前" | "3日前";
@@ -41,7 +42,7 @@ const initialState = { ok: true } as const;
 
 function formatSentAt(value: string | null) {
   if (!value) return "";
-  return new Date(value).toLocaleString("ja-JP");
+  return formatDateTimeJa(value);
 }
 
 function ConfirmRow({

@@ -1,6 +1,7 @@
 import {
   daysBetweenCalendarDates,
   businessToday,
+  formatDateTimeJa,
   parseReservationDate,
 } from "@/lib/utils/date-label";
 import { effectiveGuestCountForCompanion } from "@/lib/utils/guest-display";
@@ -47,7 +48,7 @@ type ReservationMailRow = {
 
 function formatSentAt(value: string | null | undefined): string {
   if (!value) return "";
-  return new Date(value).toLocaleString("ja-JP");
+  return formatDateTimeJa(value);
 }
 
 function reservationCreatedDate(r: ReservationMailRow): Date | null {

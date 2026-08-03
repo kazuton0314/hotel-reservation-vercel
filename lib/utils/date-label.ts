@@ -36,6 +36,21 @@ export function formatDateLabel(date: Date): string {
   return `${formatDateJa(date)}（${weekdayJa(date)}）`;
 }
 
+/** 日時表示（JST固定・SSR/CSRの時差ハイドレーションずれ防止） */
+export function formatDateTimeJa(value: string | number | Date): string {
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString("ja-JP", {
+    timeZone: BUSINESS_TIMEZONE,
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
+
 export function isSameDay(a: Date, b: Date): boolean {
   return (
     a.getFullYear() === b.getFullYear() &&

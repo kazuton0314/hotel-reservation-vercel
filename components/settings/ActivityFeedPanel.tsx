@@ -7,6 +7,7 @@ import {
   type AppNotification,
 } from "@/lib/utils/notification-center";
 import { Button } from "@/components/ui/button";
+import { formatDateTimeJa } from "@/lib/utils/date-label";
 
 type SyncRun = {
   id: string;
@@ -42,13 +43,7 @@ function statusBadgeClass(status: string) {
 }
 
 function formatWhen(iso: string) {
-  return new Date(iso).toLocaleString("ja-JP", {
-    year: "numeric",
-    month: "numeric",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatDateTimeJa(iso);
 }
 
 export function ActivityFeedPanel({
@@ -174,7 +169,7 @@ export function ActivityFeedPanel({
                 <li key={item.id} className={`settings-activity-item notify-${item.kind}`}>
                   <p className="settings-activity-message">{item.message}</p>
                   <p className="settings-activity-meta">
-                    {new Date(item.createdAt).toLocaleString("ja-JP")}
+                    {formatDateTimeJa(item.createdAt)}
                   </p>
                 </li>
               ))}
