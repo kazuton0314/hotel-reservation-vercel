@@ -3,6 +3,7 @@
 import {
   revalidateRequestDetail,
   revalidateRequestMailFlags,
+  revalidateRequestStatus,
   revalidateReservationDetail,
   revalidateReservationsList,
 } from "@/lib/cache/revalidate";
@@ -200,7 +201,11 @@ export async function quickRequestStatusAction(
   });
   if (!sync.ok) return { ok: false, message: sync.message };
 
-  revalidateRequestPaths(requestId, nextLinked ?? previousLinked);
+  if (nextLinked !== previousLinked) {
+    revalidateRequestPaths(requestId, nextLinked ?? previousLinked);
+  } else {
+    revalidateRequestStatus(requestId);
+  }
   return { ok: true };
 }
 

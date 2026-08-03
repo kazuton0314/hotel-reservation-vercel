@@ -552,14 +552,23 @@ async function getReservationsUncached(filters: ReservationFilters = {}) {
 }
 
 export async function getReservationById(id: string) {
-  const supabase = await createReadClient();
-  const { data, error } = await supabase
-    .from("reservations")
-    .select("*")
-    .eq("reservation_id", id)
-    .maybeSingle();
+  return unstable_cache(
+    async () => {
+      const supabase = await createReadClient();
+      const { data, error } = await supabase
+        .from("reservations")
+        .select("*")
+        .eq("reservation_id", id)
+        .maybeSingle();
 
-  return { reservation: data, error: error?.message ?? null };
+      return { reservation: data, error: error?.message ?? null };
+    },
+    ["reservation-by-id", id],
+    {
+      tags: [CACHE_TAGS.reservation(id), CACHE_TAGS.reservations],
+      revalidate: 60,
+    }
+  )();
 }
 
 export async function getReservationsForLinking(query?: string) {

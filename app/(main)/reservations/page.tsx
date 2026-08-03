@@ -28,10 +28,18 @@ type PageProps = {
   }>;
 };
 
-export default async function ReservationsPage({ searchParams }: PageProps) {
-  const params = await searchParams;
-  return <ReservationsContent params={params} />;
-}
+type ListParams = {
+  period?: string;
+  status?: string;
+  scope?: string;
+  filterField?: string;
+  filterValue?: string;
+  sort?: string;
+  dir?: string;
+  page?: string;
+  q?: string;
+  checkIn?: string;
+};
 
 function resolvePeriod(params: {
   period?: string;
@@ -45,25 +53,61 @@ function resolvePeriod(params: {
   return "confirmed";
 }
 
-async function ReservationsContent({
-  params,
-}: {
-  params: {
-    period?: string;
-    status?: string;
-    scope?: string;
-    filterField?: string;
-    filterValue?: string;
-    sort?: string;
-    dir?: string;
-    page?: string;
-    q?: string;
-    checkIn?: string;
-  };
-}) {
+export default async function ReservationsPage({ searchParams }: PageProps) {
+  const params = await searchParams;
   const scope = parseListScope(params.scope);
   const period = resolvePeriod(params);
 
+  return (
+    <>
+      <ReservationsListManualAdd />
+      <ListScopeBar kind="reservation" scope={scope} />
+      <ListSearchProvider>
+        <ListStatusTabs
+          className="tabs tabs-3 list-filter-tabs"
+          activeId={period}
+          tabs={[
+            {
+              id: "provisional",
+              label: "仮予約",
+              paramKey: "period",
+              paramValue: "provisional",
+            },
+            {
+              id: "confirmed",
+              label: "確定",
+              paramKey: "period",
+              paramValue: "confirmed",
+              emphasis: "primary",
+            },
+            {
+              id: "cancelled",
+              label: "キャンセル",
+              paramKey: "period",
+              paramValue: "cancelled",
+            },
+          ]}
+        />
+        <ListSearchBar />
+        <Suspense
+          fallback={<div className="inline-loading">一覧を読み込み中…</div>}
+        >
+          <ReservationsListBody params={params} period={period} scope={scope} />
+        </Suspense>
+      </ListSearchProvider>
+    </>
+  );
+}
+
+async function ReservationsListBody({
+  params,
+  period,
+  scope,
+}: {
+  params: ListParams;
+  period: "provisional" | "confirmed" | "cancelled";
+  scope: ReturnType<typeof parseListScope>;
+}) {
   const [{ reservations, total, error }, { rooms }] = await Promise.all([
     getReservations({
       period,
@@ -90,52 +134,16 @@ async function ReservationsContent({
 
   return (
     <>
-      <ReservationsListManualAdd />
-      <ListScopeBar kind="reservation" scope={scope} />
-      <Suspense fallback={null}>
-        <ListSearchProvider>
-          <ListStatusTabs
-            className="tabs tabs-3 list-filter-tabs"
-            activeId={period}
-            tabs={[
-              {
-                id: "provisional",
-                label: "仮予約",
-                paramKey: "period",
-                paramValue: "provisional",
-              },
-              {
-                id: "confirmed",
-                label: "確定",
-                paramKey: "period",
-                paramValue: "confirmed",
-                emphasis: "primary",
-              },
-              {
-                id: "cancelled",
-                label: "キャンセル",
-                paramKey: "period",
-                paramValue: "cancelled",
-              },
-            ]}
-          />
-          <ListSearchBar />
-          <ReservationListFilterBar
-            fields={filterFields}
-            activeField={params.filterField}
-            activeValue={params.filterValue}
-          />
-          <Suspense
-            fallback={<div className="inline-loading">一覧を読み込み中…</div>}
-          >
-            <ReservationsListResults
-              reservations={reservations}
-              scope={scope}
-              total={total}
-            />
-          </Suspense>
-        </ListSearchProvider>
-      </Suspense>
+      <ReservationListFilterBar
+        fields={filterFields}
+        activeField={params.filterField}
+        activeValue={params.filterValue}
+      />
+      <ReservationsListResults
+        reservations={reservations}
+        scope={scope}
+        total={total}
+      />
     </>
   );
 }

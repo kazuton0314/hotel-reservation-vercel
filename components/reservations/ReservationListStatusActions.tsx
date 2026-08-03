@@ -1,10 +1,10 @@
 "use client";
 
 import { useOptimistic, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { quickReservationStatusAction } from "@/lib/actions/reservations";
 import { ReservationStatusBadge } from "@/components/list/ReservationListBadges";
 import { Button } from "@/components/ui/button";
+import { markLocalDataMutation } from "@/lib/utils/local-mutation";
 import { showErrorToast, showSuccessToast } from "@/lib/utils/toast";
 
 type Props = {
@@ -19,7 +19,6 @@ export function ReservationListStatusActions({
   status,
   updatedAt,
 }: Props) {
-  const router = useRouter();
   const [optimisticStatus, setOptimisticStatus] = useOptimistic(status);
   const [pending, startTransition] = useTransition();
 
@@ -27,6 +26,7 @@ export function ReservationListStatusActions({
     if (confirmMsg && !confirm(confirmMsg)) return;
     startTransition(async () => {
       setOptimisticStatus(nextStatus);
+      markLocalDataMutation();
       const fd = new FormData();
       fd.set("reservation_id", reservationId);
       fd.set("status", nextStatus);
@@ -38,7 +38,6 @@ export function ReservationListStatusActions({
         return;
       }
       showSuccessToast("ステータスを更新しました");
-      router.refresh();
     });
   }
 

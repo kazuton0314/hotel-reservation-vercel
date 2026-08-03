@@ -29,6 +29,23 @@ export function revalidateReservationMailFlags(reservationId: string) {
   updateTag(CACHE_TAGS.dashboard);
 }
 
+/**
+ * ステータスのみの更新（部屋・顧客は触らない）。
+ * 一覧チップ・ダッシュボード・カレンダー表示には反映する。
+ */
+export function revalidateReservationStatus(reservationId: string) {
+  updateTag(CACHE_TAGS.reservation(reservationId));
+  updateTag(CACHE_TAGS.reservations);
+  revalidateDashboard();
+}
+
+/** リクエストのステータスのみ */
+export function revalidateRequestStatus(requestId: string) {
+  updateTag(CACHE_TAGS.request(requestId));
+  updateTag(CACHE_TAGS.requests);
+  revalidateDashboard();
+}
+
 /** 一括保存後: 詳細タグのみ個別、一覧・部屋・顧客は1回 */
 export function revalidateReservationDetailsBatch(reservationIds: string[]) {
   const unique = [...new Set(reservationIds.filter(Boolean))];

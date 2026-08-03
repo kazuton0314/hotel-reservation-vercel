@@ -26,7 +26,7 @@ export function useActionRefresh<T extends ActionResult>(
   const [pending, startTransition] = useTransition();
   const {
     successMessage,
-    refreshOnSuccess = true,
+    refreshOnSuccess = false,
     refreshOnConflict = true,
   } = options;
 

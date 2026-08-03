@@ -211,29 +211,38 @@ async function getRequestsUncached(filters: RequestListFilters = {}) {
 }
 
 export async function getRequestById(id: string) {
-  const supabase = await createReadClient();
-  const { data, error } = await supabase
-    .from("reservation_requests")
-    .select(
-      "*, linked_reservation:linked_reservation_id(reservation_id, representative_name, status, check_in, check_out)"
-    )
-    .eq("request_id", id)
-    .maybeSingle();
+  return unstable_cache(
+    async () => {
+      const supabase = await createReadClient();
+      const { data, error } = await supabase
+        .from("reservation_requests")
+        .select(
+          "*, linked_reservation:linked_reservation_id(reservation_id, representative_name, status, check_in, check_out)"
+        )
+        .eq("request_id", id)
+        .maybeSingle();
 
-  return {
-    request: data as
-      | (Record<string, unknown> & {
-          linked_reservation?: {
-            reservation_id: string;
-            representative_name: string | null;
-            status: string;
-            check_in: string | null;
-            check_out: string | null;
-          } | null;
-        })
-      | null,
-    error: error?.message ?? null,
-  };
+      return {
+        request: data as
+          | (Record<string, unknown> & {
+              linked_reservation?: {
+                reservation_id: string;
+                representative_name: string | null;
+                status: string;
+                check_in: string | null;
+                check_out: string | null;
+              } | null;
+            })
+          | null,
+        error: error?.message ?? null,
+      };
+    },
+    ["request-by-id", id],
+    {
+      tags: [CACHE_TAGS.request(id), CACHE_TAGS.requests],
+      revalidate: 60,
+    }
+  )();
 }
 
 export async function getRequestStats() {

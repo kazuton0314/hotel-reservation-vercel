@@ -1,11 +1,11 @@
 "use client";
 
 import { useOptimistic, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { quickRequestStatusAction } from "@/lib/actions/requests";
 import { RequestApproveDialog } from "@/components/requests/RequestApproveDialog";
 import { Button } from "@/components/ui/button";
 import { displayRequestStatus, isApprovedRequestStatus } from "@/lib/domain/request-status";
+import { markLocalDataMutation } from "@/lib/utils/local-mutation";
 import { showErrorToast, showSuccessToast } from "@/lib/utils/toast";
 
 type Props = {
@@ -30,7 +30,6 @@ export function RequestListStatusActions({
   status,
   updatedAt,
 }: Props) {
-  const router = useRouter();
   const [optimisticStatus, setOptimisticStatus] = useOptimistic(status);
   const [pending, startTransition] = useTransition();
   const [approveOpen, setApproveOpen] = useState(false);
@@ -38,6 +37,7 @@ export function RequestListStatusActions({
   function submit(nextStatus: string, createProvisional = false) {
     startTransition(async () => {
       setOptimisticStatus(nextStatus);
+      markLocalDataMutation();
       const fd = new FormData();
       fd.set("request_id", requestId);
       fd.set("status", nextStatus);
@@ -50,7 +50,6 @@ export function RequestListStatusActions({
         return;
       }
       showSuccessToast("ステータスを更新しました");
-      router.refresh();
     });
   }
 

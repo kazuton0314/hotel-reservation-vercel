@@ -1,5 +1,8 @@
 export const DEFAULT_LIST_PAGE_SIZE = 10;
 
+/** セットアップ表は件数多めでも編集しやすいよう広めに取る */
+export const SETUP_BOARD_PAGE_SIZE = 80;
+
 export function parsePageParam(raw?: string): number {
   const n = parseInt(raw ?? "1", 10);
   return Number.isFinite(n) && n > 0 ? n : 1;

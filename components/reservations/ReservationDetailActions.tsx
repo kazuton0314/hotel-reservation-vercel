@@ -3,6 +3,7 @@
 import { useOptimistic, useState, useTransition } from "react";
 import { quickReservationStatusAction } from "@/lib/actions/reservations";
 import { Button } from "@/components/ui/button";
+import { markLocalDataMutation } from "@/lib/utils/local-mutation";
 import { showErrorToast, showSuccessToast } from "@/lib/utils/toast";
 
 type Props = {
@@ -24,6 +25,7 @@ export function ReservationDetailActions({
     startTransition(async () => {
       setOptimisticStatus(nextStatus);
       setError(null);
+      markLocalDataMutation();
       const fd = new FormData();
       fd.set("reservation_id", reservationId);
       fd.set("status", nextStatus);

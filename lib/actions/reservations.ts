@@ -6,6 +6,7 @@ import {
   revalidateCustomers,
   revalidateReservationDetail,
   revalidateReservationMailFlags,
+  revalidateReservationStatus,
   revalidateReservationsList,
 } from "@/lib/cache/revalidate";
 import { upsertCustomerFromReservation } from "@/lib/services/customer-index";
@@ -214,33 +215,42 @@ export async function updateReservationAction(
     await clearRoomAssignmentsForReservation(supabase, reservationId);
   }
 
-  const { data: updated } = await supabase
-    .from("reservations")
-    .select(
-      "reservation_id, customer_id, representative_name, name_kana, email, phone, check_in, check_out, status, is_archived"
-    )
-    .eq("reservation_id", reservationId)
-    .maybeSingle();
-  if (updated) {
-    await upsertCustomerFromReservation(supabase, updated);
-    revalidateCustomers();
-  }
+  const guestTouched =
+    String(payload.adult_male ?? "") !== String(current.adult_male ?? "") ||
+    String(payload.adult_female ?? "") !== String(current.adult_female ?? "") ||
+    String(payload.boy_student ?? "") !== String(current.boy_student ?? "") ||
+    String(payload.girl_student ?? "") !== String(current.girl_student ?? "") ||
+    String(payload.age_3plus ?? "") !== String(current.age_3plus ?? "") ||
+    String(payload.under_3 ?? "") !== String(current.under_3 ?? "");
 
-  await syncRoomAssignmentGuestBreakdown(supabase, reservationId, {
-    adult_male: payload.adult_male,
-    adult_female: payload.adult_female,
-    boy_student: payload.boy_student,
-    girl_student: payload.girl_student,
-    age_3plus: payload.age_3plus,
-    under_3: payload.under_3,
-  });
+  revalidateReservationDetail(reservationId);
 
   after(async () => {
     const admin = createAdminClient();
+    const { data: updated } = await admin
+      .from("reservations")
+      .select(
+        "reservation_id, customer_id, representative_name, name_kana, email, phone, check_in, check_out, status, is_archived, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3"
+      )
+      .eq("reservation_id", reservationId)
+      .maybeSingle();
+    if (updated) {
+      await upsertCustomerFromReservation(admin, updated);
+      revalidateCustomers();
+      if (guestTouched) {
+        await syncRoomAssignmentGuestBreakdown(admin, reservationId, {
+          adult_male: updated.adult_male,
+          adult_female: updated.adult_female,
+          boy_student: updated.boy_student,
+          girl_student: updated.girl_student,
+          age_3plus: updated.age_3plus,
+          under_3: updated.under_3,
+        });
+      }
+    }
     await syncReservationToGCal(admin, reservationId);
   });
 
-  revalidateReservationDetail(reservationId);
   return {
     ok: true,
     updatedAt: String(updatedResult.data.updated_at ?? payload.updated_at ?? ""),
@@ -356,12 +366,18 @@ export async function quickReservationStatusAction(
     };
   }
 
+  if (shouldClearRoomAssignmentsOnStatus(status)) {
+    await clearRoomAssignmentsForReservation(supabase, reservationId);
+    revalidateReservationDetail(reservationId);
+  } else {
+    revalidateReservationStatus(reservationId);
+  }
+
   after(async () => {
     const admin = createAdminClient();
     await syncReservationToGCal(admin, reservationId);
   });
 
-  revalidateReservationDetail(reservationId);
   return {
     ok: true,
     updatedAt: String(result.data.updated_at ?? nowIso),
