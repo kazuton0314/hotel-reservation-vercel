@@ -678,13 +678,28 @@ export async function getRecentSyncRuns(limit = 10) {
 
 export async function getFormImportCounts() {
   const supabase = await createReadClient();
-  const { data, error } = await supabase
-    .from("form_import_log")
-    .select("source");
+  const [studioRes, requestRes] = await Promise.all([
+    supabase
+      .from("form_import_log")
+      .select("id", { count: "exact", head: true })
+      .eq("source", "studio"),
+    supabase
+      .from("form_import_log")
+      .select("id", { count: "exact", head: true })
+      .eq("source", "request"),
+  ]);
 
-  if (error) return { studio: 0, request: 0, error: error.message };
+  if (studioRes.error || requestRes.error) {
+    return {
+      studio: 0,
+      request: 0,
+      error: studioRes.error?.message || requestRes.error?.message || null,
+    };
+  }
 
-  const studio = (data ?? []).filter((r) => r.source === "studio").length;
-  const request = (data ?? []).filter((r) => r.source === "request").length;
-  return { studio, request, error: null };
+  return {
+    studio: studioRes.count ?? 0,
+    request: requestRes.count ?? 0,
+    error: null,
+  };
 }

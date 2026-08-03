@@ -1,15 +1,15 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import type { DashboardSummary } from "@/lib/queries/dashboard";
 import { CONTACT_LABELS } from "@/lib/config/contact-confirm-labels";
-import { Button } from "@/components/ui/button";
 import {
   DashboardEmpty,
   DashboardSection,
   ReservationDashboardCard,
 } from "@/components/dashboard/ReservationDashboardCard";
 import { TodayRoomsBoard } from "@/components/dashboard/TodayRoomsBoard";
+import { formatDateTimeJa } from "@/lib/utils/date-label";
 
 type Props = {
   dashboard: DashboardSummary;
@@ -24,55 +24,34 @@ function StatInfo({ value, label }: { value: number; label: string }) {
   );
 }
 
-function StatButton({
-  value,
-  label,
-  onClick,
-}: {
-  value: number;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <Button type="button" variant="secondary" className="stat stat-btn" onClick={onClick}>
-      <div className="num">{value}</div>
-      <div className="label">{label}</div>
-    </Button>
-  );
-}
-
-function StatTodoButton({
+function StatNavLink({
+  href,
   value,
   label,
   title,
-  onClick,
+  variant = "status",
 }: {
+  href: string;
   value: number;
   label: string;
   title?: string;
-  onClick: () => void;
+  variant?: "status" | "todo";
 }) {
-  const urgent = value > 0 ? " stat-todo-urgent" : "";
+  const urgent = variant === "todo" && value > 0 ? " stat-todo-urgent" : "";
+  const className =
+    variant === "todo" ? `stat stat-todo${urgent}` : "stat stat-btn";
+
   return (
-    <Button
-      type="button"
-      variant="secondary"
-      className={`stat stat-todo${urgent}`}
-      title={title}
-      onClick={onClick}
-    >
+    <Link href={href} prefetch className={className} title={title}>
       <div className="num">{value}</div>
       <div className="label">{label}</div>
-    </Button>
+    </Link>
   );
 }
 
 export function DashboardView({ dashboard: d }: Props) {
-  const router = useRouter();
-
-  const go = (href: string) => router.push(href);
   const syncText = d.lastSyncAt
-    ? `${new Date(d.lastSyncAt).toLocaleString("ja-JP")} (${d.lastSyncStatus ?? "unknown"})`
+    ? `${formatDateTimeJa(d.lastSyncAt)} (${d.lastSyncStatus ?? "unknown"})`
     : "同期履歴なし";
 
   return (
@@ -90,56 +69,50 @@ export function DashboardView({ dashboard: d }: Props) {
       </div>
 
       <div className="stats-status">
-        <StatButton
+        <StatNavLink
+          href="/requests?status=リクエスト"
           value={d.requestCount}
           label="リクエスト"
-          onClick={() => go("/requests?status=リクエスト")}
         />
-        <StatButton
+        <StatNavLink
+          href="/reservations?period=provisional"
           value={d.provisionalCount}
           label="仮予約"
-          onClick={() => go("/reservations?period=provisional")}
         />
-        <StatButton
+        <StatNavLink
+          href="/reservations?period=confirmed"
           value={d.confirmedCount}
           label="確定"
-          onClick={() => go("/reservations?period=confirmed")}
         />
       </div>
 
       <div className="stats-todos">
-        <StatTodoButton
+        <StatNavLink
+          variant="todo"
           value={d.companionPendingCount}
           label="同行者未回答"
-          onClick={() =>
-            go(
-              "/reservations?period=confirmed&filterField=companionInfo&filterValue=" +
-                encodeURIComponent("未回答")
-            )
+          href={
+            "/reservations?period=confirmed&filterField=companionInfo&filterValue=" +
+            encodeURIComponent("未回答")
           }
         />
-        <StatTodoButton
+        <StatNavLink
+          variant="todo"
           value={d.reservationMailPendingCount}
           label={CONTACT_LABELS.todoLabel}
           title={CONTACT_LABELS.todoHint}
-          onClick={() =>
-            go(
-              "/reservations?period=confirmed&filterField=completionEmail&filterValue=" +
-                encodeURIComponent(CONTACT_LABELS.filterPending)
-            )
+          href={
+            "/reservations?period=confirmed&filterField=completionEmail&filterValue=" +
+            encodeURIComponent(CONTACT_LABELS.filterPending)
           }
         />
-        <StatTodoButton
+        <StatNavLink
+          variant="todo"
           value={d.unassignedCount}
           label="部屋未割当"
-          onClick={() =>
-            go(
-              "/reservations?period=confirmed&filterField=roomId&filterValue=__unassigned__"
-            )
-          }
+          href="/reservations?period=confirmed&filterField=roomId&filterValue=__unassigned__"
         />
       </div>
-
 
       <DashboardSection title="部屋割（今日）">
         <TodayRoomsBoard rooms={d.todayRooms} />

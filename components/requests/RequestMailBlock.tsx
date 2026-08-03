@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { CONTACT_LABELS } from "@/lib/config/contact-confirm-labels";
 import { normalizeRequestStatus } from "@/lib/domain/request-status";
 import type { MailEntityContext } from "@/lib/services/mail-placeholders";
+import { formatDateTimeJa } from "@/lib/utils/date-label";
 
 type Props = {
   requestId: string;
@@ -21,7 +22,7 @@ const initialState = { ok: true } as const;
 
 function formatSentAt(value: string | null) {
   if (!value) return "";
-  return new Date(value).toLocaleString("ja-JP");
+  return formatDateTimeJa(value);
 }
 
 export function RequestMailBlock({

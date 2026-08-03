@@ -1,6 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { after } from "next/server";
 import { DEFAULTS } from "@/lib/config/forms";
 import { deleteGCalEventIfAny, syncReservationToGCal } from "@/lib/services/gcal-sync";
+import { createAdminClient } from "@/lib/supabase/server";
 
 export async function buildProvisionalFromRequest(
   current: Record<string, unknown>,
@@ -94,7 +96,10 @@ export async function createProvisionalForRequest(
     .eq("reservation_id", provisionalId);
   if (linkError) return { ok: false, message: linkError.message };
 
-  await syncReservationToGCal(supabase, provisionalId);
+  after(async () => {
+    const admin = createAdminClient();
+    await syncReservationToGCal(admin, provisionalId);
+  });
 
   return { ok: true, provisionalId };
 }

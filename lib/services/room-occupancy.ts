@@ -233,10 +233,20 @@ export function sortOccCellEvents(events: OccEvent[]): OccEvent[] {
   });
 }
 
+/**
+ * 相部屋判定。
+ * 同日の OUT→IN 入れ替えだけでは相部屋にしない。
+ * 「その日の宿泊（滞在 or チェックイン）」が複数予約にまたがるときだけ true。
+ */
 export function isSharedRoomEvents(events: OccEvent[]): boolean {
   if (!events || events.length < 2) return false;
-  const ids = new Set(events.map((ev) => ev.reservationId).filter(Boolean));
-  return ids.size > 1;
+  const overnightIds = new Set(
+    events
+      .filter((ev) => ev.isStay || ev.isCheckin)
+      .map((ev) => ev.reservationId)
+      .filter(Boolean)
+  );
+  return overnightIds.size > 1;
 }
 
 function buildUnassignedOccEventsForDay(

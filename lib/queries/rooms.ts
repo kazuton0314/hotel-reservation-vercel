@@ -1,3 +1,5 @@
+import { unstable_cache } from "next/cache";
+import { CACHE_TAGS } from "@/lib/cache/tags";
 import { createReadClient } from "@/lib/supabase/read";
 import { includeArchivedForDateRange } from "@/lib/utils/list-scope";
 
@@ -18,17 +20,23 @@ export type RoomAssignmentBoardItem = {
 };
 
 export async function getRooms() {
-  const supabase = await createReadClient();
-  const { data, error } = await supabase
-    .from("rooms")
-    .select("room_id, room_name, sort_order")
-    .eq("is_active", true)
-    .order("sort_order", { ascending: true });
+  return unstable_cache(
+    async () => {
+      const supabase = await createReadClient();
+      const { data, error } = await supabase
+        .from("rooms")
+        .select("room_id, room_name, sort_order")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true });
 
-  return {
-    rooms: (data ?? []) as RoomItem[],
-    error: error?.message ?? null,
-  };
+      return {
+        rooms: (data ?? []) as RoomItem[],
+        error: error?.message ?? null,
+      };
+    },
+    ["rooms-active"],
+    { tags: [CACHE_TAGS.rooms], revalidate: 300 }
+  )();
 }
 
 export async function getRoomAssignmentsForRange(from: string, to: string) {

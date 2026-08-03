@@ -1,4 +1,5 @@
 const RECEIVED_DATETIME_OPTS: Intl.DateTimeFormatOptions = {
+  timeZone: "Asia/Tokyo",
   year: "numeric",
   month: "numeric",
   day: "numeric",

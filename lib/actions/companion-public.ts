@@ -1,7 +1,7 @@
 "use server";
 
 import { MAX_COMPANION_ENTRIES } from "@/lib/config/companions";
-import { revalidateReservationDetail } from "@/lib/cache/revalidate";
+import { revalidateReservationCompanions } from "@/lib/cache/revalidate";
 import {
   normalizeCompanionAgeInput,
   validateCompanionAge,
@@ -129,6 +129,6 @@ export async function submitCompanionsPublicAction(
     })
     .eq("reservation_id", reservation.reservation_id);
 
-  revalidateReservationDetail(reservation.reservation_id);
+  revalidateReservationCompanions(reservation.reservation_id);
   return { ok: true, count: rows.length };
 }
