@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { PendingLink } from "@/components/ui/PendingLink";
 import type { TodayRoomBoardItem } from "@/lib/queries/dashboard";
 import { formatGuestCompact } from "@/lib/utils/guest-display";
 
@@ -77,12 +77,12 @@ export function TodayRoomsBoard({ rooms }: { rooms: TodayRoomBoardItem[] }) {
                       isCheckout={ev.isCheckout}
                       isStay={ev.isStay}
                     />
-                    <Link
+                    <PendingLink
                       href={`/reservations/${encodeURIComponent(ev.reservationId)}?from=home`}
                       className="today-room-guest"
                     >
                       {ev.representativeName}
-                    </Link>
+                    </PendingLink>
                     {nightLbl ? (
                       <span className="today-room-nights">{nightLbl}</span>
                     ) : null}

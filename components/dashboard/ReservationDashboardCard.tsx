@@ -1,8 +1,8 @@
-import Link from "next/link";
 import type { DashboardListItem } from "@/lib/queries/dashboard";
 import { ListCardStayDetails } from "@/components/list/ListCardStayDetails";
 import { ReservationStatusBadge } from "@/components/list/ReservationListBadges";
 import { ReservationTaskChips } from "@/components/reservations/ReservationTaskChips";
+import { PendingLink } from "@/components/ui/PendingLink";
 import { formatDisplayName } from "@/lib/utils/display-name";
 import { formatGuestCompact } from "@/lib/utils/guest-display";
 
@@ -25,7 +25,7 @@ export function ReservationDashboardCard({
   const displayName = formatDisplayName(item.representativeName);
 
   return (
-    <Link
+    <PendingLink
       href={`/reservations/${encodeURIComponent(item.reservationId)}?from=home`}
       className="card list-card block"
     >
@@ -75,7 +75,7 @@ export function ReservationDashboardCard({
         inquiry={item.inquiry}
         internalMemo={item.internalMemo}
       />
-    </Link>
+    </PendingLink>
   );
 }
 
