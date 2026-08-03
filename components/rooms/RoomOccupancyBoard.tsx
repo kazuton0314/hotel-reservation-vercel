@@ -715,6 +715,7 @@ export function RoomOccupancyBoard({
         <span className="occ-legend-stay">滞在</span>
         <span className="occ-legend-in">チェックイン</span>
         <span className="occ-legend-out">チェックアウト</span>
+        <span className="occ-legend-shared">相部屋（複数組）</span>
         {editMode ? (
           <span className="occ-legend-draft">変更予定</span>
         ) : null}
