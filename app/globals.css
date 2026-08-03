@@ -2009,14 +2009,19 @@ body.occ-fullscreen .occ-legend {
 }
 a.card:hover,
 .card[role="button"]:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 8px 20px rgba(28, 38, 34, 0.08);
+  transform: scale(1.015) translateY(-2px);
+  box-shadow: 0 10px 22px rgba(28, 38, 34, 0.1);
+}
+a.card:active,
+.card[role="button"]:active {
+  transform: scale(0.985);
+  box-shadow: 0 2px 6px rgba(28, 38, 34, 0.08);
 }
 .btn {
   transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
 }
 .btn:active:not(:disabled) {
-  transform: scale(0.98);
+  transform: scale(0.97);
 }
 .skeleton {
   background: linear-gradient(90deg, #e9efeb 25%, #f6faf8 50%, #e9efeb 75%);
