@@ -7,6 +7,7 @@ import {
 } from "@/lib/services/reservation-active-tasks";
 import { reservationNeedsCompanionInfo } from "@/lib/services/mail-pending";
 import {
+  applyReservationListOrder,
   needsInMemoryReservationListProcessing,
   reservationIdsForRoomFilter,
 } from "@/lib/services/reservation-list-query";
@@ -403,16 +404,7 @@ async function getReservationsUncached(filters: ReservationFilters = {}) {
       list,
       roomReservationIds
     );
-    const asc = sort.dir === "asc";
-    if (sort.field === "stay") {
-      query = query.order("check_in", { ascending: asc, nullsFirst: false });
-    } else if (sort.field === "received") {
-      query = query
-        .order("sheet_created_at", { ascending: asc, nullsFirst: false })
-        .order("created_at", { ascending: asc, nullsFirst: false });
-    } else {
-      query = query.order("updated_at", { ascending: asc, nullsFirst: false });
-    }
+    query = applyReservationListOrder(query, sort);
 
     const { data, error, count } = await query.range(from, to);
     if (error) {
