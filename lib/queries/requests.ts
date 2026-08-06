@@ -7,6 +7,7 @@ import {
 import { createReadClient } from "@/lib/supabase/read";
 import { applyRequestListFilter } from "@/lib/services/request-list-filter";
 import {
+  applyRequestListOrder,
   applyRequestKeywordFilter,
   needsInMemoryRequestListProcessing,
 } from "@/lib/services/reservation-list-query";
@@ -134,16 +135,7 @@ async function getRequestsUncached(filters: RequestListFilters = {}) {
     }
     query = applyRequestKeywordFilter(query, list.q);
 
-    const asc = sort.dir === "asc";
-    if (sort.field === "stay") {
-      query = query.order("check_in", { ascending: asc, nullsFirst: false });
-    } else if (sort.field === "received") {
-      query = query
-        .order("sheet_created_at", { ascending: asc, nullsFirst: false })
-        .order("created_at", { ascending: asc, nullsFirst: false });
-    } else {
-      query = query.order("updated_at", { ascending: asc, nullsFirst: false });
-    }
+    query = applyRequestListOrder(query, sort);
 
     const { data, error, count } = await query.range(from, to);
     if (error) {

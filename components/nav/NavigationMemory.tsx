@@ -62,8 +62,8 @@ export function NavigationMemory() {
   // スクロール保存
   useEffect(() => {
     let ticking = false;
-    const persist = () => {
-      if (skipScrollSave.current) return;
+    const persist = (force = false) => {
+      if (!force && skipScrollSave.current) return;
       saveScrollPosition(fullPathRef.current, {
         top: window.scrollY,
         left: window.scrollX,
@@ -81,7 +81,8 @@ export function NavigationMemory() {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => {
       window.removeEventListener("scroll", onScroll);
-      persist();
+      // 遷移直前は skip 中でも最終位置を保存して取りこぼしを防ぐ
+      persist(true);
     };
   }, [fullPath]);
 

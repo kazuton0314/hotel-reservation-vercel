@@ -81,14 +81,19 @@ export function applyReservationListOrder<
 >(query: T, sort: ListSort): T {
   const asc = sort.dir === "asc";
   if (sort.field === "stay") {
-    return query.order("check_in", { ascending: asc, nullsFirst: false });
+    return query
+      .order("check_in", { ascending: asc, nullsFirst: false })
+      .order("reservation_id", { ascending: asc, nullsFirst: false });
   }
   if (sort.field === "received") {
     return query
       .order("sheet_created_at", { ascending: asc, nullsFirst: false })
-      .order("created_at", { ascending: asc, nullsFirst: false });
+      .order("created_at", { ascending: asc, nullsFirst: false })
+      .order("reservation_id", { ascending: asc, nullsFirst: false });
   }
-  return query.order("updated_at", { ascending: asc, nullsFirst: false });
+  return query
+    .order("updated_at", { ascending: asc, nullsFirst: false })
+    .order("reservation_id", { ascending: asc, nullsFirst: false });
 }
 
 export function applyRequestListOrder<
@@ -96,14 +101,19 @@ export function applyRequestListOrder<
 >(query: T, sort: ListSort): T {
   const asc = sort.dir === "asc";
   if (sort.field === "stay") {
-    return query.order("check_in", { ascending: asc, nullsFirst: false });
+    return query
+      .order("check_in", { ascending: asc, nullsFirst: false })
+      .order("request_id", { ascending: asc, nullsFirst: false });
   }
   if (sort.field === "received") {
     return query
       .order("sheet_created_at", { ascending: asc, nullsFirst: false })
-      .order("created_at", { ascending: asc, nullsFirst: false });
+      .order("created_at", { ascending: asc, nullsFirst: false })
+      .order("request_id", { ascending: asc, nullsFirst: false });
   }
-  return query.order("updated_at", { ascending: asc, nullsFirst: false });
+  return query
+    .order("updated_at", { ascending: asc, nullsFirst: false })
+    .order("request_id", { ascending: asc, nullsFirst: false });
 }
 
 export async function reservationIdsForRoomFilter(
