@@ -1,14 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useCallback, useState, useTransition } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type {
   CustomerListItem,
   CustomerSearchCriteria,
 } from "@/lib/queries/customers";
+import { parseCustomerPrefill } from "@/lib/queries/customers";
+import { buildCustomerSearchHref } from "@/lib/utils/customer-history-link";
 
 const SEARCH_FIELDS: {
   key: keyof CustomerSearchCriteria;
@@ -25,23 +27,39 @@ const SEARCH_FIELDS: {
 type Props = {
   initialCriteria?: CustomerSearchCriteria;
   initialResults?: CustomerListItem[];
-  searchAction: (
-    criteria: CustomerSearchCriteria
-  ) => Promise<{ customers: CustomerListItem[]; error: string | null }>;
+  initialError?: string | null;
 };
+
+function criteriaFromSearchParams(
+  searchParams: URLSearchParams
+): CustomerSearchCriteria {
+  const record: Record<string, string> = {};
+  searchParams.forEach((value, key) => {
+    record[key] = value;
+  });
+  return parseCustomerPrefill(record);
+}
 
 export function CustomersView({
   initialCriteria = {},
   initialResults,
-  searchAction,
+  initialError = null,
 }: Props) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const urlKey = searchParams.toString();
   const [criteria, setCriteria] = useState<CustomerSearchCriteria>(initialCriteria);
-  const [results, setResults] = useState<CustomerListItem[] | null>(
-    initialResults ?? null
-  );
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialError);
   const [pending, startTransition] = useTransition();
+
+  // 詳細から戻ったときなど、URL の条件を入力欄へ反映
+  useEffect(() => {
+    setCriteria(criteriaFromSearchParams(searchParams));
+    setError(initialError);
+  }, [urlKey, searchParams, initialError]);
+
+  const results =
+    initialResults === undefined ? null : initialResults;
 
   const runSearch = useCallback(() => {
     const active = Object.fromEntries(
@@ -49,19 +67,14 @@ export function CustomersView({
     ) as CustomerSearchCriteria;
     if (!Object.keys(active).length) {
       setError("いずれかの条件を入力してください");
-      setResults(null);
       return;
     }
     setError(null);
-    startTransition(async () => {
-      const res = await searchAction(active);
-      if (res.error) {
-        setError(res.error);
-        return;
-      }
-      setResults(res.customers);
+    const href = buildCustomerSearchHref(active);
+    startTransition(() => {
+      router.replace(href, { scroll: false });
     });
-  }, [criteria, searchAction]);
+  }, [criteria, router]);
 
   return (
     <>
@@ -101,11 +114,13 @@ export function CustomersView({
           type="button"
           variant="secondary"
           size="sm"
+          disabled={pending}
           onClick={() => {
             setCriteria({});
-            setResults(null);
             setError(null);
-            router.replace("/customers");
+            startTransition(() => {
+              router.replace("/customers", { scroll: false });
+            });
           }}
         >
           クリア
@@ -114,7 +129,7 @@ export function CustomersView({
 
       <div id="customers-body">
         {error ? <div className="empty">{error}</div> : null}
-        {pending && !results ? (
+        {pending && results === null ? (
           <div className="inline-loading">検索中…</div>
         ) : null}
         {results === null && !pending && !error ? (
@@ -122,7 +137,7 @@ export function CustomersView({
             条件を入力して検索してください
           </p>
         ) : null}
-        {results && results.length === 0 ? (
+        {results && results.length === 0 && !error ? (
           <div className="empty">該当する顧客はありません</div>
         ) : null}
         {results && results.length > 0 ? (
