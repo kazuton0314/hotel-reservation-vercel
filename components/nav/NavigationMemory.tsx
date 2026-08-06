@@ -37,17 +37,26 @@ export function NavigationMemory() {
   }, [fullPath, router]);
 
   // スクロール復元（main の window）
+  // 一覧再描画後に高さが変わることがあるため、短く再適用する
   useEffect(() => {
     const saved = loadScrollPosition(fullPath, "window");
     if (!saved) return;
     skipScrollSave.current = true;
-    const id = window.requestAnimationFrame(() => {
+    const apply = () => {
       window.scrollTo(saved.left, saved.top);
-      window.setTimeout(() => {
-        skipScrollSave.current = false;
-      }, 100);
-    });
-    return () => window.cancelAnimationFrame(id);
+    };
+    const id0 = window.requestAnimationFrame(apply);
+    const t1 = window.setTimeout(apply, 50);
+    const t2 = window.setTimeout(apply, 200);
+    const unlock = window.setTimeout(() => {
+      skipScrollSave.current = false;
+    }, 280);
+    return () => {
+      window.cancelAnimationFrame(id0);
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+      window.clearTimeout(unlock);
+    };
   }, [fullPath]);
 
   // スクロール保存

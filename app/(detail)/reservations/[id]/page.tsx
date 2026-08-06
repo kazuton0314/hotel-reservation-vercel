@@ -78,6 +78,9 @@ async function DetailContent({
       <RealtimeRefresh tables={["reservations", "room_assignments"]} notify />
       <DetailNav
         backHref={backHref}
+        backSection={
+          from === "customers" || from === "home" ? undefined : "reservations"
+        }
         backLabel={
           from === "customers"
             ? "← 顧客に戻る"
@@ -89,14 +92,24 @@ async function DetailContent({
           { label: "ホーム", href: "/" },
           ...(from === "customers"
             ? [
-                { label: "顧客索引", href: "/customers" },
+                {
+                  label: "顧客索引",
+                  href: "/customers",
+                  section: "customers" as const,
+                },
                 ...(customer
                   ? [{ label: "顧客詳細", href: backHref }]
                   : []),
               ]
             : from === "home"
               ? []
-              : [{ label: "本予約", href: "/reservations" }]),
+              : [
+                  {
+                    label: "本予約",
+                    href: "/reservations",
+                    section: "reservations" as const,
+                  },
+                ]),
           { label: representativeName },
         ]}
       />
