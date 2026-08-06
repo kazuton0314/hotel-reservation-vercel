@@ -48,8 +48,21 @@ function deriveCustomerId(
   const fromLedger = rows.find((r) => r.customer_id)?.customer_id;
   if (fromLedger) return fromLedger;
   if (existingId) return existingId;
-  const slug = customerKey.replace(/[^a-zA-Z0-9|]+/g, "-").slice(0, 40);
-  return `CK-${slug || "unknown"}`;
+  const email = rows.find((r) => r.email)?.email?.trim().toLowerCase() ?? "";
+  const phone = normalizePhone(rows.find((r) => r.phone)?.phone ?? null);
+  if (email) {
+    const emailSlug = email.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    if (emailSlug) return `CK-${emailSlug.slice(0, 40)}`;
+  }
+  if (phone.length >= 10) {
+    return `CK-phone-${phone.slice(-11)}`;
+  }
+
+  const encoded = Buffer.from(customerKey, "utf8")
+    .toString("base64")
+    .replace(/[+/=]/g, "")
+    .slice(0, 24);
+  return `CK-${encoded || "unknown"}`;
 }
 
 function countsAsVisit(r: Pick<ReservationRow, "status" | "check_in" | "check_out">) {
