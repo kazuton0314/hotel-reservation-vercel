@@ -62,7 +62,7 @@ async function main() {
     .order("sort_order");
   console.log("Rooms:", (rooms ?? []).map((r) => `${r.room_id}: ${r.room_name}`).join(", "));
 
-  let query = supabase
+  const query = supabase
     .from("room_assignments")
     .select(
       "room_assignment_id, reservation_id, room_id, room_name, stay_start, stay_end, is_archived, updated_at"

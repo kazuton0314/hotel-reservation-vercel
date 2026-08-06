@@ -27,6 +27,17 @@ type DraftPayload = {
   nextId: number;
 };
 
+function loadDraft(accessKey: string): DraftPayload | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(draftKey(accessKey));
+    if (!raw) return null;
+    return JSON.parse(raw) as DraftPayload;
+  } catch {
+    return null;
+  }
+}
+
 function draftKey(accessKey: string) {
   return `companion-draft:${accessKey}`;
 }
@@ -40,35 +51,33 @@ export function CompanionPublicForm({
   alreadyAnswered,
   representativeName,
 }: Props) {
+  const draft = loadDraft(accessKey);
   const formRef = useRef<HTMLFormElement>(null);
-  const [lang, setLang] = useState<CompanionFormLang>("ja");
+  const [lang, setLang] = useState<CompanionFormLang>(() => {
+    if (draft?.lang && COMPANION_FORM_LANGS.includes(draft.lang)) return draft.lang;
+    return "ja";
+  });
   const t = companionFormMessages(lang);
-  const [rows, setRows] = useState<Row[]>([emptyRow(1)]);
-  const [nextId, setNextId] = useState(2);
-  const [draftNotice, setDraftNotice] = useState(false);
+  const [rows, setRows] = useState<Row[]>(() => {
+    if (Array.isArray(draft?.rows) && draft.rows.length) {
+      return draft.rows.slice(0, MAX_COMPANION_ENTRIES);
+    }
+    return [emptyRow(1)];
+  });
+  const [nextId, setNextId] = useState(() => {
+    if (Array.isArray(draft?.rows) && draft.rows.length) {
+      return draft.nextId || draft.rows.length + 1;
+    }
+    return 2;
+  });
+  const [draftNotice] = useState(
+    () => Boolean(Array.isArray(draft?.rows) && draft.rows.length)
+  );
 
   const [state, action, pending] = useActionState(
     submitCompanionsPublicAction,
     initialState
   );
-
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(draftKey(accessKey));
-      if (!raw) return;
-      const parsed = JSON.parse(raw) as DraftPayload;
-      if (parsed.lang && COMPANION_FORM_LANGS.includes(parsed.lang)) {
-        setLang(parsed.lang);
-      }
-      if (Array.isArray(parsed.rows) && parsed.rows.length) {
-        setRows(parsed.rows.slice(0, MAX_COMPANION_ENTRIES));
-        setNextId(parsed.nextId || parsed.rows.length + 1);
-        setDraftNotice(true);
-      }
-    } catch {
-      /* ignore corrupt draft */
-    }
-  }, [accessKey]);
 
   useEffect(() => {
     try {

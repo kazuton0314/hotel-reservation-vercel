@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { nextCustomerId } from "@/lib/import/id-generation";
 
 type ReservationRow = {
   reservation_id: string;
@@ -40,16 +41,42 @@ export function isCustomerIndexable(
   return buildCustomerKey(r) !== null;
 }
 
-function deriveCustomerId(
+function isCuCustomerId(id: string | null | undefined): boolean {
+  return Boolean(id && /^CU-\d{4}-\d+$/i.test(id));
+}
+
+function firstCheckInYear(rows: ReservationRow[]): number {
+  let earliest: string | null = null;
+  for (const r of rows) {
+    const ci = String(r.check_in ?? "").trim();
+    if (!ci) continue;
+    if (!earliest || ci < earliest) earliest = ci;
+  }
+  if (earliest && /^\d{4}/.test(earliest)) {
+    return Number(earliest.slice(0, 4));
+  }
+  return new Date().getFullYear();
+}
+
+/**
+ * 既存 CU を最優先。なければ既存 ID を維持。
+ * どちらも無いときだけ CU-{年}-{連番} を新規採番。
+ */
+async function resolveCustomerId(
+  supabase: SupabaseClient,
   rows: ReservationRow[],
-  customerKey: string,
   existingId: string | null
-): string {
+): Promise<string> {
+  const fromLedgerCu = rows.find((r) => isCuCustomerId(r.customer_id))
+    ?.customer_id;
+  if (fromLedgerCu) return fromLedgerCu;
+  if (isCuCustomerId(existingId)) return existingId as string;
+
   const fromLedger = rows.find((r) => r.customer_id)?.customer_id;
   if (fromLedger) return fromLedger;
   if (existingId) return existingId;
-  const slug = customerKey.replace(/[^a-zA-Z0-9|]+/g, "-").slice(0, 40);
-  return `CK-${slug || "unknown"}`;
+
+  return nextCustomerId(supabase, firstCheckInYear(rows));
 }
 
 function countsAsVisit(r: Pick<ReservationRow, "status" | "check_in" | "check_out">) {
@@ -126,9 +153,9 @@ export async function upsertCustomerFromReservation(
     }
   }
 
-  const customerId = deriveCustomerId(
+  const customerId = await resolveCustomerId(
+    supabase,
     source,
-    customerKey,
     existing?.customer_id ?? null
   );
 

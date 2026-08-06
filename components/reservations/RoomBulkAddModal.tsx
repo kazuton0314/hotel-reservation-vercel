@@ -32,12 +32,7 @@ export function RoomBulkAddModal({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [mounted, setMounted] = useState(false);
   const available = rooms.filter((r) => !assignedRoomIds.includes(r.room_id));
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -48,7 +43,7 @@ export function RoomBulkAddModal({
     };
   }, [open]);
 
-  if (!open || !mounted) return null;
+  if (!open || typeof document === "undefined") return null;
 
   function submit(form: HTMLFormElement) {
     const fd = new FormData(form);

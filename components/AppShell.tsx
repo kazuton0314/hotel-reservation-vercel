@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { RefreshButton } from "@/components/RefreshButton";
@@ -55,27 +55,15 @@ type AppShellProps = {
 };
 
 function BottomNav({ activeView }: { activeView: NavView | null }) {
-  const [hrefs, setHrefs] = useState<Record<NavSection, string>>(() => ({
-    home: "/",
-    rooms: "/rooms",
-    calendar: "/calendar",
-    requests: "/requests",
-    reservations: "/reservations",
-    customers: "/customers",
-    settings: "/settings",
-  }));
-
-  useEffect(() => {
-    setHrefs({
-      home: defaultHrefForSection("home"),
-      rooms: getSectionRememberedHref("rooms"),
-      calendar: getSectionRememberedHref("calendar"),
-      requests: getSectionRememberedHref("requests"),
-      reservations: getSectionRememberedHref("reservations"),
-      customers: getSectionRememberedHref("customers"),
-      settings: getSectionRememberedHref("settings"),
-    });
-  }, [activeView]);
+  const hrefs: Record<NavSection, string> = {
+    home: defaultHrefForSection("home"),
+    rooms: getSectionRememberedHref("rooms"),
+    calendar: getSectionRememberedHref("calendar"),
+    requests: getSectionRememberedHref("requests"),
+    reservations: getSectionRememberedHref("reservations"),
+    customers: getSectionRememberedHref("customers"),
+    settings: getSectionRememberedHref("settings"),
+  };
 
   return (
     <nav className="nav" id="bottom-nav">

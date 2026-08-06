@@ -351,40 +351,25 @@ async function getCustomerDetailUncached(openId: string) {
 
   let customer: DbCustomer | null = null;
 
-  if (
-    id.startsWith("cid:") ||
-    id.startsWith("email:") ||
-    id.startsWith("phone:") ||
-    id.startsWith("name:") ||
-    id.includes("|")
-  ) {
-    const { data } = await supabase
+  // customer_id での直指定を最優先し、見つからない場合に customer_key を試す。
+  // 旧データには "CK--|..." のように記号入り customer_id が存在しうる。
+  const { data: byId } = await supabase
+    .from("customers")
+    .select(
+      "customer_id, customer_key, representative_name, name_kana, email, phone, visit_count, last_check_out, is_repeater"
+    )
+    .eq("customer_id", id)
+    .maybeSingle();
+  customer = (byId as DbCustomer) ?? null;
+  if (!customer) {
+    const { data: byKey } = await supabase
       .from("customers")
       .select(
         "customer_id, customer_key, representative_name, name_kana, email, phone, visit_count, last_check_out, is_repeater"
       )
       .eq("customer_key", id)
       .maybeSingle();
-    customer = (data as DbCustomer) ?? null;
-  } else {
-    const { data: byId } = await supabase
-      .from("customers")
-      .select(
-        "customer_id, customer_key, representative_name, name_kana, email, phone, visit_count, last_check_out, is_repeater"
-      )
-      .eq("customer_id", id)
-      .maybeSingle();
-    customer = (byId as DbCustomer) ?? null;
-    if (!customer) {
-      const { data: byKey } = await supabase
-        .from("customers")
-        .select(
-          "customer_id, customer_key, representative_name, name_kana, email, phone, visit_count, last_check_out, is_repeater"
-        )
-        .eq("customer_key", id)
-        .maybeSingle();
-      customer = (byKey as DbCustomer) ?? null;
-    }
+    customer = (byKey as DbCustomer) ?? null;
   }
 
   if (!customer) {

@@ -92,6 +92,69 @@ function formatRoomAssignmentId(year: number, seq: number) {
   return `RA-${year}-${String(seq).padStart(4, "0")}`;
 }
 
+function customerSeqKey(year: number) {
+  return `cu_${year}`;
+}
+
+function formatCustomerId(year: number, seq: number) {
+  return `CU-${year}-${String(seq).padStart(4, "0")}`;
+}
+
+function parseCustomerMaxForYear(ids: string[], year: number): number {
+  const prefix = `CU-${year}-`;
+  let max = 0;
+  for (const id of ids) {
+    if (!id.startsWith(prefix)) continue;
+    const parsed = parseInt(id.slice(prefix.length), 10);
+    if (!Number.isNaN(parsed)) max = Math.max(max, parsed);
+  }
+  return max;
+}
+
+/** GAS 相当: CU-{初回チェックイン年}-{NNNN} */
+export async function nextCustomerId(
+  supabase: SupabaseClient,
+  year: number = new Date().getFullYear()
+): Promise<string> {
+  const key = customerSeqKey(year);
+
+  const [{ data: customers }, { data: reservations }] = await Promise.all([
+    supabase.from("customers").select("customer_id"),
+    supabase.from("reservations").select("customer_id"),
+  ]);
+
+  const fromCustomers = parseCustomerMaxForYear(
+    (customers ?? []).map((r) => String(r.customer_id ?? "")),
+    year
+  );
+  const fromReservations = parseCustomerMaxForYear(
+    (reservations ?? [])
+      .map((r) => String(r.customer_id ?? ""))
+      .filter(Boolean),
+    year
+  );
+
+  const { data: seqRow } = await supabase
+    .from("import_sequences")
+    .select("current_value")
+    .eq("key", key)
+    .maybeSingle();
+
+  const current = Math.max(
+    fromCustomers,
+    fromReservations,
+    seqRow?.current_value ?? 0
+  );
+  const next = current + 1;
+
+  await supabase.from("import_sequences").upsert(
+    { key, current_value: next, updated_at: new Date().toISOString() },
+    { onConflict: "key" }
+  );
+
+  return formatCustomerId(year, next);
+}
+
 export async function nextManualReservationId(
   supabase: SupabaseClient
 ): Promise<string> {
@@ -160,10 +223,12 @@ export async function nextRoomAssignmentId(
 export async function syncSequencesFromLedger(
   supabase: SupabaseClient
 ): Promise<void> {
-  const [{ data: reservations }, { data: requests }] = await Promise.all([
-    supabase.from("reservations").select("reservation_id"),
-    supabase.from("reservation_requests").select("request_id"),
-  ]);
+  const [{ data: reservations }, { data: requests }, { data: customers }] =
+    await Promise.all([
+      supabase.from("reservations").select("reservation_id, customer_id"),
+      supabase.from("reservation_requests").select("request_id"),
+      supabase.from("customers").select("customer_id"),
+    ]);
 
   const mtMax = parseMaxSeq(
     (reservations ?? []).map((r) => r.reservation_id),
@@ -214,4 +279,27 @@ export async function syncSequencesFromLedger(
       { onConflict: "key" }
     ),
   ]);
+
+  const customerIds = [
+    ...(customers ?? []).map((r) => String(r.customer_id ?? "")),
+    ...(reservations ?? []).map((r) => String(r.customer_id ?? "")),
+  ].filter(Boolean);
+  const years = new Set<number>();
+  for (const id of customerIds) {
+    const m = id.match(/^CU-(\d{4})-/);
+    if (m) years.add(Number(m[1]));
+  }
+  years.add(year);
+  await Promise.all(
+    [...years].map((y) =>
+      supabase.from("import_sequences").upsert(
+        {
+          key: customerSeqKey(y),
+          current_value: parseCustomerMaxForYear(customerIds, y),
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "key" }
+      )
+    )
+  );
 }

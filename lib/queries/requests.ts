@@ -170,7 +170,7 @@ async function getRequestsUncached(filters: RequestListFilters = {}) {
     return { requests: [] as RequestListItem[], total: 0, error: error.message };
   }
 
-  let requests = mapRequestListRows((data ?? []) as Record<string, unknown>[]);
+  const requests = mapRequestListRows((data ?? []) as Record<string, unknown>[]);
 
   if (!paged) {
     return { requests, total: requests.length, error: null };

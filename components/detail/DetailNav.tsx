@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { DetailBack } from "@/components/detail/DetailBack";
 import { Button } from "@/components/ui/button";
@@ -27,15 +26,9 @@ type Props = {
 
 function CrumbLink({ crumb }: { crumb: DetailCrumb }) {
   const fallback = crumb.href ?? "/";
-  const [href, setHref] = useState(fallback);
-
-  useEffect(() => {
-    if (!crumb.section) {
-      setHref(fallback);
-      return;
-    }
-    setHref(getSectionRememberedHref(crumb.section, fallback));
-  }, [crumb.section, fallback]);
+  const href = crumb.section
+    ? getSectionRememberedHref(crumb.section, fallback)
+    : fallback;
 
   return (
     <Link href={href} className="breadcrumb-link">
@@ -51,19 +44,11 @@ export function DetailNav({
   backLabel,
 }: Props) {
   const router = useRouter();
-  const [resolvedBackHref, setResolvedBackHref] = useState(backHref);
-
-  useEffect(() => {
-    if (backHref) {
-      setResolvedBackHref(backHref);
-      return;
-    }
-    if (backSection) {
-      setResolvedBackHref(getSectionRememberedHref(backSection));
-      return;
-    }
-    setResolvedBackHref(undefined);
-  }, [backHref, backSection]);
+  const resolvedBackHref = backHref
+    ? backHref
+    : backSection
+      ? getSectionRememberedHref(backSection)
+      : undefined;
 
   return (
     <nav className="detail-nav" aria-label="パンくず">

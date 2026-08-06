@@ -2139,6 +2139,52 @@ a.btn:active {
 .occ-event:active {
   transform: scale(0.98);
 }
+/* 予定・週のゲスト行（a.card ではないため個別指定） */
+a.event-card {
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+a.event-card:hover {
+  transform: scale(1.02);
+  box-shadow: 0 2px 8px rgba(28, 38, 34, 0.1);
+}
+a.event-card:active {
+  transform: scale(0.98);
+}
+/* タブ / これから・アーカイブ（Link のみで .btn が付かない） */
+.tabs .tab,
+.list-scope-btn {
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease,
+    border-color 0.12s ease, color 0.12s ease;
+}
+.tabs .tab:hover,
+.list-scope-btn:hover {
+  transform: scale(1.04);
+}
+.tabs .tab:active,
+.list-scope-btn:active {
+  transform: scale(0.96);
+}
+/* 顧客履歴行・設定リンクカード */
+a.customer-history-row {
+  display: block;
+  transition: transform 0.12s ease, color 0.12s ease;
+}
+a.customer-history-row:hover {
+  transform: scale(1.02);
+}
+a.customer-history-row:active {
+  transform: scale(0.98);
+}
+a.settings-link-card {
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+}
+a.settings-link-card:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(28, 38, 34, 0.08);
+}
+a.settings-link-card:active {
+  transform: scale(0.98);
+}
 .skeleton {
   background: linear-gradient(90deg, #e9efeb 25%, #f6faf8 50%, #e9efeb 75%);
   background-size: 200% 100%;

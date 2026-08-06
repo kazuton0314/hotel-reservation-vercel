@@ -4,6 +4,18 @@ import { idPrefixIlikePattern, isIdLikeQuery } from "@/lib/utils/id-search";
 import type { ListSort } from "@/lib/utils/list-sort";
 import { escapeIlike } from "@/lib/utils/sql-ilike";
 
+/** DB 列へ直接 eq できる絞り込み（SQL ページング経路で適用） */
+const SQL_EQ_RESERVATION_FILTER_FIELDS = new Set([
+  "channel",
+  "meal",
+  "bbq",
+  "payment_status",
+]);
+
+export function isSqlEqReservationFilterField(field?: string): boolean {
+  return Boolean(field && SQL_EQ_RESERVATION_FILTER_FIELDS.has(field));
+}
+
 /** 人数不一致・連絡・同行者など、JS 側の業務ロジックが必要な絞り込み */
 export function needsInMemoryReservationListProcessing(
   filters: ReservationFilters,

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useCallback, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type {
@@ -55,16 +55,13 @@ export function CustomersView({
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const urlKey = searchParams.toString();
-  const [criteria, setCriteria] = useState<CustomerSearchCriteria>(initialCriteria);
+  const [criteria, setCriteria] = useState<CustomerSearchCriteria>(() => {
+    const fromUrl = criteriaFromSearchParams(searchParams);
+    if (Object.keys(fromUrl).length) return fromUrl;
+    return initialCriteria;
+  });
   const [error, setError] = useState<string | null>(initialError);
   const [pending, startTransition] = useTransition();
-
-  // 詳細から戻ったときなど、URL の条件を入力欄へ反映
-  useEffect(() => {
-    setCriteria(criteriaFromSearchParams(searchParams));
-    setError(initialError);
-  }, [urlKey, searchParams, initialError]);
 
   const results =
     initialResults === undefined ? null : initialResults;

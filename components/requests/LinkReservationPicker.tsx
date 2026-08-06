@@ -27,11 +27,6 @@ export function LinkReservationPicker({
   onSelect,
 }: Props) {
   const [q, setQ] = useState("");
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     const prev = document.body.style.overflow;
@@ -50,7 +45,7 @@ export function LinkReservationPicker({
     q
   );
 
-  if (!mounted) return null;
+  if (typeof document === "undefined") return null;
 
   return createPortal(
     <div
