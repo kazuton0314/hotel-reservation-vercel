@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { nextCustomerId } from "@/lib/import/id-generation";
 
 type ReservationRow = {
   reservation_id: string;
@@ -40,29 +41,42 @@ export function isCustomerIndexable(
   return buildCustomerKey(r) !== null;
 }
 
-function deriveCustomerId(
+function isCuCustomerId(id: string | null | undefined): boolean {
+  return Boolean(id && /^CU-\d{4}-\d+$/i.test(id));
+}
+
+function firstCheckInYear(rows: ReservationRow[]): number {
+  let earliest: string | null = null;
+  for (const r of rows) {
+    const ci = String(r.check_in ?? "").trim();
+    if (!ci) continue;
+    if (!earliest || ci < earliest) earliest = ci;
+  }
+  if (earliest && /^\d{4}/.test(earliest)) {
+    return Number(earliest.slice(0, 4));
+  }
+  return new Date().getFullYear();
+}
+
+/**
+ * 既存 CU を最優先。なければ既存 ID を維持。
+ * どちらも無いときだけ CU-{年}-{連番} を新規採番。
+ */
+async function resolveCustomerId(
+  supabase: SupabaseClient,
   rows: ReservationRow[],
-  customerKey: string,
   existingId: string | null
-): string {
+): Promise<string> {
+  const fromLedgerCu = rows.find((r) => isCuCustomerId(r.customer_id))
+    ?.customer_id;
+  if (fromLedgerCu) return fromLedgerCu;
+  if (isCuCustomerId(existingId)) return existingId as string;
+
   const fromLedger = rows.find((r) => r.customer_id)?.customer_id;
   if (fromLedger) return fromLedger;
   if (existingId) return existingId;
-  const email = rows.find((r) => r.email)?.email?.trim().toLowerCase() ?? "";
-  const phone = normalizePhone(rows.find((r) => r.phone)?.phone ?? null);
-  if (email) {
-    const emailSlug = email.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-    if (emailSlug) return `CK-${emailSlug.slice(0, 40)}`;
-  }
-  if (phone.length >= 10) {
-    return `CK-phone-${phone.slice(-11)}`;
-  }
 
-  const encoded = Buffer.from(customerKey, "utf8")
-    .toString("base64")
-    .replace(/[+/=]/g, "")
-    .slice(0, 24);
-  return `CK-${encoded || "unknown"}`;
+  return nextCustomerId(supabase, firstCheckInYear(rows));
 }
 
 function countsAsVisit(r: Pick<ReservationRow, "status" | "check_in" | "check_out">) {
@@ -139,9 +153,9 @@ export async function upsertCustomerFromReservation(
     }
   }
 
-  const customerId = deriveCustomerId(
+  const customerId = await resolveCustomerId(
+    supabase,
     source,
-    customerKey,
     existing?.customer_id ?? null
   );
 
