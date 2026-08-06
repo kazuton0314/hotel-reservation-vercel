@@ -91,9 +91,9 @@ export function findReservationByImportRowId(
   const rowId = String(sheetRow);
   return reservations.find((r) => {
     if (r.import_row_id !== rowId) return false;
-    // 過去取込は現行フォーム行番号と別空間（衝突させない）
-    if (isPastImportSource(r.import_source)) return false;
-    return true;
+    // 本予約フォーム（STUDIO）の行番号衝突のみ判定対象にする。
+    // request / past の import_row_id は同じ数値でも別空間。
+    return String(r.import_source ?? "").trim() === "STUDIO";
   });
 }
 
