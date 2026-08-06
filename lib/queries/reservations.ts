@@ -8,6 +8,7 @@ import {
 import { reservationNeedsCompanionInfo } from "@/lib/services/mail-pending";
 import {
   applyReservationListOrder,
+  isSqlEqReservationFilterField,
   needsInMemoryReservationListProcessing,
   reservationIdsForRoomFilter,
 } from "@/lib/services/reservation-list-query";
@@ -362,6 +363,12 @@ function buildReservationBaseQuery(
     } else {
       query = query.eq("reservation_id", "__none__");
     }
+  } else if (
+    list?.filterField &&
+    list.filterValue &&
+    isSqlEqReservationFilterField(list.filterField)
+  ) {
+    query = query.eq(list.filterField, list.filterValue);
   }
 
   return query;
