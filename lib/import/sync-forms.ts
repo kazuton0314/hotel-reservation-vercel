@@ -2,7 +2,6 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { FORM_SOURCES } from "@/lib/config/forms";
 import {
   findDuplicateRequest,
-  findDuplicateReservation,
   findRequestByImportRowId,
   findReservationByImportRowId,
   loadAllRequestsForImport,
@@ -138,16 +137,6 @@ function findMatchingRequestForStudio(
   return requests.find((req) => {
     if (!isRequestOpenForLink(req.status)) return false;
     return bookingEntryMatchesForLink(req, record);
-  });
-}
-
-function findDuplicateConfirmedReservation(
-  reservations: ActiveReservation[],
-  record: ReservationInsert
-) {
-  return reservations.find((r) => {
-    if (r.status !== "確定") return false;
-    return bookingEntryMatchesForLink(r, record);
   });
 }
 
@@ -358,7 +347,8 @@ export async function importStudioFormRows(
         import_row_id: String(row.sheetRow),
       };
 
-      // 仮予約 → 確定へ昇格（姓名+連絡先+月日一致のリンク照合）
+      // 仮予約ヒット時も、本予約フォーム由来は必ず STUDIO-MT を新規採番する。
+      // （予約IDとフォーム番号を1対1で運用するため）
       const matchedProvisional = findMatchingProvisionalReservation(
         activeReservations,
         record
@@ -366,7 +356,6 @@ export async function importStudioFormRows(
       if (matchedProvisional) {
         record = {
           ...record,
-          reservation_id: matchedProvisional.reservation_id,
           access_key: matchedProvisional.access_key || record.access_key,
           request_id: matchedProvisional.request_id || null,
         };
@@ -381,44 +370,8 @@ export async function importStudioFormRows(
         };
       }
 
-      // 同一確定予約（年月日完全一致）へマージ。それ以外は新規採番
-      if (record.reservation_id === draftId) {
-        const duplicateConfirmed = findDuplicateConfirmedReservation(
-          activeReservations,
-          record
-        );
-        if (duplicateConfirmed) {
-          const exact =
-            duplicateConfirmed.check_in === record.check_in &&
-            (!duplicateConfirmed.check_out ||
-              !record.check_out ||
-              duplicateConfirmed.check_out === record.check_out);
-          if (exact) {
-            record = {
-              ...record,
-              reservation_id: duplicateConfirmed.reservation_id,
-              access_key: duplicateConfirmed.access_key || record.access_key,
-              request_id: duplicateConfirmed.request_id || record.request_id,
-            };
-          }
-        }
-      }
-
-      if (record.reservation_id === draftId) {
-        const hardDuplicate = findDuplicateReservation(allReservations, incoming);
-        if (hardDuplicate) {
-          await logStudioFormImport(
-            supabase,
-            row.sheetRow,
-            hardDuplicate.reservation_id
-          );
-          skippedAlreadyInDb++;
-          continue;
-        }
-
-        const reservationId = await nextStudioReservationId(supabase);
-        record = { ...record, reservation_id: reservationId };
-      }
+      const reservationId = await nextStudioReservationId(supabase);
+      record = { ...record, reservation_id: reservationId };
 
       const { error: upsertError } = await supabase.from("reservations").upsert(
         {
