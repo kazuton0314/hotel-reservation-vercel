@@ -22,7 +22,9 @@ export function NavigationMemory() {
   const router = useRouter();
   const fullPath = getFullPath(pathname, searchParams);
   const fullPathRef = useRef(fullPath);
-  fullPathRef.current = fullPath;
+  useEffect(() => {
+    fullPathRef.current = fullPath;
+  }, [fullPath]);
   const skipScrollSave = useRef(false);
 
   // パス記憶 + ソフト再開

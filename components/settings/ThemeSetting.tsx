@@ -17,11 +17,11 @@ function applyTheme(theme: Theme) {
 }
 
 export function ThemeSetting() {
-  const [theme, setTheme] = useState<Theme>("light");
+  const [theme, setTheme] = useState<Theme>(() => readTheme());
 
   useEffect(() => {
-    setTheme(readTheme());
-  }, []);
+    applyTheme(theme);
+  }, [theme]);
 
   function choose(next: Theme) {
     setTheme(next);

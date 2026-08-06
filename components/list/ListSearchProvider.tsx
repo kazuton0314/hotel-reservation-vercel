@@ -37,7 +37,9 @@ export function ListSearchProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const searchParamsRef = useRef(searchParams);
-  searchParamsRef.current = searchParams;
+  useEffect(() => {
+    searchParamsRef.current = searchParams;
+  }, [searchParams]);
 
   const urlQ = searchParams.get("q") ?? "";
   const urlCheckIn = searchParams.get("checkIn") ?? "";

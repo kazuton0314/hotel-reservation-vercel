@@ -133,6 +133,7 @@ export function ReservationSetupBoard({ reservations, rooms }: Props) {
   useEffect(() => {
     const next = filteredSource.map(toReservationSetupEditable);
     const base = cloneRows(next);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setBaseRows(base);
     const stored = loadJson<StoredReservationDraft>(draftKey);
     if (stored && stored.sourceKey === sourceKey && stored.draftRows?.length) {

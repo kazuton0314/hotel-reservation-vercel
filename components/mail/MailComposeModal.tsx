@@ -51,8 +51,8 @@ export function MailComposeModal({
   placeholderContext = {},
 }: Props) {
   const router = useRouter();
-  const [subject, setSubject] = useState(defaultSubject);
-  const [body, setBody] = useState(defaultBody);
+  const [subject, setSubject] = useState(() => normalizeMergeText(defaultSubject));
+  const [body, setBody] = useState(() => normalizeMergeText(defaultBody));
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [fetchedTemplates, setFetchedTemplates] = useState<MailTemplate[]>([]);
   const [showTemplateForm, setShowTemplateForm] = useState(false);
@@ -65,16 +65,6 @@ export function MailComposeModal({
   const [savePending, startSave] = useTransition();
   const subjectEditorRef = useRef<MailMergeEditorHandle>(null);
   const bodyEditorRef = useRef<MailMergeEditorHandle>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    setSubject(normalizeMergeText(defaultSubject));
-    setBody(normalizeMergeText(defaultBody));
-    setSelectedTemplateId("");
-    setShowTemplateForm(false);
-    setTemplateFormMode("new");
-    setActiveField("body");
-  }, [open, defaultSubject, defaultBody, to, mailKind]);
 
   useEffect(() => {
     if (!open || templatesProp?.length) return;

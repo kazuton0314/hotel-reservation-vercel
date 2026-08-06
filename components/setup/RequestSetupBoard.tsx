@@ -53,10 +53,13 @@ export function RequestSetupBoard({ requests }: Props) {
   const checkIn = searchParams.get("checkIn") ?? undefined;
   const filterField = searchParams.get("filterField") ?? undefined;
   const filterValue = searchParams.get("filterValue") ?? undefined;
-  const sort =
-    searchParams.get("sort") || searchParams.get("dir")
-      ? parseListSort(searchParams.get("sort"), searchParams.get("dir"))
-      : ({ field: "received", dir: "desc" } as const);
+  const sort = useMemo(
+    () =>
+      searchParams.get("sort") || searchParams.get("dir")
+        ? parseListSort(searchParams.get("sort"), searchParams.get("dir"))
+        : ({ field: "received", dir: "desc" } as const),
+    [searchParams]
+  );
 
   const filteredSource = useMemo(() => {
     const filtered = applyRequestListFilter(requests, filterField, filterValue);
@@ -88,6 +91,7 @@ export function RequestSetupBoard({ requests }: Props) {
 
   useEffect(() => {
     const next = filteredSource.map(toRequestSetupEditable);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setBaseRows(cloneRows(next));
     const stored = loadJson<StoredRequestDraft>(draftKey);
     if (stored && stored.sourceKey === sourceKey && stored.draftRows?.length) {

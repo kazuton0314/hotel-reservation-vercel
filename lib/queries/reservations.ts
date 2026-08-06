@@ -492,7 +492,7 @@ async function getReservationsUncached(filters: ReservationFilters = {}) {
     );
   }
 
-  let reservations = rows.map((row) =>
+  const reservations = rows.map((row) =>
     mapReservationListItem(row, assignmentsByReservation, refDate)
   );
 
