@@ -9,7 +9,6 @@ import type {
   CustomerListItem,
   CustomerSearchCriteria,
 } from "@/lib/queries/customers";
-import { parseCustomerPrefill } from "@/lib/queries/customers";
 import { buildCustomerSearchHref } from "@/lib/utils/customer-history-link";
 
 const SEARCH_FIELDS: {
@@ -33,11 +32,20 @@ type Props = {
 function criteriaFromSearchParams(
   searchParams: URLSearchParams
 ): CustomerSearchCriteria {
-  const record: Record<string, string> = {};
-  searchParams.forEach((value, key) => {
-    record[key] = value;
-  });
-  return parseCustomerPrefill(record);
+  const read = (key: keyof CustomerSearchCriteria): string =>
+    (searchParams.get(key) ?? "").trim();
+  const criteria: CustomerSearchCriteria = {};
+  const name = read("name");
+  const email = read("email");
+  const phone = read("phone");
+  const reservationId = read("reservationId");
+  const customerId = read("customerId");
+  if (name) criteria.name = name;
+  if (email) criteria.email = email;
+  if (phone) criteria.phone = phone;
+  if (reservationId) criteria.reservationId = reservationId;
+  if (customerId) criteria.customerId = customerId;
+  return criteria;
 }
 
 export function CustomersView({
