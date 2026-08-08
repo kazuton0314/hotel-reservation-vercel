@@ -38,9 +38,10 @@ function guestCountsFromAssignmentForm(formData: FormData) {
   const under3 = parseIntOrZero(formData.get("under_3_count"));
   const childCount = boyStudent + girlStudent + age3plus + under3;
   const fromFormTotal = parseIntOrZero(formData.get("assigned_guest_count"));
-  const breakdownSum =
-    male + female + boyStudent + girlStudent + age3plus + under3;
-  const assignedGuestCount = breakdownSum > 0 ? breakdownSum : fromFormTotal;
+  // 3歳未満(+N)は表示用に残すが、割当合計には含めない
+  const breakdownSum = male + female + boyStudent + girlStudent + age3plus;
+  const assignedGuestCount =
+    breakdownSum > 0 || under3 > 0 ? breakdownSum : fromFormTotal;
   return {
     male_count: male,
     female_count: female,

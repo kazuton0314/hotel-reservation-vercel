@@ -19,22 +19,48 @@ function n(value: number | null | undefined): number {
   return Number(value) || 0;
 }
 
-/** 部屋1行の割当人数（内訳優先、なければ assigned_guest_count） */
-export function assignmentRowGuestSum(row: AssignmentCountRow): number {
-  const breakdown =
+function assignmentHasBreakdown(row: AssignmentCountRow): boolean {
+  return (
+    row.male_count != null ||
+    row.female_count != null ||
+    row.boy_student_count != null ||
+    row.girl_student_count != null ||
+    row.age_3plus_count != null ||
+    row.under_3_count != null ||
     n(row.male_count) +
-    n(row.female_count) +
-    n(row.boy_student_count) +
-    n(row.girl_student_count) +
-    n(row.age_3plus_count) +
-    n(row.under_3_count);
-  if (breakdown > 0) return breakdown;
+      n(row.female_count) +
+      n(row.boy_student_count) +
+      n(row.girl_student_count) +
+      n(row.age_3plus_count) +
+      n(row.under_3_count) >
+      0
+  );
+}
+
+/**
+ * 部屋1行の割当人数（合計判定用）。
+ * 3歳未満(+N)は合計に含めない。内訳が無い旧データは assigned_guest_count にフォールバック。
+ */
+export function assignmentRowGuestSum(row: AssignmentCountRow): number {
+  if (assignmentHasBreakdown(row)) {
+    return (
+      n(row.male_count) +
+      n(row.female_count) +
+      n(row.boy_student_count) +
+      n(row.girl_student_count) +
+      n(row.age_3plus_count)
+    );
+  }
   return n(row.assigned_guest_count);
+}
+
+export function assignmentRowUnder3Sum(row: AssignmentCountRow): number {
+  return n(row.under_3_count);
 }
 
 /**
  * 宿泊人数と部屋割内訳が一致しているときだけ割当済。
- * 部屋が無い／人数不足／人数超過はすべて未割当（一覧フィルタに載せる）。
+ * 3歳未満は判定に使わない。部屋が無い／人数不足／人数超過は未割当。
  */
 export function isRoomAssignmentComplete(
   guestTotal: string | null | undefined,

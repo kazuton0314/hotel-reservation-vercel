@@ -13,7 +13,7 @@ import {
   optionsWithCurrent,
 } from "@/lib/config/field-options";
 import {
-  formatGuestTotalLabel,
+  formatGuestCompact,
   parseGuestCountFromText,
 } from "@/lib/utils/guest-display";
 import { showErrorToast, showSuccessToast } from "@/lib/utils/toast";
@@ -75,8 +75,36 @@ function n(value: number | null | undefined): number {
   return Number(value) || 0;
 }
 
-function rowSum(row: DraftRow): number {
-  return row.male + row.female + row.boy + row.girl + row.age3 + row.under3;
+/** 割当・残人数の計算用（3歳未満+N は含めない） */
+function rowSumForAssign(row: DraftRow): number {
+  return row.male + row.female + row.boy + row.girl + row.age3;
+}
+
+function rowGuestSource(row: DraftRow) {
+  const main = rowSumForAssign(row);
+  return {
+    guest_total: main > 0 ? String(main) : null,
+    adult_male: String(row.male),
+    adult_female: String(row.female),
+    boy_student: String(row.boy),
+    girl_student: String(row.girl),
+    age_3plus: String(row.age3),
+    under_3: String(row.under3),
+  };
+}
+
+function guestDefaultsFromSource(source: Props["guestSource"]): Omit<
+  DraftRow,
+  "key" | "roomAssignmentId" | "roomId" | "roomName" | "expectedUpdatedAt"
+> {
+  return {
+    male: Number(source.adult_male) || 0,
+    female: Number(source.adult_female) || 0,
+    boy: Number(source.boy_student) || 0,
+    girl: Number(source.girl_student) || 0,
+    age3: Number(source.age_3plus) || 0,
+    under3: Number(source.under_3) || 0,
+  };
 }
 
 function toDraftRows(
@@ -207,16 +235,23 @@ export function RoomAssignmentManager({
   const nextRoom = sortedRooms.find((r) => !assignedRoomIds.has(r.room_id));
   const canAdd = Boolean(nextRoom);
 
-  const guestTotalLabel =
-    formatGuestTotalLabel(guestSource.guest_total) ||
-    String(guestSource.guest_total ?? "").trim() ||
-    "—";
+  const guestTotalLabel = formatGuestCompact(guestSource);
   const guestTarget = parseGuestCountFromText(guestSource.guest_total);
-  const assignedTotal = rows.reduce((sum, row) => sum + rowSum(row), 0);
+  const assignedTotal = rows.reduce((sum, row) => sum + rowSumForAssign(row), 0);
   const remaining = guestTarget - assignedTotal;
+  const assignedLabel = formatGuestCompact({
+    guest_total: assignedTotal > 0 ? String(assignedTotal) : null,
+    adult_male: String(rows.reduce((s, r) => s + r.male, 0)),
+    adult_female: String(rows.reduce((s, r) => s + r.female, 0)),
+    boy_student: String(rows.reduce((s, r) => s + r.boy, 0)),
+    girl_student: String(rows.reduce((s, r) => s + r.girl, 0)),
+    age_3plus: String(rows.reduce((s, r) => s + r.age3, 0)),
+    under_3: String(rows.reduce((s, r) => s + r.under3, 0)),
+  });
 
   function addRoom() {
     if (!nextRoom) return;
+    const defaults = guestDefaultsFromSource(guestSource);
     setRows((prev) => [
       ...prev,
       {
@@ -225,12 +260,7 @@ export function RoomAssignmentManager({
         roomId: nextRoom.room_id,
         roomName: nextRoom.room_name,
         expectedUpdatedAt: null,
-        male: 0,
-        female: 0,
-        boy: 0,
-        girl: 0,
-        age3: 0,
-        under3: 0,
+        ...defaults,
       },
     ]);
   }
@@ -270,7 +300,8 @@ export function RoomAssignmentManager({
     }
 
     for (const row of rows) {
-      const guestCount = rowSum(row);
+      // assigned_guest_count も割当判定と同様に 3歳未満を含めない
+      const guestCount = rowSumForAssign(row);
       const childCount = row.boy + row.girl + row.age3 + row.under3;
       const payloadBase = {
         startDate: checkIn,
@@ -379,10 +410,8 @@ export function RoomAssignmentManager({
       >
         宿泊人数 {guestTotalLabel === "—" ? "—" : `${guestTotalLabel}人`}中
         {" / "}
-        割当済 {assignedTotal}人 / あと {remaining}人
-      </p>
-      <p className="form-hint room-assign-stay-hint">
-        滞在期間は予約の {checkIn || "—"}〜{checkOut || "—"} に自動で合わせます
+        割当済 {assignedLabel === "—" ? "0" : assignedLabel}人 / あと{" "}
+        {remaining}人
       </p>
 
       {!rows.length ? (
@@ -396,7 +425,7 @@ export function RoomAssignmentManager({
               <div className="room-assign-draft-head">
                 <span className="room-assign-draft-name">{row.roomName}</span>
                 <span className="room-assign-draft-sub">
-                  この部屋 {rowSum(row)}人
+                  この部屋 {formatGuestCompact(rowGuestSource(row))}人
                 </span>
                 <Button
                   type="button"
