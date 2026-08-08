@@ -92,6 +92,11 @@ export const PAYMENT_STATUS_OPTIONS = ["未払い", "完了"] as const;
 
 export const MANUAL_RESERVATION_STATUS_OPTIONS = ["仮予約", "確定"] as const;
 
+/** STUDIO フォームと同じ人数内訳（1〜50）。合計「人数」欄はテキストのまま */
+export const GUEST_COUNT_OPTIONS = Array.from({ length: 50 }, (_, i) =>
+  String(i + 1)
+) as readonly string[];
+
 /** 一覧フィルタ用（GAS LIST_FILTER_FIELDS 相当） */
 export const LIST_FILTER_CHANNEL_OPTIONS = CHANNEL_OPTIONS;
 

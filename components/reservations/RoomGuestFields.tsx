@@ -1,3 +1,9 @@
+import { Select } from "@/components/ui/input";
+import {
+  GUEST_COUNT_OPTIONS,
+  optionsWithCurrent,
+} from "@/lib/config/field-options";
+
 type GuestDefaults = {
   guestTotal: number;
   maleCount: number;
@@ -41,13 +47,41 @@ function parseIntField(value: string): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+function GuestCountSelect({
+  id,
+  name,
+  label,
+  defaultValue,
+}: {
+  id: string;
+  name: string;
+  label: string;
+  defaultValue: number;
+}) {
+  const current = defaultValue > 0 ? String(defaultValue) : "";
+  const options = optionsWithCurrent(GUEST_COUNT_OPTIONS, current);
+
+  return (
+    <div className="form-group">
+      <label htmlFor={id}>{label}</label>
+      <Select id={id} name={name} defaultValue={current}>
+        <option value="">0</option>
+        {options.map((opt) => (
+          <option key={opt} value={opt}>
+            {opt}
+          </option>
+        ))}
+      </Select>
+    </div>
+  );
+}
+
 export function RoomGuestFields({
   defaults,
   variant = "assignment",
 }: Props) {
   const names = fieldNames(variant);
-  const fields = [
-    { name: names.total, label: "人数", defaultValue: defaults.guestTotal },
+  const breakdown = [
     { name: names.male, label: "男", defaultValue: defaults.maleCount },
     { name: names.female, label: "女", defaultValue: defaults.femaleCount },
     { name: names.boy, label: "小学生男", defaultValue: defaults.boyStudent },
@@ -58,17 +92,24 @@ export function RoomGuestFields({
 
   return (
     <div className="room-guest-grid">
-      {fields.map((f) => (
-        <div key={f.name} className="form-group">
-          <label htmlFor={f.name}>{f.label}</label>
-          <input
-            id={f.name}
-            name={f.name}
-            type="number"
-            min={0}
-            defaultValue={f.defaultValue || ""}
-          />
-        </div>
+      <div className="form-group">
+        <label htmlFor={names.total}>人数</label>
+        <input
+          id={names.total}
+          name={names.total}
+          type="text"
+          inputMode="numeric"
+          defaultValue={defaults.guestTotal || ""}
+        />
+      </div>
+      {breakdown.map((f) => (
+        <GuestCountSelect
+          key={f.name}
+          id={f.name}
+          name={f.name}
+          label={f.label}
+          defaultValue={f.defaultValue}
+        />
       ))}
     </div>
   );
