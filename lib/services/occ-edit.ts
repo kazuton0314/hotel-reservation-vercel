@@ -85,12 +85,19 @@ export function buildAssignmentPayloadFromDrag(
 ): OccAssignPayload {
   const child =
     d.boyStudent + d.girlStudent + d.age3plus + d.under3;
+  const mainCount =
+    (d.adultMale || 0) +
+    (d.adultFemale || 0) +
+    (d.boyStudent || 0) +
+    (d.girlStudent || 0) +
+    (d.age3plus || 0);
   return {
     reservationId: d.reservationId,
     roomId: toRoomId || d.fromRoomId,
     startDate: d.startDateStr,
     endDate: d.endDateStr,
-    guestCount: d.guestCount || 0,
+    // 3歳未満(+N)は合計に含めない
+    guestCount: mainCount || d.guestCount || 0,
     maleCount: d.adultMale || 0,
     femaleCount: d.adultFemale || 0,
     boyStudent: d.boyStudent || 0,
@@ -173,11 +180,15 @@ export function computeOccEditChanges(
       continue;
     }
     const ev = pl.ev;
-    const child =
-      (Number(ev.boyStudent) || 0) +
-      (Number(ev.girlStudent) || 0) +
-      (Number(ev.age3plus) || 0) +
-      (Number(ev.under3) || 0);
+    const maleCount = Number(ev.adultMale) || 0;
+    const femaleCount = Number(ev.adultFemale) || 0;
+    const boyStudent = Number(ev.boyStudent) || 0;
+    const girlStudent = Number(ev.girlStudent) || 0;
+    const age3plus = Number(ev.age3plus) || 0;
+    const under3 = Number(ev.under3) || 0;
+    const mainCount =
+      maleCount + femaleCount + boyStudent + girlStudent + age3plus;
+    const child = boyStudent + girlStudent + age3plus + under3;
     changes.push({
       type: "assign",
       reservationId: rid,
@@ -186,13 +197,13 @@ export function computeOccEditChanges(
         roomId: pl.roomId,
         startDate: ev.startDateStr,
         endDate: ev.endDateStr,
-        guestCount: Number(ev.guestCount) || Number(ev.guestTotal) || 0,
-        maleCount: Number(ev.adultMale) || 0,
-        femaleCount: Number(ev.adultFemale) || 0,
-        boyStudent: Number(ev.boyStudent) || 0,
-        girlStudent: Number(ev.girlStudent) || 0,
-        age3plus: Number(ev.age3plus) || 0,
-        under3: Number(ev.under3) || 0,
+        guestCount: mainCount || Number(ev.guestCount) || Number(ev.guestTotal) || 0,
+        maleCount,
+        femaleCount,
+        boyStudent,
+        girlStudent,
+        age3plus,
+        under3,
         childCount: child,
       },
     });
@@ -562,12 +573,27 @@ export function applyOccAddRoomLocally(
     const targetCell = day.cells.find((c) => c.roomId === toRoomId);
     if (!targetCell) continue;
 
+    // 追加部屋の初期人数は予約台帳の内訳（一部屋運用が基本）
     const copy: OccEvent = {
       ...source,
       roomAssignmentId: pendingId,
       roomId: toRoomId,
       isUnassigned: false,
       isDraft: true,
+      adultMale: source.reservationAdultMale ?? source.adultMale,
+      adultFemale: source.reservationAdultFemale ?? source.adultFemale,
+      boyStudent: source.reservationBoyStudent ?? source.boyStudent,
+      girlStudent: source.reservationGirlStudent ?? source.girlStudent,
+      age3plus: source.reservationAge3plus ?? source.age3plus,
+      under3: source.reservationUnder3 ?? source.under3,
+      // 表示用 under3(+N) は残すが、合計人数には含めない
+      guestCount:
+        (Number(source.reservationAdultMale) || 0) +
+          (Number(source.reservationAdultFemale) || 0) +
+          (Number(source.reservationBoyStudent) || 0) +
+          (Number(source.reservationGirlStudent) || 0) +
+          (Number(source.reservationAge3plus) || 0) ||
+        source.guestCount,
     };
     targetCell.events = sortOccCellEvents([...(targetCell.events || []), copy]);
     markDraftEvents([copy]);

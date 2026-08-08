@@ -99,6 +99,7 @@ export type RoomAssignmentItem = {
   display_memo: string | null;
   assignment_memo: string | null;
   is_archived: boolean;
+  updated_at: string | null;
 };
 
 export type ReservationListQuery = {
@@ -612,7 +613,7 @@ export async function getRoomAssignmentsByReservationId(reservationId: string) {
   const { data, error } = await supabase
     .from("room_assignments")
     .select(
-      "room_assignment_id, room_name, room_id, stay_start, stay_end, assigned_guest_count, male_count, female_count, child_count, boy_student_count, girl_student_count, age_3plus_count, under_3_count, display_memo, assignment_memo, is_archived"
+      "room_assignment_id, room_name, room_id, stay_start, stay_end, assigned_guest_count, male_count, female_count, child_count, boy_student_count, girl_student_count, age_3plus_count, under_3_count, display_memo, assignment_memo, is_archived, updated_at"
     )
     .eq("reservation_id", reservationId)
     .order("stay_start", { ascending: true });

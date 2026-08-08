@@ -19,6 +19,13 @@ export type OccGuestFields = {
   girlStudent?: string | null;
   age3plus?: string | null;
   under3?: string | null;
+  /** 予約台帳側の人数内訳（部屋追加時の初期値用。カード表示の部屋内訳とは別） */
+  reservationAdultMale?: string | null;
+  reservationAdultFemale?: string | null;
+  reservationBoyStudent?: string | null;
+  reservationGirlStudent?: string | null;
+  reservationAge3plus?: string | null;
+  reservationUnder3?: string | null;
   bbq?: string | null;
   channel?: string | null;
 };
@@ -178,6 +185,27 @@ export type ReservationGuestSource = {
   channel?: string | null;
 };
 
+function reservationGuestSnapshot(
+  res: ReservationGuestSource | undefined
+): Pick<
+  OccGuestFields,
+  | "reservationAdultMale"
+  | "reservationAdultFemale"
+  | "reservationBoyStudent"
+  | "reservationGirlStudent"
+  | "reservationAge3plus"
+  | "reservationUnder3"
+> {
+  return {
+    reservationAdultMale: res?.adult_male ?? null,
+    reservationAdultFemale: res?.adult_female ?? null,
+    reservationBoyStudent: res?.boy_student ?? null,
+    reservationGirlStudent: res?.girl_student ?? null,
+    reservationAge3plus: res?.age_3plus ?? null,
+    reservationUnder3: res?.under_3 ?? null,
+  };
+}
+
 function occGuestFieldsFromReservation(
   res: ReservationGuestSource | undefined,
   guestCountOverride?: number | null
@@ -197,20 +225,25 @@ function occGuestFieldsFromReservation(
     girlStudent: res?.girl_student ?? null,
     age3plus: res?.age_3plus ?? null,
     under3: res?.under_3 ?? null,
+    ...reservationGuestSnapshot(res),
     bbq: res?.bbq ?? null,
     channel: res?.channel ?? null,
   };
 }
 
+/** 合計人数用。3歳未満(+N)は含めない */
 function assignmentBreakdownSum(assignment: RoomAssignmentGuestSource): number {
   return (
     (Number(assignment.male_count) || 0) +
     (Number(assignment.female_count) || 0) +
     (Number(assignment.boy_student_count) || 0) +
     (Number(assignment.girl_student_count) || 0) +
-    (Number(assignment.age_3plus_count) || 0) +
-    (Number(assignment.under_3_count) || 0)
+    (Number(assignment.age_3plus_count) || 0)
   );
+}
+
+function assignmentUnder3Sum(assignment: RoomAssignmentGuestSource): number {
+  return Number(assignment.under_3_count) || 0;
 }
 
 function assignmentHasRoomBreakdown(assignment: RoomAssignmentGuestSource): boolean {
@@ -221,7 +254,7 @@ function assignmentHasRoomBreakdown(assignment: RoomAssignmentGuestSource): bool
     assignment.girl_student_count != null ||
     assignment.age_3plus_count != null ||
     assignment.under_3_count != null ||
-    assignmentBreakdownSum(assignment) > 0
+    assignmentBreakdownSum(assignment) + assignmentUnder3Sum(assignment) > 0
   );
 }
 
@@ -271,6 +304,7 @@ export function guestDisplayFieldsFromRoomAssignment(
       assignment.under_3_count != null
         ? String(assignment.under_3_count)
         : null,
+    ...reservationGuestSnapshot(res),
     bbq: res?.bbq ?? null,
     channel: res?.channel ?? null,
   };
@@ -383,13 +417,7 @@ function computeRoomMonthGuestTotals(
     if (!roomId || !totals[roomId]) continue;
     if (totals[roomId].seen[a.reservation_id]) continue;
     totals[roomId].seen[a.reservation_id] = true;
-    const roomSum =
-      (Number(a.male_count) || 0) +
-      (Number(a.female_count) || 0) +
-      (Number(a.boy_student_count) || 0) +
-      (Number(a.girl_student_count) || 0) +
-      (Number(a.age_3plus_count) || 0) +
-      (Number(a.under_3_count) || 0);
+    const roomSum = assignmentBreakdownSum(a);
     totals[roomId].count +=
       roomSum ||
       Number(a.assigned_guest_count) ||

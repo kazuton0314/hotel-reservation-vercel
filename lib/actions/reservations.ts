@@ -28,7 +28,9 @@ import { createStaffClient, createAdminClient } from "@/lib/supabase/server";
 import { generateAccessKey } from "@/lib/utils/access-key";
 import { updateRowWithLock } from "@/lib/utils/optimistic-lock";
 import { syncReservationToGCal } from "@/lib/services/gcal-sync";
+import { syncAssignmentStatus } from "@/lib/services/assignment-status";
 import { syncRoomAssignmentGuestBreakdown } from "@/lib/services/room-assignment-guest-sync";
+import { syncAssignmentStayDates } from "@/lib/services/room-assignment-stay-sync";
 import {
   clearRoomAssignmentsForReservation,
   shouldClearRoomAssignmentsOnStatus,
@@ -218,6 +220,25 @@ export async function updateReservationAction(
     await clearRoomAssignmentsForReservation(supabase, reservationId);
   }
 
+  const nextCheckIn = String(payload.check_in ?? current.check_in ?? "");
+  const nextCheckOut = String(payload.check_out ?? current.check_out ?? "");
+  const datesChanged =
+    nextCheckIn !== String(current.check_in ?? "") ||
+    nextCheckOut !== String(current.check_out ?? "");
+  if (
+    datesChanged &&
+    nextCheckIn &&
+    nextCheckOut &&
+    !shouldClearRoomAssignmentsOnStatus(nextStatus)
+  ) {
+    await syncAssignmentStayDates(
+      supabase,
+      reservationId,
+      nextCheckIn,
+      nextCheckOut
+    );
+  }
+
   const guestTouched =
     String(payload.adult_male ?? "") !== String(current.adult_male ?? "") ||
     String(payload.adult_female ?? "") !== String(current.adult_female ?? "") ||
@@ -225,6 +246,13 @@ export async function updateReservationAction(
     String(payload.girl_student ?? "") !== String(current.girl_student ?? "") ||
     String(payload.age_3plus ?? "") !== String(current.age_3plus ?? "") ||
     String(payload.under_3 ?? "") !== String(current.under_3 ?? "");
+  const guestTotalChanged =
+    String(payload.guest_total ?? "") !== String(current.guest_total ?? "");
+
+  // 人数不一致も未割当に載せるため、宿泊人数変更後に必ず再同期
+  if (!shouldClearRoomAssignmentsOnStatus(nextStatus)) {
+    await syncAssignmentStatus(supabase, reservationId);
+  }
 
   revalidateReservationDetail(reservationId);
 
@@ -249,6 +277,9 @@ export async function updateReservationAction(
           age_3plus: updated.age_3plus,
           under_3: updated.under_3,
         });
+      }
+      if (guestTouched || guestTotalChanged) {
+        await syncAssignmentStatus(admin, reservationId);
       }
     }
     await syncReservationToGCal(admin, reservationId);

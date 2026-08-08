@@ -244,14 +244,136 @@
 
 .room-guest-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
 @media (min-width: 480px) {
   .room-guest-grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
+}
+
+.room-manage-block .room-guest-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px 6px;
+}
+
+.room-manage-block > h3,
+.room-manage-block .room-assign-heading h3 {
+  margin: 0;
+}
+
+.room-assign-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin-bottom: 4px;
+  min-width: 0;
+}
+
+.room-assign-heading .badge {
+  flex: 0 0 auto;
+}
+
+.room-assign-summary {
+  margin: 0 0 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.room-assign-summary-over {
+  color: #b91c1c;
+}
+
+.room-assign-stay-hint {
+  margin: 0 0 10px;
+}
+
+.room-assign-empty {
+  padding: 4px 0 !important;
+  margin: 0 0 6px !important;
+}
+
+.room-assign-draft-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.room-assign-draft-row {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 8px;
+  background: var(--surface-muted, var(--card));
+  min-width: 0;
+}
+
+.room-assign-draft-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  min-width: 0;
+}
+
+.room-assign-draft-name {
+  font-weight: 800;
+  font-size: 0.84rem;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.room-assign-draft-sub {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.room-assign-remove-btn {
+  min-width: 1.75rem !important;
+  padding-inline: 0.35rem !important;
+  flex: 0 0 auto;
+}
+
+.room-assign-actions {
+  margin-top: 4px;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* 部屋割ブロック内だけ縦を詰める（他フォームには影響しない） */
+.room-manage-block .room-guest-grid .form-group {
+  margin-bottom: 0;
+  width: 100%;
+  min-width: 0;
+}
+
+.room-manage-block .room-guest-grid .form-group label {
+  margin-bottom: 2px;
+  font-size: 0.68rem;
+  line-height: 1.2;
+}
+
+.room-manage-block .room-guest-grid .form-group select,
+.room-manage-block .room-guest-grid .ui-input {
+  padding: 5px 6px;
+  font-size: 0.8rem;
+  border-radius: 8px;
+  line-height: 1.25;
 }
 
 .hidden {

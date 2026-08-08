@@ -61,6 +61,15 @@ export type BatchRoomChangeForConflict =
       };
     }
   | {
+      type: "update";
+      roomAssignmentId: string;
+      reservationId: string;
+      payload: {
+        startDate: string;
+        endDate: string;
+      };
+    }
+  | {
       type: "unassign";
       roomAssignmentId: string;
       reservationId: string;
@@ -177,6 +186,16 @@ export function hasOtherReservationConflictInFinalState(
       const row = byId.get(ch.roomAssignmentId);
       if (!row) continue;
       byId.set(ch.roomAssignmentId, { ...row, room_id: ch.toRoomId });
+      continue;
+    }
+    if (ch.type === "update") {
+      const row = byId.get(ch.roomAssignmentId);
+      if (!row) continue;
+      byId.set(ch.roomAssignmentId, {
+        ...row,
+        stay_start: ch.payload.startDate,
+        stay_end: ch.payload.endDate,
+      });
       continue;
     }
     const p = ch.payload;
