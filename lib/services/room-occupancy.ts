@@ -176,43 +176,77 @@ function occGuestFieldsFromReservation(
   };
 }
 
+function assignmentBreakdownSum(assignment: DbAssignment): number {
+  return (
+    (Number(assignment.male_count) || 0) +
+    (Number(assignment.female_count) || 0) +
+    (Number(assignment.boy_student_count) || 0) +
+    (Number(assignment.girl_student_count) || 0) +
+    (Number(assignment.age_3plus_count) || 0) +
+    (Number(assignment.under_3_count) || 0)
+  );
+}
+
+function assignmentHasRoomBreakdown(assignment: DbAssignment): boolean {
+  return (
+    assignment.male_count != null ||
+    assignment.female_count != null ||
+    assignment.boy_student_count != null ||
+    assignment.girl_student_count != null ||
+    assignment.age_3plus_count != null ||
+    assignment.under_3_count != null ||
+    assignmentBreakdownSum(assignment) > 0
+  );
+}
+
+/**
+ * 表示: 宿泊人数（予約合計）+ 部屋割ごとの人数内訳。
+ * 例: 20~25人(男10) / 20~25人(女5)
+ */
 function occGuestFieldsFromAssignment(
   assignment: DbAssignment,
   res: DbReservation | undefined
 ): OccGuestFields {
-  const hasBreakdown =
-    (Number(assignment.boy_student_count) || 0) +
-      (Number(assignment.girl_student_count) || 0) +
-      (Number(assignment.age_3plus_count) || 0) +
-      (Number(assignment.under_3_count) || 0) >
+  const roomGuestCount =
+    assignmentBreakdownSum(assignment) ||
+    Number(assignment.assigned_guest_count) ||
     0;
-  if (hasBreakdown) {
-    return {
-      guestCount: assignment.assigned_guest_count ?? undefined,
-      guestTotal: res?.guest_total ?? String(assignment.assigned_guest_count ?? ""),
-      adultMale: assignment.male_count != null ? String(assignment.male_count) : null,
-      adultFemale:
-        assignment.female_count != null ? String(assignment.female_count) : null,
-      boyStudent:
-        assignment.boy_student_count != null
-          ? String(assignment.boy_student_count)
-          : null,
-      girlStudent:
-        assignment.girl_student_count != null
-          ? String(assignment.girl_student_count)
-          : null,
-      age3plus:
-        assignment.age_3plus_count != null
-          ? String(assignment.age_3plus_count)
-          : null,
-      under3:
-        assignment.under_3_count != null
-          ? String(assignment.under_3_count)
-          : null,
-      bbq: res?.bbq ?? null,
-    };
+
+  if (!assignmentHasRoomBreakdown(assignment)) {
+    // 旧データなどで部屋内訳が無いときだけ予約内訳へフォールバック
+    return occGuestFieldsFromReservation(res, roomGuestCount || null);
   }
-  return occGuestFieldsFromReservation(res, assignment.assigned_guest_count);
+
+  return {
+    status: res?.status ?? "",
+    guestCount: roomGuestCount || undefined,
+    guestTotal:
+      res?.guest_total ??
+      (assignment.assigned_guest_count != null
+        ? String(assignment.assigned_guest_count)
+        : null),
+    adultMale:
+      assignment.male_count != null ? String(assignment.male_count) : null,
+    adultFemale:
+      assignment.female_count != null ? String(assignment.female_count) : null,
+    boyStudent:
+      assignment.boy_student_count != null
+        ? String(assignment.boy_student_count)
+        : null,
+    girlStudent:
+      assignment.girl_student_count != null
+        ? String(assignment.girl_student_count)
+        : null,
+    age3plus:
+      assignment.age_3plus_count != null
+        ? String(assignment.age_3plus_count)
+        : null,
+    under3:
+      assignment.under_3_count != null
+        ? String(assignment.under_3_count)
+        : null,
+    bbq: res?.bbq ?? null,
+  };
 }
 
 export function sortOccCellEvents(events: OccEvent[]): OccEvent[] {
@@ -315,7 +349,15 @@ function computeRoomMonthGuestTotals(
     if (!roomId || !totals[roomId]) continue;
     if (totals[roomId].seen[a.reservation_id]) continue;
     totals[roomId].seen[a.reservation_id] = true;
+    const roomSum =
+      (Number(a.male_count) || 0) +
+      (Number(a.female_count) || 0) +
+      (Number(a.boy_student_count) || 0) +
+      (Number(a.girl_student_count) || 0) +
+      (Number(a.age_3plus_count) || 0) +
+      (Number(a.under_3_count) || 0);
     totals[roomId].count +=
+      roomSum ||
       Number(a.assigned_guest_count) ||
       (res ? parseGuestCount(res.guest_total) : 0);
   }

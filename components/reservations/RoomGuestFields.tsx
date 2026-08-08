@@ -81,6 +81,7 @@ export function RoomGuestFields({
   variant = "assignment",
 }: Props) {
   const names = fieldNames(variant);
+  const isAssignment = variant === "assignment";
   const breakdown = [
     { name: names.male, label: "男", defaultValue: defaults.maleCount },
     { name: names.female, label: "女", defaultValue: defaults.femaleCount },
@@ -92,16 +93,18 @@ export function RoomGuestFields({
 
   return (
     <div className="room-guest-grid">
-      <div className="form-group">
-        <label htmlFor={names.total}>人数</label>
-        <input
-          id={names.total}
-          name={names.total}
-          type="text"
-          inputMode="numeric"
-          defaultValue={defaults.guestTotal || ""}
-        />
-      </div>
+      {!isAssignment ? (
+        <div className="form-group">
+          <label htmlFor={names.total}>人数</label>
+          <input
+            id={names.total}
+            name={names.total}
+            type="text"
+            inputMode="numeric"
+            defaultValue={defaults.guestTotal || ""}
+          />
+        </div>
+      ) : null}
       {breakdown.map((f) => (
         <GuestCountSelect
           key={f.name}

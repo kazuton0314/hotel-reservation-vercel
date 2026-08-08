@@ -66,9 +66,13 @@ function AssignmentStatusBadge({ status }: { status: string | null }) {
   return <span className="badge badge-warn">部屋未割当</span>;
 }
 
-function formatAssignmentGuests(a: Assignment): string {
+function formatAssignmentGuests(
+  a: Assignment,
+  reservationGuestTotal: string | null | undefined
+): string {
+  // 表示は常に「宿泊人数(部屋割ごとの人数内訳)」
   return formatGuestCompact({
-    guest_total: a.assigned_guest_count != null ? String(a.assigned_guest_count) : null,
+    guest_total: reservationGuestTotal ?? null,
     adult_male: a.male_count != null ? String(a.male_count) : null,
     adult_female: a.female_count != null ? String(a.female_count) : null,
     boy_student: a.boy_student_count != null ? String(a.boy_student_count) : null,
@@ -140,14 +144,16 @@ export function RoomAssignmentManager({
               assignment={a}
               rooms={rooms}
               guestDefaults={assignmentGuestDefaults(a, guestDefaults)}
+              reservationGuestTotal={guestSource.guest_total}
               onCancel={() => setEditId(null)}
               onSaved={() => setEditId(null)}
             />
           ) : (
             <div key={a.room_assignment_id} className="card-row room-assignment-row">
               <span>
-                {a.room_name} / {formatAssignmentGuests(a)} / {a.stay_start}〜
-                {a.stay_end}
+                {a.room_name} /{" "}
+                {formatAssignmentGuests(a, guestSource.guest_total)} /{" "}
+                {a.stay_start}〜{a.stay_end}
               </span>
               <Button
                 type="button"
@@ -226,6 +232,10 @@ export function RoomAssignmentManager({
               required
             />
           </div>
+          <p className="form-hint">
+            宿泊人数 {guestSource.guest_total || "—"}
+            （下は、この部屋に泊まる人数内訳）
+          </p>
           <RoomGuestFields defaults={guestDefaults} />
           <div className="form-group">
             <label htmlFor="ra-memo">表示メモ</label>
@@ -308,10 +318,12 @@ function EditAssignmentForm({
   assignment,
   rooms,
   guestDefaults,
+  reservationGuestTotal,
   onCancel,
   onSaved,
 }: {
   assignment: Assignment;
+  reservationGuestTotal?: string | null;
   rooms: RoomOption[];
   guestDefaults: GuestDefaults;
   onCancel: () => void;
@@ -374,6 +386,10 @@ function EditAssignmentForm({
             defaultValue={assignment.stay_end}
           />
         </div>
+        <p className="form-hint">
+          宿泊人数 {reservationGuestTotal || "—"}
+          （下は、この部屋に泊まる人数内訳）
+        </p>
         <RoomGuestFields defaults={guestDefaults} />
         <div className="form-group">
           <label htmlFor="ra-edit-memo">表示メモ</label>

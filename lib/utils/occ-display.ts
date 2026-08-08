@@ -44,6 +44,7 @@ export function formatBbqBadgeLabel(bbq: string | null | undefined): string | nu
   return null;
 }
 
+/** 部屋割カード: 宿泊人数（予約合計）+ その部屋の人数内訳 */
 export function formatOccGuestMeta(ev: OccEvent): string {
   return formatGuestCompact({
     guest_total: ev.guestTotal,
