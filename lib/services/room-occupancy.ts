@@ -247,15 +247,8 @@ function assignmentUnder3Sum(assignment: RoomAssignmentGuestSource): number {
 }
 
 function assignmentHasRoomBreakdown(assignment: RoomAssignmentGuestSource): boolean {
-  return (
-    assignment.male_count != null ||
-    assignment.female_count != null ||
-    assignment.boy_student_count != null ||
-    assignment.girl_student_count != null ||
-    assignment.age_3plus_count != null ||
-    assignment.under_3_count != null ||
-    assignmentBreakdownSum(assignment) + assignmentUnder3Sum(assignment) > 0
-  );
+  // 0 埋めの内訳は「内訳なし」扱い（assigned_guest_count / 予約内訳へフォールバック）
+  return assignmentBreakdownSum(assignment) + assignmentUnder3Sum(assignment) > 0;
 }
 
 /**

@@ -19,27 +19,26 @@ function n(value: number | null | undefined): number {
   return Number(value) || 0;
 }
 
+/**
+ * 内訳が「意味のある人数」を持つか。
+ * 部屋割ボードからの割当は未入力内訳を 0 で保存するため、
+ * `!= null` だとゼロ埋めを内訳ありと誤判定し、assigned_guest_count を無視してしまう。
+ */
 function assignmentHasBreakdown(row: AssignmentCountRow): boolean {
   return (
-    row.male_count != null ||
-    row.female_count != null ||
-    row.boy_student_count != null ||
-    row.girl_student_count != null ||
-    row.age_3plus_count != null ||
-    row.under_3_count != null ||
     n(row.male_count) +
       n(row.female_count) +
       n(row.boy_student_count) +
       n(row.girl_student_count) +
       n(row.age_3plus_count) +
       n(row.under_3_count) >
-      0
+    0
   );
 }
 
 /**
  * 部屋1行の割当人数（合計判定用）。
- * 3歳未満(+N)は合計に含めない。内訳が無い旧データは assigned_guest_count にフォールバック。
+ * 3歳未満(+N)は合計に含めない。内訳合計が 0 のときは assigned_guest_count にフォールバック。
  */
 export function assignmentRowGuestSum(row: AssignmentCountRow): number {
   if (assignmentHasBreakdown(row)) {
