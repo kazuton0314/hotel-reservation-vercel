@@ -2791,11 +2791,19 @@ html[data-theme="dark"] .occ-nights {
 .form-group {
   min-width: 0;
   max-width: 100%;
+  width: 100%;
 }
 
 .detail-block {
   overflow-x: clip;
   max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.main {
+  overflow-x: clip;
+  min-width: 0;
 }
 
 .ui-input,
@@ -2816,14 +2824,64 @@ html[data-theme="dark"] .occ-nights {
   box-shadow: inset 0 1px 2px rgba(16, 24, 40, 0.03);
 }
 
-/* ネイティブ date の固有幅ではみ出すのを防ぐ */
-.form-group input[type="date"],
-input.ui-input[type="date"] {
+/*
+ * ネイティブ date は端末（特に iOS / 日本語表示）で固有の最小幅を持ち、
+ * width:100% だけでは親を押し広げて白い枠がはみ出すことがある。
+ * シェルでクリップし、入力側は親幅に強制収める。
+ */
+.date-field {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.date-field-shell {
   display: block;
   width: 100%;
   max-width: 100%;
   min-width: 0;
   overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+  box-sizing: border-box;
+  box-shadow: inset 0 1px 2px rgba(16, 24, 40, 0.03);
+}
+
+.date-field-shell .date-field-input,
+.date-field-shell input[type="date"],
+.form-group input[type="date"],
+input.ui-input[type="date"] {
+  display: block;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.date-field-shell .date-field-input,
+.date-field-shell input[type="date"] {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  /* カレンダーアイコン分を考慮しつつ、日本語ロケール表記でも収める */
+  padding: 8px 8px;
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
+.date-field-shell input[type="date"]::-webkit-date-and-time-value {
+  text-align: left;
+  min-width: 0;
+}
+
+@media (max-width: 420px) {
+  .date-field-shell .date-field-input,
+  .date-field-shell input[type="date"] {
+    padding: 8px 6px;
+    font-size: 0.9375rem;
+  }
 }
 
 .ui-input:focus-visible,

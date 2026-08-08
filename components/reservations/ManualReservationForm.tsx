@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { useRouter } from "next/navigation";
+import { DateField } from "@/components/form/DateField";
 import { FormCheckboxGroup } from "@/components/form/FormCheckboxGroup";
 import { FormSelectField } from "@/components/form/FormSelectField";
 import { DetailBack } from "@/components/detail/DetailBack";
@@ -110,14 +111,18 @@ export function ManualReservationForm() {
 
         <div className="detail-block">
           <h3>宿泊</h3>
-          <div className="form-group">
-            <label htmlFor="ma-checkin">チェックイン</label>
-            <Input id="ma-checkin" name="check_in" type="date" required />
-          </div>
-          <div className="form-group">
-            <label htmlFor="ma-checkout">チェックアウト</label>
-            <Input id="ma-checkout" name="check_out" type="date" required />
-          </div>
+          <DateField
+            id="ma-checkin"
+            label="チェックイン"
+            name="check_in"
+            required
+          />
+          <DateField
+            id="ma-checkout"
+            label="チェックアウト"
+            name="check_out"
+            required
+          />
           <RoomGuestFields
             variant="reservation"
             defaults={{

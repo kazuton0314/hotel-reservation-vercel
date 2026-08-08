@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { DateField } from "@/components/form/DateField";
 import { FormCheckboxGroup } from "@/components/form/FormCheckboxGroup";
 import { FormSelectField } from "@/components/form/FormSelectField";
 import { updateReservationAction } from "@/lib/actions/reservations";
@@ -154,24 +155,18 @@ export function ReservationUpdateForm(props: Props) {
       <Fg label="建物名・番地" name="address_line" defaultValue={props.addressLine} />
 
       <p className="form-section-label">宿泊日・人数</p>
-      <div className="form-group">
-        <label htmlFor="f-checkin">チェックイン</label>
-        <Input
-          id="f-checkin"
-          type="date"
-          name="check_in"
-          defaultValue={props.checkIn ?? ""}
-        />
-      </div>
-      <div className="form-group">
-        <label htmlFor="f-checkout">チェックアウト</label>
-        <Input
-          id="f-checkout"
-          type="date"
-          name="check_out"
-          defaultValue={props.checkOut ?? ""}
-        />
-      </div>
+      <DateField
+        id="f-checkin"
+        label="チェックイン"
+        name="check_in"
+        defaultValue={props.checkIn}
+      />
+      <DateField
+        id="f-checkout"
+        label="チェックアウト"
+        name="check_out"
+        defaultValue={props.checkOut}
+      />
       <Fg label="宿泊人数" name="guest_total" defaultValue={props.guestTotal} />
       <FormSelectField
         label="中学生以上男性"
