@@ -7,6 +7,7 @@ import {
   reservationHasActiveConfirmationTask,
 } from "@/lib/services/reservation-active-tasks";
 import { reservationNeedsCompanionInfo } from "@/lib/services/mail-pending";
+import { guestDisplayFieldsFromRoomAssignment } from "@/lib/services/room-occupancy";
 import {
   daysBetweenCalendarDates,
   formatDateLabel,
@@ -36,6 +37,7 @@ type DbReservation = {
   arrival_time: string | null;
   meal: string | null;
   bbq: string | null;
+  channel: string | null;
   inquiry: string | null;
   internal_memo: string | null;
   vehicle_count: string | null;
@@ -58,6 +60,12 @@ type DbAssignment = {
   stay_start: string;
   stay_end: string;
   assigned_guest_count: number | null;
+  male_count: number | null;
+  female_count: number | null;
+  boy_student_count: number | null;
+  girl_student_count: number | null;
+  age_3plus_count: number | null;
+  under_3_count: number | null;
   is_archived: boolean;
 };
 
@@ -116,6 +124,7 @@ export type TodayRoomEvent = {
   age3plus: string | null;
   under3: string | null;
   bbq: string | null;
+  channel: string | null;
 };
 
 export type TodayRoomBoardItem = {
@@ -250,6 +259,7 @@ function buildTodayRoomsBoard(
       if (!isStay && !isCheckin && !isCheckout) continue;
 
       const night = res ? occNightFields(res, dayMs, iso) : {};
+      const guests = guestDisplayFieldsFromRoomAssignment(a, res);
       events.push({
         reservationId: a.reservation_id,
         representativeName: res?.representative_name ?? "—",
@@ -258,14 +268,15 @@ function buildTodayRoomsBoard(
         isStay,
         nightNumber: night.nightNumber,
         nightsTotal: night.nightsTotal,
-        guestTotal: res?.guest_total ?? null,
-        adultMale: res?.adult_male ?? null,
-        adultFemale: res?.adult_female ?? null,
-        boyStudent: res?.boy_student ?? null,
-        girlStudent: res?.girl_student ?? null,
-        age3plus: res?.age_3plus ?? null,
-        under3: res?.under_3 ?? null,
-        bbq: res?.bbq ?? null,
+        guestTotal: guests.guestTotal ?? null,
+        adultMale: guests.adultMale ?? null,
+        adultFemale: guests.adultFemale ?? null,
+        boyStudent: guests.boyStudent ?? null,
+        girlStudent: guests.girlStudent ?? null,
+        age3plus: guests.age3plus ?? null,
+        under3: guests.under3 ?? null,
+        bbq: guests.bbq ?? null,
+        channel: guests.channel ?? null,
       });
     }
 
@@ -315,7 +326,7 @@ async function getDashboardSummaryUncached(): Promise<{
     supabase
       .from("reservations")
       .select(
-        "reservation_id, representative_name, status, check_in, check_out, nights, guest_total, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3, arrival_time, meal, bbq, inquiry, internal_memo, vehicle_count, assignment_status, companion_form_answered, email, completion_email_sent, day11_email_sent, day3_email_sent, created_at, sheet_created_at, is_archived"
+        "reservation_id, representative_name, status, check_in, check_out, nights, guest_total, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3, arrival_time, meal, bbq, channel, inquiry, internal_memo, vehicle_count, assignment_status, companion_form_answered, email, completion_email_sent, day11_email_sent, day3_email_sent, created_at, sheet_created_at, is_archived"
       )
       .eq("is_archived", false)
       .or(todayOrClause),
@@ -327,7 +338,7 @@ async function getDashboardSummaryUncached(): Promise<{
     supabase
       .from("room_assignments")
       .select(
-        "room_assignment_id, reservation_id, room_id, room_name, stay_start, stay_end, assigned_guest_count, is_archived"
+        "room_assignment_id, reservation_id, room_id, room_name, stay_start, stay_end, assigned_guest_count, male_count, female_count, boy_student_count, girl_student_count, age_3plus_count, under_3_count, is_archived"
       )
       .eq("is_archived", false)
       .lte("stay_start", iso)

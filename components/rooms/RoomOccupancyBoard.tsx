@@ -29,6 +29,7 @@ import {
 import {
   eventClassName,
   formatBbqBadgeLabel,
+  formatChannelBadgeLabel,
   formatOccGuestMeta,
   formatOccNightLabel,
 } from "@/lib/utils/occ-display";
@@ -93,6 +94,7 @@ function OccEventBlock({
   const nightLbl = formatOccNightLabel(ev);
   const meta = formatOccGuestMeta(ev);
   const bbqLabel = formatBbqBadgeLabel(ev.bbq);
+  const channelLabel = formatChannelBadgeLabel(ev.channel);
   const canRemoveRoom =
     editMode &&
     !ev.isUnassigned &&
@@ -160,6 +162,9 @@ function OccEventBlock({
         {meta}
         {bbqLabel ? (
           <span className="meta-badge meta-bbq">{bbqLabel}</span>
+        ) : null}
+        {channelLabel ? (
+          <span className="meta-badge meta-airbnb">{channelLabel}</span>
         ) : null}
       </span>
     </div>

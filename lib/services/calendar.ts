@@ -29,6 +29,7 @@ export type CalendarReservation = {
   arrival_time: string | null;
   meal: string | null;
   bbq: string | null;
+  channel: string | null;
   inquiry: string | null;
   assignment_status: string | null;
 };
@@ -40,6 +41,13 @@ export type CalendarAssignment = {
   room_name: string | null;
   stay_start: string;
   stay_end: string;
+  assigned_guest_count?: number | null;
+  male_count?: number | null;
+  female_count?: number | null;
+  boy_student_count?: number | null;
+  girl_student_count?: number | null;
+  age_3plus_count?: number | null;
+  under_3_count?: number | null;
 };
 
 export type CalendarEvent = {

@@ -1616,7 +1616,20 @@ html[data-theme="dark"] .setup-room-trigger {
   font-weight: 700;
   font-size: 0.62rem;
 }
-.occ-meta .meta-bbq {
+.meta-badge.meta-airbnb {
+  display: inline-block;
+  background: #ffe4e6;
+  color: #be123c;
+  border: 1px solid #fb7185;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.62rem;
+}
+.occ-meta .meta-bbq,
+.occ-meta .meta-airbnb,
+.today-room-meta .meta-bbq,
+.today-room-meta .meta-airbnb {
   margin-left: 2px;
   vertical-align: middle;
 }
@@ -2654,6 +2667,12 @@ html[data-theme="dark"] .meta-badge.meta-bbq {
   background: #4a2c14;
   color: #fdba74;
   border-color: #9a3412;
+}
+
+html[data-theme="dark"] .meta-badge.meta-airbnb {
+  background: #4c0519;
+  color: #fda4af;
+  border-color: #9f1239;
 }
 
 html[data-theme="dark"] .ui-input,

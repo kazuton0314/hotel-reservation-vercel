@@ -1,4 +1,4 @@
-import type { OccEvent } from "@/lib/services/room-occupancy";
+import type { OccGuestFields } from "@/lib/services/room-occupancy";
 import { formatGuestCompact } from "@/lib/utils/guest-display";
 
 export function formatOccNightLabel(ev: {
@@ -44,8 +44,18 @@ export function formatBbqBadgeLabel(bbq: string | null | undefined): string | nu
   return null;
 }
 
+/** 受付チャネルが Airbnb のときだけバッジ用ラベルを返す */
+export function formatChannelBadgeLabel(
+  channel: string | null | undefined
+): string | null {
+  const v = String(channel ?? "").trim();
+  if (!v) return null;
+  if (v.toLowerCase() === "airbnb") return "Airbnb";
+  return null;
+}
+
 /** 部屋割カード: 宿泊人数（予約合計）+ その部屋の人数内訳 */
-export function formatOccGuestMeta(ev: OccEvent): string {
+export function formatOccGuestMeta(ev: OccGuestFields): string {
   return formatGuestCompact({
     guest_total: ev.guestTotal,
     adult_male: ev.adultMale,
@@ -57,7 +67,17 @@ export function formatOccGuestMeta(ev: OccEvent): string {
   });
 }
 
-export function eventClassName(ev: OccEvent, isShared: boolean): string {
+export function eventClassName(
+  ev: OccGuestFields & {
+    isUnassigned?: boolean;
+    isStay?: boolean;
+    isCheckin?: boolean;
+    isCheckout?: boolean;
+    status?: string;
+    isDraft?: boolean;
+  },
+  isShared: boolean
+): string {
   const parts = ["occ-event"];
   if (isShared) parts.push("occ-shared");
   if (ev.isUnassigned) parts.push("occ-unassigned");

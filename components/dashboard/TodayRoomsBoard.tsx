@@ -1,6 +1,10 @@
 import Link from "next/link";
 import type { TodayRoomBoardItem } from "@/lib/queries/dashboard";
-import { formatGuestCompact } from "@/lib/utils/guest-display";
+import {
+  formatBbqBadgeLabel,
+  formatChannelBadgeLabel,
+  formatOccGuestMeta,
+} from "@/lib/utils/occ-display";
 
 function EventTags({
   isCheckin,
@@ -58,15 +62,9 @@ export function TodayRoomsBoard({ rooms }: { rooms: TodayRoomBoardItem[] }) {
             ) : (
               room.events.map((ev) => {
                 const nightLbl = formatNightLabel(ev);
-                const meta = formatGuestCompact({
-                  guest_total: ev.guestTotal,
-                  adult_male: ev.adultMale,
-                  adult_female: ev.adultFemale,
-                  boy_student: ev.boyStudent,
-                  girl_student: ev.girlStudent,
-                  age_3plus: ev.age3plus,
-                  under_3: ev.under3,
-                });
+                const meta = formatOccGuestMeta(ev);
+                const bbqLabel = formatBbqBadgeLabel(ev.bbq);
+                const channelLabel = formatChannelBadgeLabel(ev.channel);
                 return (
                   <div
                     key={`${room.roomId}-${ev.reservationId}-${ev.isCheckin}-${ev.isCheckout}`}
@@ -88,15 +86,26 @@ export function TodayRoomsBoard({ rooms }: { rooms: TodayRoomBoardItem[] }) {
                     ) : null}
                     {meta && meta !== "—" ? (
                       <span className="today-room-meta">
-                        {formatGuestCompact({
-                          guest_total: ev.guestTotal,
-                          adult_male: ev.adultMale,
-                          adult_female: ev.adultFemale,
-                          boy_student: ev.boyStudent,
-                          girl_student: ev.girlStudent,
-                          age_3plus: ev.age3plus,
-                          under_3: ev.under3,
-                        })}
+                        {meta}
+                        {bbqLabel ? (
+                          <span className="meta-badge meta-bbq">{bbqLabel}</span>
+                        ) : null}
+                        {channelLabel ? (
+                          <span className="meta-badge meta-airbnb">
+                            {channelLabel}
+                          </span>
+                        ) : null}
+                      </span>
+                    ) : bbqLabel || channelLabel ? (
+                      <span className="today-room-meta">
+                        {bbqLabel ? (
+                          <span className="meta-badge meta-bbq">{bbqLabel}</span>
+                        ) : null}
+                        {channelLabel ? (
+                          <span className="meta-badge meta-airbnb">
+                            {channelLabel}
+                          </span>
+                        ) : null}
                       </span>
                     ) : null}
                   </div>
