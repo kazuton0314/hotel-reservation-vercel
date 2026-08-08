@@ -382,24 +382,21 @@ export function RoomAssignmentManager({
   const countFields: { field: CountField; label: string }[] = [
     { field: "male", label: "男" },
     { field: "female", label: "女" },
-    { field: "boy", label: "小学生男" },
-    { field: "girl", label: "小学生女" },
-    { field: "age3", label: "3歳以上" },
-    { field: "under3", label: "3歳未満" },
+    { field: "boy", label: "小男" },
+    { field: "girl", label: "小女" },
+    { field: "age3", label: "幼" },
+    { field: "under3", label: "+未就" },
   ];
 
   return (
-    <div className="detail-block" id="room-manage-block">
-      <h3>部屋割り</h3>
-      <div className="kv">
-        <div className="k">状態</div>
-        <div className="v">
-          <AssignmentStatusBadge
-            status={assignmentStatus}
-            hasRooms={rows.length > 0}
-            remaining={remaining}
-          />
-        </div>
+    <div className="detail-block room-manage-block" id="room-manage-block">
+      <div className="room-assign-heading">
+        <h3>部屋割り</h3>
+        <AssignmentStatusBadge
+          status={assignmentStatus}
+          hasRooms={rows.length > 0}
+          remaining={remaining}
+        />
       </div>
       <p
         className={
@@ -415,9 +412,7 @@ export function RoomAssignmentManager({
       </p>
 
       {!rows.length ? (
-        <p className="empty" style={{ padding: "8px 0" }}>
-          未割当（＋で部屋を追加）
-        </p>
+        <p className="empty room-assign-empty">未割当（＋で部屋を追加）</p>
       ) : (
         <div className="room-assign-draft-list">
           {rows.map((row) => (
@@ -425,7 +420,7 @@ export function RoomAssignmentManager({
               <div className="room-assign-draft-head">
                 <span className="room-assign-draft-name">{row.roomName}</span>
                 <span className="room-assign-draft-sub">
-                  この部屋 {formatGuestCompact(rowGuestSource(row))}人
+                  {formatGuestCompact(rowGuestSource(row))}人
                 </span>
                 <Button
                   type="button"
@@ -469,7 +464,6 @@ export function RoomAssignmentManager({
           }
         >
           ＋ 部屋を追加
-          {canAdd && nextRoom ? `（${nextRoom.room_name}）` : ""}
         </Button>
         <Button type="button" size="sm" onClick={save} disabled={pending}>
           {pending ? "保存中…" : "部屋割りを保存"}
