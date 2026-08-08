@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 
 import {
@@ -40,8 +41,23 @@ import {
   normalizeGuestTotalForStorage,
 } from "@/lib/utils/guest-count-format";
 
+type SavedGuestFields = {
+  guestTotal: string | null;
+  adultMale: string | null;
+  adultFemale: string | null;
+  boyStudent: string | null;
+  girlStudent: string | null;
+  age3plus: string | null;
+  under3: string | null;
+};
+
 type ActionResult =
-  | { ok: true; reservationId?: string; updatedAt?: string }
+  | {
+      ok: true;
+      reservationId?: string;
+      updatedAt?: string;
+      guests?: SavedGuestFields;
+    }
   | { ok: false; message: string; conflict?: boolean };
 
 export async function updateReservationAction(
@@ -249,12 +265,34 @@ export async function updateReservationAction(
   const guestTotalChanged =
     String(payload.guest_total ?? "") !== String(current.guest_total ?? "");
 
-  // 人数不一致も未割当に載せるため、宿泊人数変更後に必ず再同期
+  // 人数不一致も一覧の未割当フィルタに載せるため、宿泊人数変更後に再同期
   if (!shouldClearRoomAssignmentsOnStatus(nextStatus)) {
     await syncAssignmentStatus(supabase, reservationId);
   }
 
+  // 1部屋のときは台帳→部屋割へ人数を同期（予約人数の保存を優先して同一リクエスト内で行う）
+  if (guestTouched && !shouldClearRoomAssignmentsOnStatus(nextStatus)) {
+    await syncRoomAssignmentGuestBreakdown(supabase, reservationId, {
+      adult_male: payload.adult_male,
+      adult_female: payload.adult_female,
+      boy_student: payload.boy_student,
+      girl_student: payload.girl_student,
+      age_3plus: payload.age_3plus,
+      under_3: payload.under_3,
+    });
+    await syncAssignmentStatus(supabase, reservationId);
+  }
+
+  const { data: fresh } = await supabase
+    .from("reservations")
+    .select(
+      "updated_at, guest_total, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3"
+    )
+    .eq("reservation_id", reservationId)
+    .maybeSingle();
+
   revalidateReservationDetail(reservationId);
+  revalidatePath(`/reservations/${encodeURIComponent(reservationId)}`);
 
   after(async () => {
     const admin = createAdminClient();
@@ -268,26 +306,40 @@ export async function updateReservationAction(
     if (updated) {
       await upsertCustomerFromReservation(admin, updated);
       revalidateCustomers();
-      if (guestTouched) {
-        await syncRoomAssignmentGuestBreakdown(admin, reservationId, {
-          adult_male: updated.adult_male,
-          adult_female: updated.adult_female,
-          boy_student: updated.boy_student,
-          girl_student: updated.girl_student,
-          age_3plus: updated.age_3plus,
-          under_3: updated.under_3,
-        });
-      }
-      if (guestTouched || guestTotalChanged) {
-        await syncAssignmentStatus(admin, reservationId);
-      }
     }
     await syncReservationToGCal(admin, reservationId);
   });
 
+  const guests: SavedGuestFields = {
+    guestTotal:
+      (fresh?.guest_total as string | null | undefined) ??
+      (payload.guest_total as string | null),
+    adultMale:
+      (fresh?.adult_male as string | null | undefined) ??
+      (payload.adult_male as string | null),
+    adultFemale:
+      (fresh?.adult_female as string | null | undefined) ??
+      (payload.adult_female as string | null),
+    boyStudent:
+      (fresh?.boy_student as string | null | undefined) ??
+      (payload.boy_student as string | null),
+    girlStudent:
+      (fresh?.girl_student as string | null | undefined) ??
+      (payload.girl_student as string | null),
+    age3plus:
+      (fresh?.age_3plus as string | null | undefined) ??
+      (payload.age_3plus as string | null),
+    under3:
+      (fresh?.under_3 as string | null | undefined) ??
+      (payload.under_3 as string | null),
+  };
+
   return {
     ok: true,
-    updatedAt: String(updatedResult.data.updated_at ?? payload.updated_at ?? ""),
+    updatedAt: String(
+      fresh?.updated_at ?? updatedResult.data.updated_at ?? payload.updated_at ?? ""
+    ),
+    guests,
   };
 }
 

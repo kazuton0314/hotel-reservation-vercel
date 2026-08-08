@@ -1,6 +1,13 @@
 "use client";
 
-import { useActionState } from "react";
+import {
+  useActionState,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { useRouter } from "next/navigation";
 import { DateField } from "@/components/form/DateField";
 import { FormCheckboxGroup } from "@/components/form/FormCheckboxGroup";
 import { FormSelectField } from "@/components/form/FormSelectField";
@@ -21,6 +28,7 @@ import {
   TRANSPORT_OPTIONS,
   TRAVEL_PURPOSE_OPTIONS,
 } from "@/lib/config/field-options";
+import { markLocalDataMutation } from "@/lib/utils/local-mutation";
 
 type Props = {
   reservationId: string;
@@ -65,6 +73,16 @@ type Props = {
   paymentStatus: string | null;
 };
 
+type GuestSeed = {
+  guestTotal: string | null;
+  adultMale: string | null;
+  adultFemale: string | null;
+  boyStudent: string | null;
+  girlStudent: string | null;
+  age3plus: string | null;
+  under3: string | null;
+};
+
 const initialState = { ok: true } as const;
 
 /** 内訳プルダウン用: 0 / 空は未選択（表示ラベル 0）へ寄せる */
@@ -98,19 +116,99 @@ function Fg({
   );
 }
 
+function guestSeedFromProps(props: Props): GuestSeed {
+  return {
+    guestTotal: props.guestTotal,
+    adultMale: props.adultMale,
+    adultFemale: props.adultFemale,
+    boyStudent: props.boyStudent,
+    girlStudent: props.girlStudent,
+    age3plus: props.age3plus,
+    under3: props.under3,
+  };
+}
+
 export function ReservationUpdateForm(props: Props) {
+  const router = useRouter();
   const [state, formAction, isPending] = useActionState(
     updateReservationAction,
     initialState
   );
+  const [expectedUpdatedAt, setExpectedUpdatedAt] = useState(props.updatedAt);
+  const [guestSeed, setGuestSeed] = useState<GuestSeed>(() =>
+    guestSeedFromProps(props)
+  );
+  const [formEpoch, setFormEpoch] = useState(0);
+  const skipFirstPropsSync = useRef(true);
+  const lastSavedAtRef = useRef<string | null>(null);
+
+  // サーバー props が追いついたら（他端末更新・再読込）フォームの初期値を同期。
+  // ただし保存直後に古いキャッシュ props が来た場合は書き戻さない。
+  useEffect(() => {
+    if (skipFirstPropsSync.current) {
+      skipFirstPropsSync.current = false;
+      return;
+    }
+    const propsUpdatedAt = props.updatedAt ?? "";
+    const savedAt = lastSavedAtRef.current;
+    if (savedAt && propsUpdatedAt && propsUpdatedAt < savedAt) {
+      return;
+    }
+    if (savedAt && propsUpdatedAt && propsUpdatedAt >= savedAt) {
+      lastSavedAtRef.current = null;
+    }
+    setExpectedUpdatedAt(props.updatedAt);
+    setGuestSeed(guestSeedFromProps(props));
+    setFormEpoch((n) => n + 1);
+  }, [
+    props.updatedAt,
+    props.guestTotal,
+    props.adultMale,
+    props.adultFemale,
+    props.boyStudent,
+    props.girlStudent,
+    props.age3plus,
+    props.under3,
+  ]);
+
+  // 保存成功時はアクションが返した人数を正として残し、古いキャッシュの書き戻しを防ぐ
+  useEffect(() => {
+    if (!state || state.ok !== true) return;
+    if (!("guests" in state) || !state.guests) return;
+    markLocalDataMutation();
+    lastSavedAtRef.current = state.updatedAt ?? null;
+    setExpectedUpdatedAt(state.updatedAt ?? expectedUpdatedAt);
+    setGuestSeed(state.guests);
+    setFormEpoch((n) => n + 1);
+    router.refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 保存成功の state 変化時のみ
+  }, [state]);
+
+  const formKey = useMemo(
+    () =>
+      `${props.reservationId}:${expectedUpdatedAt ?? ""}:${formEpoch}:${guestSeed.guestTotal ?? ""}:${guestSeed.adultMale ?? ""}`,
+    [
+      props.reservationId,
+      expectedUpdatedAt,
+      formEpoch,
+      guestSeed.guestTotal,
+      guestSeed.adultMale,
+    ]
+  );
 
   return (
-    <form action={formAction}>
+    <form
+      key={formKey}
+      action={formAction}
+      onSubmit={() => {
+        markLocalDataMutation();
+      }}
+    >
       <input type="hidden" name="reservation_id" value={props.reservationId} />
       <input
         type="hidden"
         name="expected_updated_at"
-        value={props.updatedAt ?? ""}
+        value={expectedUpdatedAt ?? ""}
       />
 
       <p className="form-section-label">基本</p>
@@ -168,47 +266,51 @@ export function ReservationUpdateForm(props: Props) {
         name="check_out"
         defaultValue={props.checkOut}
       />
-      <Fg label="宿泊人数" name="guest_total" defaultValue={props.guestTotal} />
+      <Fg
+        label="宿泊人数"
+        name="guest_total"
+        defaultValue={guestSeed.guestTotal}
+      />
       <FormSelectField
         label="中学生以上男性"
         name="adult_male"
         options={GUEST_COUNT_OPTIONS}
-        defaultValue={guestCountSelectValue(props.adultMale)}
+        defaultValue={guestCountSelectValue(guestSeed.adultMale)}
         emptyLabel="0"
       />
       <FormSelectField
         label="中学生以上女性"
         name="adult_female"
         options={GUEST_COUNT_OPTIONS}
-        defaultValue={guestCountSelectValue(props.adultFemale)}
+        defaultValue={guestCountSelectValue(guestSeed.adultFemale)}
         emptyLabel="0"
       />
       <FormSelectField
         label="小学生男"
         name="boy_student"
         options={GUEST_COUNT_OPTIONS}
-        defaultValue={guestCountSelectValue(props.boyStudent)}
+        defaultValue={guestCountSelectValue(guestSeed.boyStudent)}
         emptyLabel="0"
       />
       <FormSelectField
         label="小学生女"
         name="girl_student"
         options={GUEST_COUNT_OPTIONS}
-        defaultValue={guestCountSelectValue(props.girlStudent)}
+        defaultValue={guestCountSelectValue(guestSeed.girlStudent)}
         emptyLabel="0"
       />
       <FormSelectField
         label="3歳以上幼児"
         name="age_3plus"
         options={GUEST_COUNT_OPTIONS}
-        defaultValue={guestCountSelectValue(props.age3plus)}
+        defaultValue={guestCountSelectValue(guestSeed.age3plus)}
         emptyLabel="0"
       />
       <FormSelectField
         label="3歳未満"
         name="under_3"
         options={GUEST_COUNT_OPTIONS}
-        defaultValue={guestCountSelectValue(props.under3)}
+        defaultValue={guestCountSelectValue(guestSeed.under3)}
         emptyLabel="0"
       />
 
@@ -227,15 +329,15 @@ export function ReservationUpdateForm(props: Props) {
       />
       <Fg label="車両台数" name="vehicle_count" defaultValue={props.vehicleCount} />
 
-      <p className="form-section-label">食事・BBQ</p>
+      <p className="form-section-label">食事・支払</p>
       <FormSelectField
-        label="お食事について"
+        label="食事"
         name="meal"
         options={MEAL_OPTIONS}
         defaultValue={props.meal}
       />
       <FormSelectField
-        label="BBQレンタル"
+        label="BBQ"
         name="bbq"
         options={BBQ_OPTIONS}
         defaultValue={props.bbq}
@@ -287,11 +389,10 @@ export function ReservationUpdateForm(props: Props) {
           name="internal_memo"
           rows={3}
           defaultValue={props.internalMemo ?? ""}
-          placeholder="特別な事情・配慮が必要なケース"
         />
       </div>
       <div className="form-group">
-        <label htmlFor="f-guest-memo">宿泊者メモ</label>
+        <label htmlFor="f-guest-memo">お客様メモ</label>
         <Textarea
           id="f-guest-memo"
           name="guest_memo"
@@ -305,7 +406,7 @@ export function ReservationUpdateForm(props: Props) {
         <p className="detail-hint" style={{ color: "#b91c1c" }}>
           {state.message}
         </p>
-      ) : state.ok === true && !isPending ? (
+      ) : state.ok === true && !isPending && "guests" in state && state.guests ? (
         <p className="detail-hint" style={{ color: "#047857" }}>
           保存しました
         </p>
