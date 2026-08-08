@@ -20,6 +20,7 @@ export type OccGuestFields = {
   age3plus?: string | null;
   under3?: string | null;
   bbq?: string | null;
+  channel?: string | null;
 };
 
 export type OccEvent = OccGuestFields & {
@@ -97,6 +98,7 @@ type DbReservation = {
   age_3plus: string | null;
   under_3: string | null;
   bbq: string | null;
+  channel: string | null;
   assignment_status: string | null;
 };
 
@@ -153,8 +155,31 @@ function occNightFieldsForDay(
   };
 }
 
+export type RoomAssignmentGuestSource = {
+  assigned_guest_count?: number | null;
+  male_count?: number | null;
+  female_count?: number | null;
+  boy_student_count?: number | null;
+  girl_student_count?: number | null;
+  age_3plus_count?: number | null;
+  under_3_count?: number | null;
+};
+
+export type ReservationGuestSource = {
+  status?: string;
+  guest_total?: string | null;
+  adult_male?: string | null;
+  adult_female?: string | null;
+  boy_student?: string | null;
+  girl_student?: string | null;
+  age_3plus?: string | null;
+  under_3?: string | null;
+  bbq?: string | null;
+  channel?: string | null;
+};
+
 function occGuestFieldsFromReservation(
-  res: DbReservation | undefined,
+  res: ReservationGuestSource | undefined,
   guestCountOverride?: number | null
 ): OccGuestFields {
   return {
@@ -163,7 +188,7 @@ function occGuestFieldsFromReservation(
       guestCountOverride != null
         ? guestCountOverride
         : res
-          ? parseGuestCount(res.guest_total)
+          ? parseGuestCount(res.guest_total ?? null)
           : 0,
     guestTotal: res?.guest_total ?? (guestCountOverride ? String(guestCountOverride) : null),
     adultMale: res?.adult_male ?? null,
@@ -173,10 +198,11 @@ function occGuestFieldsFromReservation(
     age3plus: res?.age_3plus ?? null,
     under3: res?.under_3 ?? null,
     bbq: res?.bbq ?? null,
+    channel: res?.channel ?? null,
   };
 }
 
-function assignmentBreakdownSum(assignment: DbAssignment): number {
+function assignmentBreakdownSum(assignment: RoomAssignmentGuestSource): number {
   return (
     (Number(assignment.male_count) || 0) +
     (Number(assignment.female_count) || 0) +
@@ -187,7 +213,7 @@ function assignmentBreakdownSum(assignment: DbAssignment): number {
   );
 }
 
-function assignmentHasRoomBreakdown(assignment: DbAssignment): boolean {
+function assignmentHasRoomBreakdown(assignment: RoomAssignmentGuestSource): boolean {
   return (
     assignment.male_count != null ||
     assignment.female_count != null ||
@@ -203,9 +229,9 @@ function assignmentHasRoomBreakdown(assignment: DbAssignment): boolean {
  * 表示: 宿泊人数（予約合計）+ 部屋割ごとの人数内訳。
  * 例: 20~25人(男10) / 20~25人(女5)
  */
-function occGuestFieldsFromAssignment(
-  assignment: DbAssignment,
-  res: DbReservation | undefined
+export function guestDisplayFieldsFromRoomAssignment(
+  assignment: RoomAssignmentGuestSource,
+  res: ReservationGuestSource | undefined
 ): OccGuestFields {
   const roomGuestCount =
     assignmentBreakdownSum(assignment) ||
@@ -246,7 +272,15 @@ function occGuestFieldsFromAssignment(
         ? String(assignment.under_3_count)
         : null,
     bbq: res?.bbq ?? null,
+    channel: res?.channel ?? null,
   };
+}
+
+function occGuestFieldsFromAssignment(
+  assignment: DbAssignment,
+  res: DbReservation | undefined
+): OccGuestFields {
+  return guestDisplayFieldsFromRoomAssignment(assignment, res);
 }
 
 export function sortOccCellEvents(events: OccEvent[]): OccEvent[] {

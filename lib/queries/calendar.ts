@@ -12,6 +12,7 @@ import {
   type MonthCalendarView,
   type WeekCalendarView,
 } from "@/lib/services/calendar";
+import { guestDisplayFieldsFromRoomAssignment } from "@/lib/services/room-occupancy";
 import { businessToday, parseReservationDate, todayIso } from "@/lib/utils/date-label";
 import { includeArchivedForDateRange } from "@/lib/utils/list-scope";
 import type { TodayRoomBoardItem } from "@/lib/queries/dashboard";
@@ -43,7 +44,7 @@ async function fetchCalendarData(from: string, to: string) {
   let reservationsQuery = supabase
     .from("reservations")
     .select(
-      "reservation_id, representative_name, status, check_in, check_out, nights, guest_total, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3, arrival_time, meal, bbq, inquiry, assignment_status"
+      "reservation_id, representative_name, status, check_in, check_out, nights, guest_total, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3, arrival_time, meal, bbq, channel, inquiry, assignment_status"
     )
     .lte("check_in", to)
     .gte("check_out", from);
@@ -51,7 +52,7 @@ async function fetchCalendarData(from: string, to: string) {
   let assignmentsQuery = supabase
     .from("room_assignments")
     .select(
-      "room_assignment_id, reservation_id, room_id, room_name, stay_start, stay_end"
+      "room_assignment_id, reservation_id, room_id, room_name, stay_start, stay_end, assigned_guest_count, male_count, female_count, boy_student_count, girl_student_count, age_3plus_count, under_3_count"
     )
     .lte("stay_start", to)
     .gte("stay_end", from);
@@ -81,10 +82,10 @@ async function fetchCalendarData(from: string, to: string) {
 }
 
 const DAY_RESERVATION_SELECT =
-  "reservation_id, representative_name, status, check_in, check_out, nights, guest_total, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3, arrival_time, meal, bbq, inquiry, assignment_status";
+  "reservation_id, representative_name, status, check_in, check_out, nights, guest_total, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3, arrival_time, meal, bbq, channel, inquiry, assignment_status";
 
 const DAY_ASSIGNMENT_SELECT =
-  "room_assignment_id, reservation_id, room_id, room_name, stay_start, stay_end";
+  "room_assignment_id, reservation_id, room_id, room_name, stay_start, stay_end, assigned_guest_count, male_count, female_count, boy_student_count, girl_student_count, age_3plus_count, under_3_count";
 
 function buildTodayRoomsFromDayData(
   iso: string,
@@ -115,20 +116,22 @@ function buildTodayRoomsFromDayData(
       const isCheckin = a.stay_start === iso;
       const isCheckout = a.stay_end === iso;
       if (!isStay && !isCheckin && !isCheckout) continue;
+      const guests = guestDisplayFieldsFromRoomAssignment(a, res);
       events.push({
         reservationId: a.reservation_id,
         representativeName: res?.representative_name ?? "—",
         isCheckin,
         isCheckout,
         isStay,
-        guestTotal: res?.guest_total ?? null,
-        adultMale: res?.adult_male ?? null,
-        adultFemale: res?.adult_female ?? null,
-        boyStudent: res?.boy_student ?? null,
-        girlStudent: res?.girl_student ?? null,
-        age3plus: res?.age_3plus ?? null,
-        under3: res?.under_3 ?? null,
-        bbq: res?.bbq ?? null,
+        guestTotal: guests.guestTotal ?? null,
+        adultMale: guests.adultMale ?? null,
+        adultFemale: guests.adultFemale ?? null,
+        boyStudent: guests.boyStudent ?? null,
+        girlStudent: guests.girlStudent ?? null,
+        age3plus: guests.age3plus ?? null,
+        under3: guests.under3 ?? null,
+        bbq: guests.bbq ?? null,
+        channel: guests.channel ?? null,
       });
     }
     return {
