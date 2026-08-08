@@ -74,6 +74,7 @@ export function ReservationDashboardCard({
         vehicleCount={item.vehicleCount}
         inquiry={item.inquiry}
         internalMemo={item.internalMemo}
+        guestMemo={item.guestMemo}
       />
     </Link>
   );

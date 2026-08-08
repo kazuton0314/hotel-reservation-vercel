@@ -282,6 +282,7 @@ async function DetailContent({
           referralOther={asString(r.referral_other)}
           lastStay={asString(r.last_stay)}
           internalMemo={asString(r.internal_memo)}
+          guestMemo={asString(r.guest_memo)}
           paymentStatus={asString(r.payment_status)}
         />
       </DetailBlock>

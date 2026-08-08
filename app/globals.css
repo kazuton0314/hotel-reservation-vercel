@@ -410,6 +410,11 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.card-snippet-ops-memo,
+.card-snippet-ops-memo .card-stay-label {
+  color: #dc2626;
+  font-weight: 700;
+}
 .mail-status-line {
   margin: 0 0 8px;
   display: inline-flex;
@@ -2673,6 +2678,11 @@ html[data-theme="dark"] .meta-badge.meta-airbnb {
   background: #4c0519;
   color: #fda4af;
   border-color: #9f1239;
+}
+
+html[data-theme="dark"] .card-snippet-ops-memo,
+html[data-theme="dark"] .card-snippet-ops-memo .card-stay-label {
+  color: #f87171;
 }
 
 html[data-theme="dark"] .ui-input,

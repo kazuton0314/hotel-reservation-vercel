@@ -24,12 +24,13 @@ type ReservationRow = {
   channel: string | null;
   inquiry: string | null;
   internal_memo: string | null;
+  guest_memo: string | null;
   gcal_event_id: string | null;
   is_archived: boolean;
 };
 
 const RESERVATION_SELECT =
-  "reservation_id, representative_name, status, check_in, check_out, guest_total, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3, arrival_time, meal, bbq, transport, vehicle_count, group_name, channel, inquiry, internal_memo, gcal_event_id, is_archived";
+  "reservation_id, representative_name, status, check_in, check_out, guest_total, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3, arrival_time, meal, bbq, transport, vehicle_count, group_name, channel, inquiry, internal_memo, guest_memo, gcal_event_id, is_archived";
 
 function getCalendarId(): string | null {
   const id = process.env.GOOGLE_CALENDAR_ID?.trim();
@@ -118,7 +119,8 @@ function buildGCalEventDescription(
   if (row.channel) lines.push(`経路: ${row.channel}`);
   lines.push(`ステータス: ${row.status || ""}`);
   if (row.inquiry) lines.push(`問合: ${row.inquiry}`);
-  if (row.internal_memo) lines.push(`メモ: ${row.internal_memo}`);
+  if (row.internal_memo) lines.push(`運用メモ: ${row.internal_memo}`);
+  if (row.guest_memo) lines.push(`宿泊者メモ: ${row.guest_memo}`);
   lines.push(`予約ID: ${row.reservation_id}`);
   return lines.join("\n");
 }

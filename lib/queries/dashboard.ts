@@ -40,6 +40,7 @@ type DbReservation = {
   channel: string | null;
   inquiry: string | null;
   internal_memo: string | null;
+  guest_memo: string | null;
   vehicle_count: string | null;
   assignment_status: string | null;
   companion_form_answered: boolean;
@@ -92,6 +93,7 @@ export type DashboardListItem = {
   bbq: string | null;
   inquiry: string | null;
   internalMemo: string | null;
+  guestMemo: string | null;
   arrivalTime: string | null;
   vehicleCount: string | null;
   assignmentStatus: string | null;
@@ -184,6 +186,7 @@ function toListItem(
     bbq: r.bbq,
     inquiry: r.inquiry,
     internalMemo: r.internal_memo,
+    guestMemo: r.guest_memo,
     arrivalTime: r.arrival_time,
     vehicleCount: r.vehicle_count,
     assignmentStatus: r.assignment_status,
@@ -326,7 +329,7 @@ async function getDashboardSummaryUncached(): Promise<{
     supabase
       .from("reservations")
       .select(
-        "reservation_id, representative_name, status, check_in, check_out, nights, guest_total, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3, arrival_time, meal, bbq, channel, inquiry, internal_memo, vehicle_count, assignment_status, companion_form_answered, email, completion_email_sent, day11_email_sent, day3_email_sent, created_at, sheet_created_at, is_archived"
+        "reservation_id, representative_name, status, check_in, check_out, nights, guest_total, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3, arrival_time, meal, bbq, channel, inquiry, internal_memo, guest_memo, vehicle_count, assignment_status, companion_form_answered, email, completion_email_sent, day11_email_sent, day3_email_sent, created_at, sheet_created_at, is_archived"
       )
       .eq("is_archived", false)
       .or(todayOrClause),

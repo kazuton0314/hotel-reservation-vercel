@@ -16,6 +16,7 @@ export function ListCardStayDetails({
   vehicleCount,
   inquiry,
   internalMemo,
+  guestMemo,
 }: {
   guests?: string | null;
   rooms?: string | null;
@@ -24,7 +25,10 @@ export function ListCardStayDetails({
   bbq?: string | null;
   vehicleCount?: string | null;
   inquiry?: string | null;
+  /** 運用メモ（特別な事情・配慮）。一覧では赤文字で強調 */
   internalMemo?: string | null;
+  /** 宿泊者メモ（当日知りえた情報） */
+  guestMemo?: string | null;
 }) {
   const facts: { label: string; value: string }[] = [];
   const push = (label: string, value: string | null | undefined) => {
@@ -40,9 +44,10 @@ export function ListCardStayDetails({
   push("車", vehicleCount);
 
   const inquiryText = truncateText(String(inquiry ?? ""), SNIPPET_MAX_CHARS);
-  const memoText = truncateText(String(internalMemo ?? ""), SNIPPET_MAX_CHARS);
+  const opsMemoText = truncateText(String(internalMemo ?? ""), SNIPPET_MAX_CHARS);
+  const guestMemoText = truncateText(String(guestMemo ?? ""), SNIPPET_MAX_CHARS);
 
-  if (!facts.length && !inquiryText && !memoText) return null;
+  if (!facts.length && !inquiryText && !opsMemoText && !guestMemoText) return null;
 
   return (
     <div className="card-stay-details">
@@ -63,10 +68,19 @@ export function ListCardStayDetails({
           {inquiryText}
         </p>
       ) : null}
-      {memoText ? (
-        <p className="card-snippet" title={String(internalMemo ?? "").trim()}>
-          <span className="card-stay-label">メモ</span>
-          {memoText}
+      {opsMemoText ? (
+        <p
+          className="card-snippet card-snippet-ops-memo"
+          title={String(internalMemo ?? "").trim()}
+        >
+          <span className="card-stay-label">運用メモ</span>
+          {opsMemoText}
+        </p>
+      ) : null}
+      {guestMemoText ? (
+        <p className="card-snippet" title={String(guestMemo ?? "").trim()}>
+          <span className="card-stay-label">宿泊者メモ</span>
+          {guestMemoText}
         </p>
       ) : null}
     </div>
