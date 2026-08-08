@@ -2788,6 +2788,11 @@ html[data-theme="dark"] .occ-nights {
   color: inherit;
 }
 
+.form-group {
+  min-width: 0;
+  max-width: 100%;
+}
+
 .ui-input,
 .form-group input,
 .form-group select,
@@ -2799,7 +2804,19 @@ html[data-theme="dark"] .occ-nights {
   padding: 8px 12px;
   font-size: 0.875rem;
   line-height: 1.4;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   box-shadow: inset 0 1px 2px rgba(16, 24, 40, 0.03);
+}
+
+/* ネイティブ date の固有幅ではみ出すのを防ぐ */
+.form-group input[type="date"],
+input.ui-input[type="date"] {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .ui-input:focus-visible,

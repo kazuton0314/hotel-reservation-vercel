@@ -11,6 +11,7 @@ import {
   BBQ_OPTIONS,
   CHANNEL_OPTIONS,
   GROUP_TYPE_OPTIONS,
+  GUEST_COUNT_OPTIONS,
   MEAL_OPTIONS,
   PAYMENT_STATUS_OPTIONS,
   PHONE_AVAILABLE_OPTIONS,
@@ -63,6 +64,13 @@ type Props = {
 };
 
 const initialState = { ok: true } as const;
+
+/** 内訳プルダウン用: 0 / 空は未選択（表示ラベル 0）へ寄せる */
+function guestCountSelectValue(value: string | null | undefined): string {
+  const v = String(value ?? "").trim();
+  if (!v || v === "0") return "";
+  return v;
+}
 
 function Fg({
   label,
@@ -165,12 +173,48 @@ export function ReservationUpdateForm(props: Props) {
         />
       </div>
       <Fg label="宿泊人数" name="guest_total" defaultValue={props.guestTotal} />
-      <Fg label="中学生以上男性" name="adult_male" defaultValue={props.adultMale} />
-      <Fg label="中学生以上女性" name="adult_female" defaultValue={props.adultFemale} />
-      <Fg label="小学生男" name="boy_student" defaultValue={props.boyStudent} />
-      <Fg label="小学生女" name="girl_student" defaultValue={props.girlStudent} />
-      <Fg label="3歳以上幼児" name="age_3plus" defaultValue={props.age3plus} />
-      <Fg label="3歳未満" name="under_3" defaultValue={props.under3} />
+      <FormSelectField
+        label="中学生以上男性"
+        name="adult_male"
+        options={GUEST_COUNT_OPTIONS}
+        defaultValue={guestCountSelectValue(props.adultMale)}
+        emptyLabel="0"
+      />
+      <FormSelectField
+        label="中学生以上女性"
+        name="adult_female"
+        options={GUEST_COUNT_OPTIONS}
+        defaultValue={guestCountSelectValue(props.adultFemale)}
+        emptyLabel="0"
+      />
+      <FormSelectField
+        label="小学生男"
+        name="boy_student"
+        options={GUEST_COUNT_OPTIONS}
+        defaultValue={guestCountSelectValue(props.boyStudent)}
+        emptyLabel="0"
+      />
+      <FormSelectField
+        label="小学生女"
+        name="girl_student"
+        options={GUEST_COUNT_OPTIONS}
+        defaultValue={guestCountSelectValue(props.girlStudent)}
+        emptyLabel="0"
+      />
+      <FormSelectField
+        label="3歳以上幼児"
+        name="age_3plus"
+        options={GUEST_COUNT_OPTIONS}
+        defaultValue={guestCountSelectValue(props.age3plus)}
+        emptyLabel="0"
+      />
+      <FormSelectField
+        label="3歳未満"
+        name="under_3"
+        options={GUEST_COUNT_OPTIONS}
+        defaultValue={guestCountSelectValue(props.under3)}
+        emptyLabel="0"
+      />
 
       <p className="form-section-label">交通・到着</p>
       <FormSelectField
