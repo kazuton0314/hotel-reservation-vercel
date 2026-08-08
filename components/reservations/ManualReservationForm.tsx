@@ -169,7 +169,7 @@ export function ManualReservationForm() {
             <Textarea id="ma-inquiry" name="inquiry" rows={3} />
           </div>
           <FormCheckboxGroup
-            label="旅行の目的"
+            label="旅行の目的（複数選択可）"
             name="travel_purpose"
             options={TRAVEL_PURPOSE_OPTIONS}
           />

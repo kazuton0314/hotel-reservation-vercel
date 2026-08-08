@@ -136,9 +136,8 @@ export async function createRoomAssignmentAction(
     stay_start: stayStart,
     stay_end: stayEnd,
     ...guestCounts,
-    display_memo: String(formData.get("display_memo") ?? "").trim() || null,
-    assignment_memo:
-      String(formData.get("assignment_memo") ?? "").trim() || null,
+    display_memo: null,
+    assignment_memo: null,
     is_archived: false,
     sheet_created_at: nowIso,
     sheet_updated_at: nowIso,
@@ -221,9 +220,6 @@ export async function updateRoomAssignmentAction(
       stay_start: stayStart,
       stay_end: stayEnd,
       ...guestCounts,
-      display_memo: String(formData.get("display_memo") ?? "").trim() || null,
-      assignment_memo:
-        String(formData.get("assignment_memo") ?? "").trim() || null,
       updated_at: nowIso,
       sheet_updated_at: nowIso,
     })

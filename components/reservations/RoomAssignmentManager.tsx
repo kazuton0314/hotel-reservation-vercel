@@ -32,7 +32,6 @@ type Assignment = {
   girl_student_count?: number | null;
   age_3plus_count?: number | null;
   under_3_count?: number | null;
-  display_memo: string | null;
 };
 
 type Props = {
@@ -237,10 +236,6 @@ export function RoomAssignmentManager({
             （下は、この部屋に泊まる人数内訳）
           </p>
           <RoomGuestFields defaults={guestDefaults} />
-          <div className="form-group">
-            <label htmlFor="ra-memo">表示メモ</label>
-            <Input id="ra-memo" name="display_memo" />
-          </div>
           {createState.ok === false ? (
             <p className="detail-hint" style={{ color: "#b91c1c" }}>
               {createState.message}
@@ -391,14 +386,6 @@ function EditAssignmentForm({
           （下は、この部屋に泊まる人数内訳）
         </p>
         <RoomGuestFields defaults={guestDefaults} />
-        <div className="form-group">
-          <label htmlFor="ra-edit-memo">表示メモ</label>
-          <Input
-            id="ra-edit-memo"
-            name="display_memo"
-            defaultValue={assignment.display_memo ?? ""}
-          />
-        </div>
         {state.ok === false ? (
           <p className="detail-hint" style={{ color: "#b91c1c" }}>
             {state.message}
