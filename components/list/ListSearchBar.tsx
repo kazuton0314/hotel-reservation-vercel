@@ -1,7 +1,6 @@
 "use client";
 
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { useListSearch } from "@/components/list/ListSearchProvider";
 
 type Props = {
@@ -14,17 +13,35 @@ export function ListSearchBar({ className }: Props) {
 
   return (
     <div className={`list-search-bar${className ? ` ${className}` : ""}`}>
-      <Input
-        type="text"
-        inputMode="search"
-        enterKeyHint="search"
-        className="list-search-keyword"
-        placeholder="名前・メール・電話・ID"
-        value={keyword}
-        autoComplete="off"
-        aria-label="キーワード検索"
-        onChange={(e) => setKeyword(e.target.value)}
-      />
+      <div
+        className={
+          hasFilter
+            ? "list-search-keyword-wrap list-search-keyword-wrap--clearable"
+            : "list-search-keyword-wrap"
+        }
+      >
+        <Input
+          type="text"
+          inputMode="search"
+          enterKeyHint="search"
+          className="list-search-keyword"
+          placeholder="名前・メール・電話・ID"
+          value={keyword}
+          autoComplete="off"
+          aria-label="キーワード検索"
+          onChange={(e) => setKeyword(e.target.value)}
+        />
+        {hasFilter ? (
+          <button
+            type="button"
+            className="list-search-clear"
+            aria-label="検索をクリア"
+            onClick={clearAll}
+          >
+            ×
+          </button>
+        ) : null}
+      </div>
       <Input
         type="date"
         className="list-search-date"
@@ -32,16 +49,6 @@ export function ListSearchBar({ className }: Props) {
         aria-label="チェックイン日"
         onChange={(e) => setCheckIn(e.target.value)}
       />
-      <Button
-        type="button"
-        variant="secondary"
-        className="list-search-clear"
-        disabled={!hasFilter}
-        aria-label="検索をクリア"
-        onClick={clearAll}
-      >
-        ×
-      </Button>
     </div>
   );
 }
