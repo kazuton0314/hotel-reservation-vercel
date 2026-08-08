@@ -63,8 +63,14 @@ export function TodayRoomsBoard({ rooms }: { rooms: TodayRoomBoardItem[] }) {
               room.events.map((ev) => {
                 const nightLbl = formatNightLabel(ev);
                 const meta = formatOccGuestMeta(ev);
-                const bbqLabel = formatBbqBadgeLabel(ev.bbq);
-                const channelLabel = formatChannelBadgeLabel(ev.channel);
+                // OUTのみは当日の運用バッジ不要（IN／滞在中だけ表示）
+                const isOutOnly = ev.isCheckout && !ev.isCheckin;
+                const bbqLabel = isOutOnly
+                  ? null
+                  : formatBbqBadgeLabel(ev.bbq);
+                const channelLabel = isOutOnly
+                  ? null
+                  : formatChannelBadgeLabel(ev.channel);
                 return (
                   <div
                     key={`${room.roomId}-${ev.reservationId}-${ev.isCheckin}-${ev.isCheckout}`}

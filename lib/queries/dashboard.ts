@@ -7,7 +7,10 @@ import {
   reservationHasActiveConfirmationTask,
 } from "@/lib/services/reservation-active-tasks";
 import { reservationNeedsCompanionInfo } from "@/lib/services/mail-pending";
-import { guestDisplayFieldsFromRoomAssignment } from "@/lib/services/room-occupancy";
+import {
+  guestDisplayFieldsFromRoomAssignment,
+  sortByCheckoutThenCheckin,
+} from "@/lib/services/room-occupancy";
 import {
   daysBetweenCalendarDates,
   formatDateLabel,
@@ -286,7 +289,7 @@ function buildTodayRoomsBoard(
     return {
       roomId: room.room_id,
       roomName: room.room_name,
-      events,
+      events: sortByCheckoutThenCheckin(events),
     };
   });
 }

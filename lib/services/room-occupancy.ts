@@ -283,9 +283,18 @@ function occGuestFieldsFromAssignment(
   return guestDisplayFieldsFromRoomAssignment(assignment, res);
 }
 
-export function sortOccCellEvents(events: OccEvent[]): OccEvent[] {
+type RoomTurnoverSortable = {
+  isCheckout?: boolean;
+  isCheckin?: boolean;
+  representativeName?: string | null;
+};
+
+/** OUT → 同日IN/OUT → IN → 滞在中。ホーム／予定日表示／部屋割ボード共通 */
+export function sortByCheckoutThenCheckin<T extends RoomTurnoverSortable>(
+  events: T[]
+): T[] {
   return events.slice().sort((a, b) => {
-    const rank = (ev: OccEvent) => {
+    const rank = (ev: RoomTurnoverSortable) => {
       if (ev.isCheckout && !ev.isCheckin) return 0;
       if (ev.isCheckin && ev.isCheckout) return 1;
       if (ev.isCheckin) return 2;
@@ -299,6 +308,10 @@ export function sortOccCellEvents(events: OccEvent[]): OccEvent[] {
       "ja"
     );
   });
+}
+
+export function sortOccCellEvents(events: OccEvent[]): OccEvent[] {
+  return sortByCheckoutThenCheckin(events);
 }
 
 /**

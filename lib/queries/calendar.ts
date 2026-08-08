@@ -12,7 +12,10 @@ import {
   type MonthCalendarView,
   type WeekCalendarView,
 } from "@/lib/services/calendar";
-import { guestDisplayFieldsFromRoomAssignment } from "@/lib/services/room-occupancy";
+import {
+  guestDisplayFieldsFromRoomAssignment,
+  sortByCheckoutThenCheckin,
+} from "@/lib/services/room-occupancy";
 import { businessToday, parseReservationDate, todayIso } from "@/lib/utils/date-label";
 import { includeArchivedForDateRange } from "@/lib/utils/list-scope";
 import type { TodayRoomBoardItem } from "@/lib/queries/dashboard";
@@ -137,7 +140,7 @@ function buildTodayRoomsFromDayData(
     return {
       roomId: room.room_id,
       roomName: room.room_name,
-      events,
+      events: sortByCheckoutThenCheckin(events),
     };
   });
 }
