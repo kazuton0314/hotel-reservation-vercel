@@ -357,8 +357,13 @@ export function isSharedRoomEvents(events: OccEvent[]): boolean {
   return overnightIds.size > 1;
 }
 
+/**
+ * 部屋割ボードの「未割当」列用。
+ * 部屋が1つでも付いている予約は出さない（人数不一致は一覧の部屋割フィルタ側）。
+ */
 function buildUnassignedOccEventsForDay(
   reservations: DbReservation[],
+  assignedReservationIds: Set<string>,
   dayMs: number,
   iso: string
 ): OccEvent[] {
@@ -367,7 +372,7 @@ function buildUnassignedOccEventsForDay(
     if (!ACTIVE_STATUSES.includes(r.status as (typeof ACTIVE_STATUSES)[number])) {
       continue;
     }
-    if (r.assignment_status !== "未割当") continue;
+    if (assignedReservationIds.has(r.reservation_id)) continue;
 
     const checkIn = parseReservationDate(r.check_in);
     const checkOut = parseReservationDate(r.check_out);
@@ -434,6 +439,7 @@ function computeRoomMonthGuestTotals(
 
 function computeUnassignedMonthGuestTotal(
   reservations: DbReservation[],
+  assignedReservationIds: Set<string>,
   year: number,
   month: number
 ): number {
@@ -445,7 +451,7 @@ function computeUnassignedMonthGuestTotal(
     if (!ACTIVE_STATUSES.includes(r.status as (typeof ACTIVE_STATUSES)[number])) {
       continue;
     }
-    if (r.assignment_status !== "未割当") continue;
+    if (assignedReservationIds.has(r.reservation_id)) continue;
     const checkIn = parseReservationDate(r.check_in);
     const checkOut = parseReservationDate(r.check_out);
     const startMs = checkIn ? stripTime(checkIn).getTime() : 0;
@@ -467,8 +473,10 @@ export function buildRoomOccupancyMonthView(
 ): RoomOccupancyMonthView {
   const reservationsById = new Map(reservations.map((r) => [r.reservation_id, r]));
   const assignmentsByRoomId = new Map<string, DbAssignment[]>();
+  const assignedReservationIds = new Set<string>();
   for (const a of assignments) {
     if (!a.room_id) continue;
+    assignedReservationIds.add(a.reservation_id);
     const list = assignmentsByRoomId.get(a.room_id) ?? [];
     list.push(a);
     assignmentsByRoomId.set(a.room_id, list);
@@ -490,6 +498,7 @@ export function buildRoomOccupancyMonthView(
 
     const unassignedEvents = buildUnassignedOccEventsForDay(
       reservations,
+      assignedReservationIds,
       dayMs,
       iso
     );
@@ -566,6 +575,7 @@ export function buildRoomOccupancyMonthView(
   );
   const unassignedGuestTotal = computeUnassignedMonthGuestTotal(
     reservations,
+    assignedReservationIds,
     year,
     month
   );

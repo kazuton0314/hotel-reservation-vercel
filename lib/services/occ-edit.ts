@@ -573,7 +573,7 @@ export function applyOccAddRoomLocally(
     const targetCell = day.cells.find((c) => c.roomId === toRoomId);
     if (!targetCell) continue;
 
-    // 2部屋目以降は人数 0 で追加（予約人数をまた入れると二重計上で未割当のまま残る）
+    // 2部屋目以降は人数 0 で追加（予約詳細の部屋割と同じ。二重計上を防ぐ）
     const copy: OccEvent = {
       ...source,
       roomAssignmentId: pendingId,

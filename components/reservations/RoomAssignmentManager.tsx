@@ -251,7 +251,7 @@ export function RoomAssignmentManager({
 
   function addRoom() {
     if (!nextRoom) return;
-    // 1部屋目だけ予約人数で初期入力。2部屋目以降は 0（二重計上で未割当のまま残るのを防ぐ）
+    // 1部屋目だけ予約人数で初期入力。2部屋目以降は 0（部屋割ボードと同じ）
     const defaults =
       rows.length === 0
         ? guestDefaultsFromSource(guestSource)
