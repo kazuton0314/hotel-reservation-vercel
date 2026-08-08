@@ -67,6 +67,7 @@ export type BatchRoomChangeForConflict =
       payload: {
         startDate: string;
         endDate: string;
+        roomId?: string;
       };
     }
   | {
@@ -193,6 +194,7 @@ export function hasOtherReservationConflictInFinalState(
       if (!row) continue;
       byId.set(ch.roomAssignmentId, {
         ...row,
+        room_id: ch.payload.roomId || row.room_id,
         stay_start: ch.payload.startDate,
         stay_end: ch.payload.endDate,
       });

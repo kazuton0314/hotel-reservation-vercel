@@ -332,12 +332,32 @@
   white-space: nowrap;
 }
 
+.room-assign-room-field {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0 !important;
+  display: block !important;
+}
+
+.room-assign-room-select,
+.room-manage-block .room-assign-room-select.ui-input {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  font-weight: 800;
+  font-size: 0.84rem;
+  padding: 4px 8px;
+  border-radius: 8px;
+  line-height: 1.3;
+}
+
 .room-assign-draft-sub {
   color: var(--muted);
   font-size: 0.72rem;
   font-weight: 600;
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
+  max-width: 45%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

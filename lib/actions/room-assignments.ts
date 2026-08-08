@@ -340,7 +340,10 @@ export type RoomAssignmentBatchChange =
       roomAssignmentId: string;
       reservationId: string;
       expectedUpdatedAt?: string | null;
-      payload: Omit<RoomAssignmentGuestPayload, "reservationId" | "roomId">;
+      payload: Omit<RoomAssignmentGuestPayload, "reservationId" | "roomId"> & {
+        /** 指定時は人数更新と同時に部屋も変更（move と分けて送ると updated_at 競合するため） */
+        roomId?: string;
+      };
     }
   | {
       type: "unassign";
@@ -373,6 +376,9 @@ async function loadBaselineForBatchConflict(
   for (const ch of changes) {
     if (ch.type === "move") roomIds.add(ch.toRoomId);
     if (ch.type === "assign") roomIds.add(ch.payload.roomId);
+    if (ch.type === "update" && ch.payload.roomId) {
+      roomIds.add(ch.payload.roomId);
+    }
   }
 
   const byId = new Map<string, BatchSimAssignment>();
@@ -577,17 +583,34 @@ export async function batchRoomAssignmentChangesAction(
       const p = ch.payload;
       const { data: existing, error: existingError } = await supabase
         .from("room_assignments")
-        .select("room_assignment_id, reservation_id, updated_at")
+        .select(
+          "room_assignment_id, reservation_id, room_id, room_name, updated_at"
+        )
         .eq("room_assignment_id", ch.roomAssignmentId)
         .maybeSingle();
 
       if (existingError) return { ok: false, message: existingError.message };
       if (!existing) return { ok: false, message: "部屋割りが見つかりません。" };
 
+      let nextRoomId = existing.room_id as string | null;
+      let nextRoomName = existing.room_name as string | null;
+      if (p.roomId && p.roomId !== existing.room_id) {
+        const { data: room } = await supabase
+          .from("rooms")
+          .select("room_id, room_name")
+          .eq("room_id", p.roomId)
+          .maybeSingle();
+        if (!room) return { ok: false, message: "部屋が見つかりません。" };
+        nextRoomId = room.room_id;
+        nextRoomName = room.room_name;
+      }
+
       const nowIso = new Date().toISOString();
       const { error } = await supabase
         .from("room_assignments")
         .update({
+          room_id: nextRoomId,
+          room_name: nextRoomName,
           stay_start: p.startDate,
           stay_end: p.endDate,
           assigned_guest_count: p.guestCount,

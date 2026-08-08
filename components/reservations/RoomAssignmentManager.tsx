@@ -275,6 +275,18 @@ export function RoomAssignmentManager({
     );
   }
 
+  function changeRoom(key: string, roomId: string) {
+    const room = sortedRooms.find((r) => r.room_id === roomId);
+    if (!room) return;
+    setRows((prev) =>
+      prev.map((r) =>
+        r.key === key
+          ? { ...r, roomId: room.room_id, roomName: room.room_name }
+          : r
+      )
+    );
+  }
+
   function buildChanges(): RoomAssignmentBatchChange[] {
     const changes: RoomAssignmentBatchChange[] = [];
     const baselineById = new Map(
@@ -330,6 +342,7 @@ export function RoomAssignmentManager({
       }
 
       const prev = baselineById.get(row.roomAssignmentId);
+      const roomChanged = Boolean(prev && prev.roomId !== row.roomId);
       const guestsChanged =
         !prev ||
         prev.male !== row.male ||
@@ -344,13 +357,16 @@ export function RoomAssignmentManager({
           (assignments.find((a) => a.room_assignment_id === row.roomAssignmentId)
             ?.stay_end ?? checkOut);
 
-      if (guestsChanged || datesChanged) {
+      if (guestsChanged || datesChanged || roomChanged) {
         changes.push({
           type: "update",
           roomAssignmentId: row.roomAssignmentId,
           reservationId,
           expectedUpdatedAt: row.expectedUpdatedAt,
-          payload: payloadBase,
+          payload: {
+            ...payloadBase,
+            ...(roomChanged ? { roomId: row.roomId } : {}),
+          },
         });
       }
     }
@@ -415,38 +431,58 @@ export function RoomAssignmentManager({
         <p className="empty room-assign-empty">未割当（＋で部屋を追加）</p>
       ) : (
         <div className="room-assign-draft-list">
-          {rows.map((row) => (
-            <div key={row.key} className="room-assign-draft-row">
-              <div className="room-assign-draft-head">
-                <span className="room-assign-draft-name">{row.roomName}</span>
-                <span className="room-assign-draft-sub">
-                  {formatGuestCompact(rowGuestSource(row))}人
-                </span>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  className="room-assign-remove-btn"
-                  aria-label={`${row.roomName}を外す`}
-                  onClick={() => removeRow(row.key)}
-                  disabled={pending}
-                >
-                  −
-                </Button>
+          {rows.map((row) => {
+            const roomChoices = sortedRooms.filter(
+              (r) => r.room_id === row.roomId || !assignedRoomIds.has(r.room_id)
+            );
+            return (
+              <div key={row.key} className="room-assign-draft-row">
+                <div className="room-assign-draft-head">
+                  <label className="room-assign-room-field">
+                    <span className="sr-only">部屋</span>
+                    <Select
+                      className="room-assign-room-select"
+                      value={row.roomId}
+                      disabled={pending}
+                      onChange={(e) => changeRoom(row.key, e.target.value)}
+                      aria-label="部屋を変更"
+                    >
+                      {roomChoices.map((r) => (
+                        <option key={r.room_id} value={r.room_id}>
+                          {r.room_name}
+                        </option>
+                      ))}
+                    </Select>
+                  </label>
+                  <span className="room-assign-draft-sub">
+                    {formatGuestCompact(rowGuestSource(row))}人
+                  </span>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="room-assign-remove-btn"
+                    aria-label={`${row.roomName}を外す`}
+                    onClick={() => removeRow(row.key)}
+                    disabled={pending}
+                  >
+                    −
+                  </Button>
+                </div>
+                <div className="room-guest-grid">
+                  {countFields.map(({ field, label }) => (
+                    <CountSelect
+                      key={field}
+                      id={`${row.key}-${field}`}
+                      label={label}
+                      value={row[field]}
+                      onChange={(v) => patchRow(row.key, field, v)}
+                    />
+                  ))}
+                </div>
               </div>
-              <div className="room-guest-grid">
-                {countFields.map(({ field, label }) => (
-                  <CountSelect
-                    key={field}
-                    id={`${row.key}-${field}`}
-                    label={label}
-                    value={row[field]}
-                    onChange={(v) => patchRow(row.key, field, v)}
-                  />
-                ))}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
