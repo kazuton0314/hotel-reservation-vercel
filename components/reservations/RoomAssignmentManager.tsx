@@ -251,18 +251,8 @@ export function RoomAssignmentManager({
 
   function addRoom() {
     if (!nextRoom) return;
-    // 1部屋目だけ予約人数で初期入力。2部屋目以降は 0（部屋割ボードと同じ）
-    const defaults =
-      rows.length === 0
-        ? guestDefaultsFromSource(guestSource)
-        : {
-            male: 0,
-            female: 0,
-            boy: 0,
-            girl: 0,
-            age3: 0,
-            under3: 0,
-          };
+    // 毎回予約人数フルで初期入力（敢えて人数未一致にし、振り分けを促す）
+    const defaults = guestDefaultsFromSource(guestSource);
     setRows((prev) => [
       ...prev,
       {

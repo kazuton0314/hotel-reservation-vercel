@@ -242,18 +242,10 @@ function assignmentBreakdownSum(assignment: RoomAssignmentGuestSource): number {
   );
 }
 
-function assignmentUnder3Sum(assignment: RoomAssignmentGuestSource): number {
-  return Number(assignment.under_3_count) || 0;
-}
-
-function assignmentHasRoomBreakdown(assignment: RoomAssignmentGuestSource): boolean {
-  // 0 埋めの内訳は「内訳なし」扱い（assigned_guest_count / 予約内訳へフォールバック）
-  return assignmentBreakdownSum(assignment) + assignmentUnder3Sum(assignment) > 0;
-}
-
 /**
- * 表示: 宿泊人数（予約合計）+ 部屋割ごとの人数内訳。
- * 例: 20~25人(男10) / 20~25人(女5)
+ * 表示: 宿泊人数（予約合計）+ その部屋の人数内訳。
+ * 例: 20~25(男10) / 20~25(女5)
+ * カッコ内は必ず部屋割側の人数。予約内訳へフォールバックしない。
  */
 export function guestDisplayFieldsFromRoomAssignment(
   assignment: RoomAssignmentGuestSource,
@@ -263,11 +255,6 @@ export function guestDisplayFieldsFromRoomAssignment(
     assignmentBreakdownSum(assignment) ||
     Number(assignment.assigned_guest_count) ||
     0;
-
-  if (!assignmentHasRoomBreakdown(assignment)) {
-    // 旧データなどで部屋内訳が無いときだけ予約内訳へフォールバック
-    return occGuestFieldsFromReservation(res, roomGuestCount || null);
-  }
 
   return {
     status: res?.status ?? "",

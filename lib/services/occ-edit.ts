@@ -573,20 +573,27 @@ export function applyOccAddRoomLocally(
     const targetCell = day.cells.find((c) => c.roomId === toRoomId);
     if (!targetCell) continue;
 
-    // 2部屋目以降は人数 0 で追加（予約詳細の部屋割と同じ。二重計上を防ぐ）
+    // 毎回予約人数フルで初期入力（予約詳細の部屋割と同じ。敢えて人数未一致にし振り分けを促す）
     const copy: OccEvent = {
       ...source,
       roomAssignmentId: pendingId,
       roomId: toRoomId,
       isUnassigned: false,
       isDraft: true,
-      adultMale: "0",
-      adultFemale: "0",
-      boyStudent: "0",
-      girlStudent: "0",
-      age3plus: "0",
-      under3: "0",
-      guestCount: 0,
+      adultMale: source.reservationAdultMale ?? source.adultMale,
+      adultFemale: source.reservationAdultFemale ?? source.adultFemale,
+      boyStudent: source.reservationBoyStudent ?? source.boyStudent,
+      girlStudent: source.reservationGirlStudent ?? source.girlStudent,
+      age3plus: source.reservationAge3plus ?? source.age3plus,
+      under3: source.reservationUnder3 ?? source.under3,
+      guestCount:
+        (Number(source.reservationAdultMale) || 0) +
+          (Number(source.reservationAdultFemale) || 0) +
+          (Number(source.reservationBoyStudent) || 0) +
+          (Number(source.reservationGirlStudent) || 0) +
+          (Number(source.reservationAge3plus) || 0) ||
+        Number(source.guestTotal) ||
+        source.guestCount,
     };
     targetCell.events = sortOccCellEvents([...(targetCell.events || []), copy]);
     markDraftEvents([copy]);

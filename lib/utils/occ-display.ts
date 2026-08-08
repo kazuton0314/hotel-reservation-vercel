@@ -54,8 +54,26 @@ export function formatChannelBadgeLabel(
   return null;
 }
 
-/** 部屋割カード: 宿泊人数（予約合計）+ その部屋の人数内訳 */
+/**
+ * 部屋割カード: 宿泊人数（予約合計）+ カッコ内はその部屋の人数内訳のみ。
+ * 内訳が無い（全部0/未設定）ときは合計のみ。予約内訳はカッコに出さない。
+ */
 export function formatOccGuestMeta(ev: OccGuestFields): string {
+  const roomBreakdownSum =
+    (Number(ev.adultMale) || 0) +
+    (Number(ev.adultFemale) || 0) +
+    (Number(ev.boyStudent) || 0) +
+    (Number(ev.girlStudent) || 0) +
+    (Number(ev.age3plus) || 0) +
+    (Number(ev.under3) || 0);
+
+  if (roomBreakdownSum <= 0) {
+    // 部屋内訳が無いときは予約合計（または部屋の guestCount）だけ
+    return formatGuestCompact({
+      guest_total: ev.guestTotal ?? (ev.guestCount ? String(ev.guestCount) : null),
+    });
+  }
+
   return formatGuestCompact({
     guest_total: ev.guestTotal,
     adult_male: ev.adultMale,
