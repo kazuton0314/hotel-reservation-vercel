@@ -2369,7 +2369,7 @@ body {
 }
 
 .list-filter-select,
-.form-group input,
+.form-group input:not([type="checkbox"]):not([type="radio"]),
 .form-group select,
 .form-group textarea {
   border-radius: 12px;
@@ -2708,7 +2708,7 @@ html[data-theme="dark"] .card-snippet-ops-memo .card-stay-label {
 }
 
 html[data-theme="dark"] .ui-input,
-html[data-theme="dark"] .form-group input,
+html[data-theme="dark"] .form-group input:not([type="checkbox"]):not([type="radio"]),
 html[data-theme="dark"] .form-group select,
 html[data-theme="dark"] .form-group textarea {
   background: #152820;
