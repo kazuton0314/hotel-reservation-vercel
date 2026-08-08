@@ -2793,6 +2793,11 @@ html[data-theme="dark"] .occ-nights {
   max-width: 100%;
 }
 
+.detail-block {
+  overflow-x: clip;
+  max-width: 100%;
+}
+
 .ui-input,
 .form-group input,
 .form-group select,
@@ -2814,9 +2819,11 @@ html[data-theme="dark"] .occ-nights {
 /* ネイティブ date の固有幅ではみ出すのを防ぐ */
 .form-group input[type="date"],
 input.ui-input[type="date"] {
+  display: block;
   width: 100%;
   max-width: 100%;
   min-width: 0;
+  overflow: hidden;
 }
 
 .ui-input:focus-visible,
