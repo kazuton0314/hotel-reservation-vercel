@@ -270,7 +270,7 @@ export function ReservationSetupBoard({ reservations, rooms }: Props) {
                 <th key={label}>{label}</th>
               ))}
               <th>支払</th>
-              <th>メモ</th>
+              <th>運用メモ</th>
             </tr>
           </thead>
           <tbody>

@@ -81,6 +81,7 @@ export type ReservationInsert = {
   payment_status: string | null;
   customer_id: string | null;
   internal_memo: string | null;
+  guest_memo: string | null;
   gcal_event_id: string | null;
   is_archived: boolean;
   sheet_created_at: string | null;
@@ -185,7 +186,11 @@ export function mapLedgerCsvRow(
     payment_method: asTextField(record["支払方法"]) || null,
     payment_status: asTextField(record["支払状況"]) || null,
     customer_id: asTextField(record["顧客ID"]) || null,
-    internal_memo: asTextField(record["内部メモ"]) || null,
+    internal_memo:
+      asTextField(record["運用メモ"]) ||
+      asTextField(record["内部メモ"]) ||
+      null,
+    guest_memo: asTextField(record["宿泊者メモ"]) || null,
     gcal_event_id: asTextField(record["GCalイベントID"]) || null,
     is_archived: isArchived,
     sheet_created_at: toTimestamp(record["作成日時"]),
@@ -319,6 +324,7 @@ export function mapStudioFormRow(
     payment_status: DEFAULTS.paymentStatus,
     customer_id: null,
     internal_memo: null,
+    guest_memo: null,
     gcal_event_id: null,
     is_archived: false,
     sheet_created_at: nowIso,

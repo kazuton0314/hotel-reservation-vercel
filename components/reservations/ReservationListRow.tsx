@@ -73,6 +73,7 @@ export function ReservationListRow({ item }: { item: ReservationListItem }) {
         vehicleCount={item.vehicle_count}
         inquiry={item.inquiry}
         internalMemo={item.internal_memo}
+        guestMemo={item.guest_memo}
       />
     </Link>
   );

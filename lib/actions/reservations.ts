@@ -178,6 +178,9 @@ export async function updateReservationAction(
     internal_memo: String(
       formData.get("internal_memo") ?? current.internal_memo ?? ""
     ),
+    guest_memo: String(
+      formData.get("guest_memo") ?? current.guest_memo ?? ""
+    ),
     payment_status: String(
       formData.get("payment_status") ?? current.payment_status ?? ""
     ),
@@ -500,6 +503,7 @@ export async function createManualReservationAction(
     payment_status: DEFAULTS.paymentStatus,
     customer_id: null,
     internal_memo: String(formData.get("internal_memo") ?? "").trim() || null,
+    guest_memo: String(formData.get("guest_memo") ?? "").trim() || null,
     gcal_event_id: null,
     is_archived: false,
     sheet_created_at: nowIso,

@@ -61,6 +61,7 @@ type Props = {
   referralOther: string | null;
   lastStay: string | null;
   internalMemo: string | null;
+  guestMemo: string | null;
   paymentStatus: string | null;
 };
 
@@ -280,12 +281,23 @@ export function ReservationUpdateForm(props: Props) {
 
       <p className="form-section-label">メモ</p>
       <div className="form-group">
-        <label htmlFor="f-memo">内部メモ</label>
+        <label htmlFor="f-memo">運用メモ</label>
         <Textarea
           id="f-memo"
           name="internal_memo"
           rows={3}
           defaultValue={props.internalMemo ?? ""}
+          placeholder="特別な事情・配慮が必要なケース"
+        />
+      </div>
+      <div className="form-group">
+        <label htmlFor="f-guest-memo">宿泊者メモ</label>
+        <Textarea
+          id="f-guest-memo"
+          name="guest_memo"
+          rows={3}
+          defaultValue={props.guestMemo ?? ""}
+          placeholder="当日知りえた情報"
         />
       </div>
 

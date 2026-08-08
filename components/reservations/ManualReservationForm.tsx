@@ -186,8 +186,22 @@ export function ManualReservationForm() {
         <div className="detail-block">
           <h3>運用</h3>
           <div className="form-group">
-            <label htmlFor="ma-memo">内部メモ</label>
-            <Textarea id="ma-memo" name="internal_memo" rows={3} />
+            <label htmlFor="ma-memo">運用メモ</label>
+            <Textarea
+              id="ma-memo"
+              name="internal_memo"
+              rows={3}
+              placeholder="特別な事情・配慮が必要なケース"
+            />
+          </div>
+          <div className="form-group">
+            <label htmlFor="ma-guest-memo">宿泊者メモ</label>
+            <Textarea
+              id="ma-guest-memo"
+              name="guest_memo"
+              rows={3}
+              placeholder="当日知りえた情報"
+            />
           </div>
           {state.ok === false ? (
             <p className="detail-hint" style={{ color: "#b91c1c" }}>

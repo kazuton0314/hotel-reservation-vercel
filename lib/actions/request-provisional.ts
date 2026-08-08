@@ -66,6 +66,7 @@ export async function buildProvisionalFromRequest(
     payment_status: DEFAULTS.paymentStatus,
     customer_id: null,
     internal_memo: null,
+    guest_memo: null,
     gcal_event_id: null,
     is_archived: false,
     sheet_created_at: nowIso,

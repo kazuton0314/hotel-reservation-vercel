@@ -202,7 +202,7 @@ export function RequestSetupBoard({ requests }: Props) {
               <th>人数</th>
               <th>ステータス</th>
               <th>返信</th>
-              <th>メモ</th>
+              <th>運用メモ</th>
             </tr>
           </thead>
           <tbody>

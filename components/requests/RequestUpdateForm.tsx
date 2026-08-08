@@ -91,12 +91,13 @@ export function RequestUpdateForm(props: Props) {
 
       <p className="form-section-label">メモ</p>
       <div className="form-group">
-        <label htmlFor="internal-memo">内部メモ</label>
+        <label htmlFor="internal-memo">運用メモ</label>
         <Textarea
           id="internal-memo"
           name="internal_memo"
           rows={4}
           defaultValue={props.internalMemo ?? ""}
+          placeholder="特別な事情・配慮が必要なケース"
         />
       </div>
 

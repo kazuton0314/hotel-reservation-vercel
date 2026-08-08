@@ -192,7 +192,10 @@ export function mapRequestCsvRow(
     inquiry: asTextField(record["お問い合わせ内容"]) || null,
     linked_reservation_id: asTextField(record["連携予約ID"]) || null,
     reject_reason: asTextField(record["却下理由"]) || null,
-    internal_memo: asTextField(record["内部メモ"]) || null,
+    internal_memo:
+      asTextField(record["運用メモ"]) ||
+      asTextField(record["内部メモ"]) ||
+      null,
     reply_email_sent: String(record["返信メール送付済"] ?? "").toUpperCase() === "TRUE",
     reply_email_sent_at: toTs(record["返信メール送付日時"]),
     is_archived: isArchived,
