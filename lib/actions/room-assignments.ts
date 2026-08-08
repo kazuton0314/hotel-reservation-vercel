@@ -28,6 +28,31 @@ function parseIntOrZero(value: FormDataEntryValue | null): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+/** 部屋割フォームの内訳から保存値を組み立て（合計人数欄は使わない） */
+function guestCountsFromAssignmentForm(formData: FormData) {
+  const male = parseIntOrZero(formData.get("male_count"));
+  const female = parseIntOrZero(formData.get("female_count"));
+  const boyStudent = parseIntOrZero(formData.get("boy_student_count"));
+  const girlStudent = parseIntOrZero(formData.get("girl_student_count"));
+  const age3plus = parseIntOrZero(formData.get("age_3plus_count"));
+  const under3 = parseIntOrZero(formData.get("under_3_count"));
+  const childCount = boyStudent + girlStudent + age3plus + under3;
+  const fromFormTotal = parseIntOrZero(formData.get("assigned_guest_count"));
+  const breakdownSum =
+    male + female + boyStudent + girlStudent + age3plus + under3;
+  const assignedGuestCount = breakdownSum > 0 ? breakdownSum : fromFormTotal;
+  return {
+    male_count: male,
+    female_count: female,
+    boy_student_count: boyStudent,
+    girl_student_count: girlStudent,
+    age_3plus_count: age3plus,
+    under_3_count: under3,
+    child_count: childCount,
+    assigned_guest_count: assignedGuestCount,
+  };
+}
+
 function revalidateReservationPaths(reservationId: string) {
   revalidateReservationDetail(reservationId);
   after(async () => {
@@ -101,14 +126,7 @@ export async function createRoomAssignmentAction(
 
   const roomAssignmentId = await nextRoomAssignmentId(supabase);
   const nowIso = new Date().toISOString();
-
-  const boyStudent = parseIntOrZero(formData.get("boy_student_count"));
-  const girlStudent = parseIntOrZero(formData.get("girl_student_count"));
-  const age3plus = parseIntOrZero(formData.get("age_3plus_count"));
-  const under3 = parseIntOrZero(formData.get("under_3_count"));
-  const childCount =
-    parseIntOrZero(formData.get("child_count")) ||
-    boyStudent + girlStudent + age3plus + under3;
+  const guestCounts = guestCountsFromAssignmentForm(formData);
 
   const { error } = await supabase.from("room_assignments").insert({
     room_assignment_id: roomAssignmentId,
@@ -117,14 +135,7 @@ export async function createRoomAssignmentAction(
     room_name: room.room_name,
     stay_start: stayStart,
     stay_end: stayEnd,
-    assigned_guest_count: parseIntOrZero(formData.get("assigned_guest_count")),
-    male_count: parseIntOrZero(formData.get("male_count")),
-    female_count: parseIntOrZero(formData.get("female_count")),
-    child_count: childCount,
-    boy_student_count: boyStudent,
-    girl_student_count: girlStudent,
-    age_3plus_count: age3plus,
-    under_3_count: under3,
+    ...guestCounts,
     display_memo: String(formData.get("display_memo") ?? "").trim() || null,
     assignment_memo:
       String(formData.get("assignment_memo") ?? "").trim() || null,
@@ -200,14 +211,7 @@ export async function updateRoomAssignmentAction(
     roomName = room.room_name;
   }
 
-  const boyStudent = parseIntOrZero(formData.get("boy_student_count"));
-  const girlStudent = parseIntOrZero(formData.get("girl_student_count"));
-  const age3plus = parseIntOrZero(formData.get("age_3plus_count"));
-  const under3 = parseIntOrZero(formData.get("under_3_count"));
-  const childCount =
-    parseIntOrZero(formData.get("child_count")) ||
-    boyStudent + girlStudent + age3plus + under3;
-
+  const guestCounts = guestCountsFromAssignmentForm(formData);
   const nowIso = new Date().toISOString();
   const { error } = await supabase
     .from("room_assignments")
@@ -216,16 +220,7 @@ export async function updateRoomAssignmentAction(
       room_name: roomName,
       stay_start: stayStart,
       stay_end: stayEnd,
-      assigned_guest_count: parseIntOrZero(
-        formData.get("assigned_guest_count")
-      ),
-      male_count: parseIntOrZero(formData.get("male_count")),
-      female_count: parseIntOrZero(formData.get("female_count")),
-      child_count: childCount,
-      boy_student_count: boyStudent,
-      girl_student_count: girlStudent,
-      age_3plus_count: age3plus,
-      under_3_count: under3,
+      ...guestCounts,
       display_memo: String(formData.get("display_memo") ?? "").trim() || null,
       assignment_memo:
         String(formData.get("assignment_memo") ?? "").trim() || null,
