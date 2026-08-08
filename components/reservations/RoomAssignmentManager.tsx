@@ -143,9 +143,20 @@ function CountSelect({
   );
 }
 
-function AssignmentStatusBadge({ status }: { status: string | null }) {
+function AssignmentStatusBadge({
+  status,
+  hasRooms,
+  remaining,
+}: {
+  status: string | null;
+  hasRooms: boolean;
+  remaining: number;
+}) {
   if (status === "割当済") {
     return <span className="badge badge-ok">部屋割当済</span>;
+  }
+  if (hasRooms && remaining !== 0) {
+    return <span className="badge badge-warn">人数未一致</span>;
   }
   return <span className="badge badge-warn">部屋未割当</span>;
 }
@@ -352,7 +363,11 @@ export function RoomAssignmentManager({
       <div className="kv">
         <div className="k">状態</div>
         <div className="v">
-          <AssignmentStatusBadge status={assignmentStatus} />
+          <AssignmentStatusBadge
+            status={assignmentStatus}
+            hasRooms={rows.length > 0}
+            remaining={remaining}
+          />
         </div>
       </div>
       <p

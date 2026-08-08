@@ -194,11 +194,11 @@ async function main() {
   let statusMismatch = 0;
   for (const r of allRes ?? []) {
     const n = assignCount.get(r.reservation_id) ?? 0;
-    const expected = n > 0 ? "割当済" : "未割当";
-    if (r.assignment_status !== expected) {
+    // 割当済は「部屋あり かつ 人数一致」。部屋0なのに割当済は明らかな不整合
+    if (r.assignment_status === "割当済" && n === 0) {
       statusMismatch++;
       console.log(
-        `${r.reservation_id} | ${r.representative_name} | status=${r.assignment_status} actual=${n} (${expected}) | CI ${r.check_in}`
+        `${r.reservation_id} | ${r.representative_name} | status=${r.assignment_status} actualRooms=${n} | CI ${r.check_in}`
       );
     }
   }
