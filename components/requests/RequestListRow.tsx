@@ -18,13 +18,13 @@ export function RequestListRow({ item }: { item: RequestListItem }) {
     >
       <div className="row-card-head">
         <p className="card-title list-card-title">{displayName}</p>
-      </div>
-      <div className="row-card-status-row">
-        <RequestListStatusActions
-          requestId={item.request_id}
-          status={item.status}
-          updatedAt={item.updated_at}
-        />
+        <div className="row-card-status-row">
+          <RequestListStatusActions
+            requestId={item.request_id}
+            status={item.status}
+            updatedAt={item.updated_at}
+          />
+        </div>
       </div>
       <p className="card-sub">
         {item.request_id} / {item.check_in ?? "—"}〜{item.check_out ?? "—"}

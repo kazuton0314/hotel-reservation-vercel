@@ -259,7 +259,7 @@ export function ReservationUpdateForm(props: Props) {
         />
       </div>
       <FormCheckboxGroup
-        label="旅行の目的"
+        label="旅行の目的（複数選択可）"
         name="travel_purpose"
         options={TRAVEL_PURPOSE_OPTIONS}
         defaultValue={props.travelPurpose}

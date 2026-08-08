@@ -295,8 +295,8 @@ body {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 14px;
-  padding: 14px;
-  margin-bottom: 10px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   color: inherit;
   text-decoration: none;
@@ -304,7 +304,7 @@ body {
 .card-title {
   font-size: 1rem;
   font-weight: 800;
-  margin: 0 0 6px;
+  margin: 0;
 }
 .list-card-title {
   text-decoration: underline;
@@ -312,14 +312,24 @@ body {
   min-width: 0;
   overflow-wrap: anywhere;
   word-break: keep-all;
-  line-height: 1.35;
+  line-height: 1.25;
 }
 .row-card-head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
+  margin-bottom: 4px;
+}
+.row-card-head .card-title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.row-card-head .row-card-status-row,
+.row-card-head .row-card-badges {
+  flex: 0 0 auto;
+  margin: 0;
 }
 .row-card-badges {
   display: inline-flex;
@@ -363,7 +373,11 @@ body {
 .card-sub {
   font-size: 0.78rem;
   color: var(--muted);
-  margin-bottom: 8px;
+  margin: 0 0 4px;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .card-row {
   font-size: 0.78rem;
@@ -379,14 +393,11 @@ body {
 .card-stay-details {
   margin: 2px 0 0;
 }
-.card-stay-facts,
-.card-snippet {
+.card-stay-facts {
   margin: 0;
   font-size: 0.72rem;
-  line-height: 1.35;
+  line-height: 1.25;
   color: var(--muted);
-}
-.card-stay-facts {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
@@ -394,6 +405,9 @@ body {
 }
 .card-stay-fact {
   white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .card-stay-label {
   font-weight: 700;
@@ -404,11 +418,14 @@ body {
   margin: 0 5px;
   opacity: 0.4;
 }
-.card-snippet {
-  margin-top: 2px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.card-stay-fact-ops-memo,
+.card-stay-fact-ops-memo .card-stay-label {
+  color: #dc2626;
+  font-weight: 700;
+}
+html[data-theme="dark"] .card-stay-fact-ops-memo,
+html[data-theme="dark"] .card-stay-fact-ops-memo .card-stay-label {
+  color: #f87171;
 }
 .mail-status-line {
   margin: 0 0 8px;
@@ -439,9 +456,14 @@ body {
 }
 .status-groups.compact {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 4px;
-  margin: -1px 0 7px;
+  margin: 0 0 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.status-groups.compact::-webkit-scrollbar {
+  display: none;
 }
 .status-group {
   display: flex;
@@ -2256,14 +2278,14 @@ body {
 }
 
 .card {
-  padding: 12px;
+  padding: 10px 12px;
 }
 
 .row-card-head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
 }
 
 .row-card-badges {

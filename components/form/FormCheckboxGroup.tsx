@@ -10,7 +10,8 @@ type Props = {
   name: string;
   options: readonly string[];
   defaultValue?: string | null;
-  hint?: string;
+  /** 省略時はラベル末尾に（複数選択可）を付けない。明示したい場合は label に含める */
+  hint?: string | null;
 };
 
 export function FormCheckboxGroup({
@@ -18,16 +19,16 @@ export function FormCheckboxGroup({
   name,
   options,
   defaultValue,
-  hint = "複数選択可",
+  hint = null,
 }: Props) {
   const selected = new Set(parseMultiSelectValues(defaultValue));
   const merged = optionsWithCurrentValues(options, defaultValue);
 
   return (
-    <div className="form-group">
+    <div className="form-group form-group-checkbox">
       <span className="form-group-heading">{label}</span>
-      {hint ? <p className="detail-hint" style={{ marginBottom: 6 }}>{hint}</p> : null}
-      <div className="form-checkbox-group">
+      {hint ? <p className="detail-hint form-checkbox-hint">{hint}</p> : null}
+      <div className="form-checkbox-group" role="group" aria-label={label}>
         {merged.map((opt) => (
           <label key={opt} className="form-checkbox-item">
             <input
@@ -36,7 +37,7 @@ export function FormCheckboxGroup({
               value={opt}
               defaultChecked={selected.has(opt)}
             />
-            {opt}
+            <span>{opt}</span>
           </label>
         ))}
       </div>
