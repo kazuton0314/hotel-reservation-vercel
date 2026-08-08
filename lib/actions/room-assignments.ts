@@ -306,6 +306,21 @@ export type BatchRoomAssignmentResult =
     }
   | { ok: false; message: string; needsConfirm?: boolean };
 
+export type RoomAssignmentGuestPayload = {
+  reservationId: string;
+  roomId: string;
+  startDate: string;
+  endDate: string;
+  guestCount: number;
+  maleCount: number;
+  femaleCount: number;
+  boyStudent: number;
+  girlStudent: number;
+  age3plus: number;
+  under3: number;
+  childCount: number;
+};
+
 export type RoomAssignmentBatchChange =
   | {
       type: "move";
@@ -317,20 +332,14 @@ export type RoomAssignmentBatchChange =
   | {
       type: "assign";
       reservationId: string;
-      payload: {
-        reservationId: string;
-        roomId: string;
-        startDate: string;
-        endDate: string;
-        guestCount: number;
-        maleCount: number;
-        femaleCount: number;
-        boyStudent: number;
-        girlStudent: number;
-        age3plus: number;
-        under3: number;
-        childCount: number;
-      };
+      payload: RoomAssignmentGuestPayload;
+    }
+  | {
+      type: "update";
+      roomAssignmentId: string;
+      reservationId: string;
+      expectedUpdatedAt?: string | null;
+      payload: Omit<RoomAssignmentGuestPayload, "reservationId" | "roomId">;
     }
   | {
       type: "unassign";
@@ -347,8 +356,13 @@ async function loadBaselineForBatchConflict(
     ...new Set(
       changes
         .filter(
-          (ch): ch is Extract<RoomAssignmentBatchChange, { type: "move" | "unassign" }> =>
-            ch.type === "move" || ch.type === "unassign"
+          (
+            ch
+          ): ch is Extract<
+            RoomAssignmentBatchChange,
+            { type: "move" | "unassign" | "update" }
+          > =>
+            ch.type === "move" || ch.type === "unassign" || ch.type === "update"
         )
         .map((ch) => ch.roomAssignmentId)
     ),
@@ -556,6 +570,46 @@ export async function batchRoomAssignmentChangesAction(
       });
 
       if (error) return { ok: false, message: error.message };
+      affected.add(ch.reservationId);
+      applied++;
+    } else if (ch.type === "update") {
+      const p = ch.payload;
+      const { data: existing, error: existingError } = await supabase
+        .from("room_assignments")
+        .select("room_assignment_id, reservation_id, updated_at")
+        .eq("room_assignment_id", ch.roomAssignmentId)
+        .maybeSingle();
+
+      if (existingError) return { ok: false, message: existingError.message };
+      if (!existing) return { ok: false, message: "部屋割りが見つかりません。" };
+
+      const nowIso = new Date().toISOString();
+      const { error } = await supabase
+        .from("room_assignments")
+        .update({
+          stay_start: p.startDate,
+          stay_end: p.endDate,
+          assigned_guest_count: p.guestCount,
+          male_count: p.maleCount,
+          female_count: p.femaleCount,
+          child_count: p.childCount,
+          boy_student_count: p.boyStudent,
+          girl_student_count: p.girlStudent,
+          age_3plus_count: p.age3plus,
+          under_3_count: p.under3,
+          updated_at: nowIso,
+          sheet_updated_at: nowIso,
+        })
+        .eq("room_assignment_id", ch.roomAssignmentId)
+        .eq("updated_at", ch.expectedUpdatedAt ?? existing.updated_at ?? "");
+
+      if (error) return { ok: false, message: error.message };
+      const { data: updatedRow } = await supabase
+        .from("room_assignments")
+        .select("room_assignment_id")
+        .eq("room_assignment_id", ch.roomAssignmentId)
+        .maybeSingle();
+      if (!updatedRow) return { ok: false, message: CONFLICT_MESSAGE };
       affected.add(ch.reservationId);
       applied++;
     } else if (ch.type === "unassign") {

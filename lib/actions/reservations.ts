@@ -29,6 +29,7 @@ import { generateAccessKey } from "@/lib/utils/access-key";
 import { updateRowWithLock } from "@/lib/utils/optimistic-lock";
 import { syncReservationToGCal } from "@/lib/services/gcal-sync";
 import { syncRoomAssignmentGuestBreakdown } from "@/lib/services/room-assignment-guest-sync";
+import { syncAssignmentStayDates } from "@/lib/services/room-assignment-stay-sync";
 import {
   clearRoomAssignmentsForReservation,
   shouldClearRoomAssignmentsOnStatus,
@@ -216,6 +217,25 @@ export async function updateReservationAction(
     !shouldClearRoomAssignmentsOnStatus(prevStatus)
   ) {
     await clearRoomAssignmentsForReservation(supabase, reservationId);
+  }
+
+  const nextCheckIn = String(payload.check_in ?? current.check_in ?? "");
+  const nextCheckOut = String(payload.check_out ?? current.check_out ?? "");
+  const datesChanged =
+    nextCheckIn !== String(current.check_in ?? "") ||
+    nextCheckOut !== String(current.check_out ?? "");
+  if (
+    datesChanged &&
+    nextCheckIn &&
+    nextCheckOut &&
+    !shouldClearRoomAssignmentsOnStatus(nextStatus)
+  ) {
+    await syncAssignmentStayDates(
+      supabase,
+      reservationId,
+      nextCheckIn,
+      nextCheckOut
+    );
   }
 
   const guestTouched =
