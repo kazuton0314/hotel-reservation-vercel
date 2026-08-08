@@ -768,9 +768,17 @@
   padding-right: 2rem;
 }
 
+.list-search-date-wrap {
+  flex: 0 1 11.5rem;
+  width: 11.5rem;
+  max-width: 100%;
+  min-width: 0;
+}
+
 .list-search-date {
-  flex: 0 0 auto;
-  width: auto;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .list-search-clear {
@@ -825,9 +833,16 @@
 
 .list-inline-status {
   display: inline-flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 4px;
   align-items: center;
+  min-width: 0;
+}
+
+.list-inline-status .badge,
+.list-inline-status-btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .list-inline-status-btn {
@@ -1659,12 +1674,19 @@
 
   .list-search-bar {
     display: grid;
-    grid-template-columns: 1fr auto;
-    align-items: center;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
   }
 
-  .list-search-keyword-wrap {
-    grid-column: 1 / -1;
+  .list-search-keyword-wrap,
+  .list-search-date-wrap {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .list-search-date-wrap {
+    flex: none;
   }
 
   .row-card-head {
@@ -1680,20 +1702,22 @@
 
   .row-card-status-row {
     width: auto;
-    max-width: 58%;
+    max-width: min(58%, 12.5rem);
+    overflow: visible;
   }
 
   .row-card-head .list-inline-status {
     width: auto;
+    max-width: 100%;
     flex-wrap: nowrap;
     justify-content: flex-end;
-    gap: 4px;
+    gap: 3px;
   }
 
   .list-inline-status-btn {
-    min-height: 26px !important;
-    padding: 2px 8px !important;
-    font-size: 0.68rem !important;
+    min-height: 24px !important;
+    padding: 2px 7px !important;
+    font-size: 0.66rem !important;
   }
 
   .stats-overview,

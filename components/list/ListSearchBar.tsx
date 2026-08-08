@@ -42,13 +42,15 @@ export function ListSearchBar({ className }: Props) {
           </button>
         ) : null}
       </div>
-      <Input
-        type="date"
-        className="list-search-date"
-        value={checkIn}
-        aria-label="チェックイン日"
-        onChange={(e) => setCheckIn(e.target.value)}
-      />
+      <div className="list-search-date-wrap date-field-shell">
+        <Input
+          type="date"
+          className="list-search-date date-field-input"
+          value={checkIn}
+          aria-label="チェックイン日"
+          onChange={(e) => setCheckIn(e.target.value)}
+        />
+      </div>
     </div>
   );
 }
