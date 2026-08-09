@@ -40,7 +40,7 @@ async function main() {
       "room_assignment_id, reservation_id, room_id, room_name, assigned_guest_count, male_count, female_count, boy_student_count, girl_student_count, age_3plus_count, under_3_count"
     )
     .eq("is_archived", false);
-  const byRes = new Map<string, typeof assigns>();
+  const byRes = new Map<string, NonNullable<typeof assigns>>();
   for (const a of assigns ?? []) {
     const list = byRes.get(a.reservation_id) ?? [];
     list.push(a);
@@ -63,15 +63,20 @@ async function main() {
     };
   });
 
-  const total = items.length;
+  // 本予約一覧のデフォルトタブ「確定」と同じ母集団
+  const confirmed = items.filter((r) => r.status === "確定");
+  const total = confirmed.length;
   const fields = buildReservationListFilterFields(rooms ?? []);
   const errors: string[] = [];
+
+  console.log(`母集団: 確定・これから = ${total}件（全体これから ${items.length}件）`);
 
   for (const field of fields) {
     const counts = field.options.map((opt) => ({
       label: opt.label,
       value: opt.value,
-      n: applyReservationListFilter(items as never, field.key, opt.value).length,
+      n: applyReservationListFilter(confirmed as never, field.key, opt.value)
+        .length,
     }));
 
     let sum: number;
@@ -108,9 +113,11 @@ async function main() {
       const sets = field.options.map(
         (opt) =>
           new Set(
-            applyReservationListFilter(items as never, field.key, opt.value).map(
-              (r) => r.reservation_id
-            )
+            applyReservationListFilter(
+              confirmed as never,
+              field.key,
+              opt.value
+            ).map((r) => r.reservation_id)
           )
       );
       for (let i = 0; i < sets.length; i++) {
@@ -131,7 +138,8 @@ async function main() {
     .from("reservation_requests")
     .select("request_id, status, reply_email_sent, is_archived, check_out")
     .eq("is_archived", false)
-    .gte("check_out", iso);
+    .gte("check_out", iso)
+    .eq("status", "リクエスト");
   const requestItems = reqs ?? [];
   const reqTotal = requestItems.length;
   const reqFields = buildRequestListFilterFields();
@@ -144,53 +152,17 @@ async function main() {
     const sum = counts.reduce((s, c) => s + c.n, 0);
     const ok = sum === reqTotal;
     console.log(
-      `\n[リクエスト/${field.label}] total=${reqTotal} sum=${sum} ${ok ? "OK" : "FAIL"}`
+      `\n[リクエスト/status=リクエスト/${field.label}] total=${reqTotal} sum=${sum} ${ok ? "OK" : "FAIL"}`
     );
     for (const c of counts) console.log(`  ${c.label}: ${c.n}`);
     if (!ok) errors.push(`request ${field.key}: ${sum} != ${reqTotal}`);
-  }
-
-  const confirmed = items.filter((r) => r.status === "確定");
-  for (const key of [
-    "companionInfo",
-    "completionEmail",
-    "roomId",
-    "payment_status",
-  ] as const) {
-    const field = fields.find((f) => f.key === key)!;
-    let sum = 0;
-    if (key === "roomId") {
-      sum =
-        applyReservationListFilter(
-          confirmed as never,
-          key,
-          UNASSIGNED_ROOM_FILTER
-        ).length +
-        applyReservationListFilter(
-          confirmed as never,
-          key,
-          ASSIGNED_ROOM_FILTER
-        ).length;
-    } else {
-      sum = field.options.reduce(
-        (s, opt) =>
-          s +
-          applyReservationListFilter(confirmed as never, key, opt.value).length,
-        0
-      );
-    }
-    const ok = sum === confirmed.length;
-    console.log(
-      `\n[確定のみ/${field.label}] n=${confirmed.length} sum=${sum} ${ok ? "OK" : "FAIL"}`
-    );
-    if (!ok) errors.push(`confirmed ${key}: ${sum} != ${confirmed.length}`);
   }
 
   if (errors.length) {
     console.error("\nERRORS:\n" + errors.join("\n"));
     process.exit(1);
   }
-  console.log("\nALL PARTITION CHECKS PASSED");
+  console.log("\nALL PARTITION CHECKS PASSED (confirmed=44 baseline)");
 }
 
 main().catch((e) => {

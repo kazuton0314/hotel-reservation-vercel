@@ -8,7 +8,6 @@ import {
 import { CONTACT_LABELS } from "@/lib/config/contact-confirm-labels";
 import {
   ASSIGNED_ROOM_FILTER,
-  withOtherOption,
   withUnsetOption,
 } from "@/lib/list/filter-partition";
 import { UNASSIGNED_ROOM_FILTER } from "@/lib/services/reservation-list-filter";
@@ -16,9 +15,7 @@ import { UNASSIGNED_ROOM_FILTER } from "@/lib/services/reservation-list-filter";
 type RoomOption = { room_id: string; room_name: string };
 
 function eqFieldOptions(values: readonly string[]) {
-  return withOtherOption(
-    withUnsetOption(values.map((value) => ({ value, label: value })))
-  );
+  return withUnsetOption(values.map((value) => ({ value, label: value })));
 }
 
 /** 本予約一覧・一覧設定で共通の絞り込み定義 */
@@ -89,7 +86,6 @@ export function buildReservationListFilterFields(
           value: CONTACT_LABELS.filterDone,
           label: CONTACT_LABELS.filterDone,
         },
-        { value: "対象外", label: "対象外（確定以外）" },
       ],
     },
   ];
