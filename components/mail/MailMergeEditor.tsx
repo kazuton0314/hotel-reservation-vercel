@@ -14,6 +14,7 @@ import {
 } from "react";
 import {
   insertMergeChip,
+  insertNewlineAtSelection,
   mergeTextToHtml,
   normalizeMergeText,
   placeCaretAtPoint,
@@ -102,7 +103,7 @@ export const MailMergeEditor = forwardRef<MailMergeEditorHandle, Props>(
 
       if (e.key === "Enter" && multiline) {
         e.preventDefault();
-        document.execCommand("insertHTML", false, "<br>");
+        insertNewlineAtSelection(el);
         emitChange();
         return;
       }
@@ -112,7 +113,44 @@ export const MailMergeEditor = forwardRef<MailMergeEditorHandle, Props>(
       const sel = window.getSelection();
       if (!sel?.rangeCount) return;
       const range = sel.getRangeAt(0);
-      if (!range.collapsed || !el.contains(range.commonAncestorContainer)) return;
+      if (!el.contains(range.commonAncestorContainer)) return;
+
+      // 選択範囲にチップが含まれる場合はまとめて除去
+      if (!range.collapsed) {
+        const chips = el.querySelectorAll(".mail-merge-chip");
+        let hit = false;
+        chips.forEach((chip) => {
+          if (range.intersectsNode(chip)) {
+            hit = true;
+          }
+        });
+        if (hit) {
+          e.preventDefault();
+          range.deleteContents();
+          // 消し残ったアンカーを掃除
+          Array.from(el.childNodes).forEach((node) => {
+            if (
+              node.nodeType === Node.TEXT_NODE &&
+              node.textContent &&
+              /^[\u200B]+$/.test(node.textContent)
+            ) {
+              // 隣接チップが無い孤立アンカーのみ除去
+              const prev = node.previousSibling;
+              const next = node.nextSibling;
+              const nearChip =
+                (prev instanceof HTMLElement &&
+                  prev.classList.contains("mail-merge-chip")) ||
+                (next instanceof HTMLElement &&
+                  next.classList.contains("mail-merge-chip"));
+              if (!nearChip) node.parentNode?.removeChild(node);
+            }
+          });
+          emitChange();
+          return;
+        }
+      }
+
+      if (!range.collapsed) return;
 
       const removed = removeAdjacentMergeChip(
         el,
