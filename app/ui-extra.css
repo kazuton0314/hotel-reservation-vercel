@@ -462,9 +462,18 @@
 }
 
 .mail-placeholder-bar {
+  position: sticky;
+  top: 0;
+  z-index: 6;
   margin: 8px 0 12px;
   width: 100%;
   min-width: 0;
+  padding: 8px 10px;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card, #fff);
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--border) 70%, transparent);
 }
 
 .mail-placeholder-label {
