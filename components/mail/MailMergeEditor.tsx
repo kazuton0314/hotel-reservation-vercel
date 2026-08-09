@@ -15,6 +15,7 @@ import {
 import {
   insertMergeChip,
   insertNewlineAtSelection,
+  insertPlainTextAtSelection,
   mergeTextToHtml,
   normalizeMergeText,
   placeCaretAtPoint,
@@ -180,17 +181,10 @@ export const MailMergeEditor = forwardRef<MailMergeEditorHandle, Props>(
 
     const handlePaste = (e: ClipboardEvent<HTMLDivElement>) => {
       e.preventDefault();
+      const el = rootRef.current;
+      if (!el) return;
       const text = e.clipboardData.getData("text/plain");
-      if (document.queryCommandSupported("insertText")) {
-        document.execCommand("insertText", false, text);
-      } else {
-        const sel = window.getSelection();
-        if (sel?.rangeCount) {
-          const range = sel.getRangeAt(0);
-          range.deleteContents();
-          range.insertNode(document.createTextNode(text));
-        }
-      }
+      insertPlainTextAtSelection(el, text);
       emitChange();
     };
 

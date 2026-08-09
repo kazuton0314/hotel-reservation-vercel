@@ -38,7 +38,7 @@ function chipHtml(key: string): string {
 
 /**
  * プレーンテキスト（⟦chip⟧ + 改行）→ エディタ HTML。
- * white-space:pre-wrap 前提で改行は <br> ではなく実改行を使う。
+ * 改行は必ず <br> に変換する（テキスト中の実改行とブロック境界の二重化を防ぐ）。
  */
 export function mergeTextToHtml(text: string): string {
   const normalized = normalizeMergeText(text);
@@ -49,8 +49,7 @@ export function mergeTextToHtml(text: string): string {
     .map((part) => {
       const m = part.match(/^⟦([^⟧]+)⟧$/);
       if (m) return chipHtml(m[1] ?? "");
-      // escapeHtml は \n を保持する
-      return escapeHtml(part);
+      return escapeHtml(part).replace(/\r\n?|\n/g, "<br>");
     })
     .join("");
 }
@@ -98,10 +97,19 @@ function isEmptyBlock(el: HTMLElement): boolean {
   return kids.length === 1 && isBrNode(kids[0]!);
 }
 
+function plainTextFromDomText(
+  text: string,
+  options: { collapseNewlines: boolean }
+): string {
+  const stripped = stripAnchors(text).replace(/\r\n?/g, "\n");
+  // ブロック行モデルではテキスト内の \n は無視（行区切りは div/br が担う）
+  return options.collapseNewlines ? stripped.replace(/\n/g, "") : stripped;
+}
+
 /** インラインノード列を文字列化（チップ・テキスト・soft <br>） */
 function serializeInlineNodes(
   nodes: Node[],
-  options: { stripTrailingPaddingBr: boolean }
+  options: { stripTrailingPaddingBr: boolean; collapseTextNewlines: boolean }
 ): string {
   let list = nodes;
   if (
@@ -112,7 +120,13 @@ function serializeInlineNodes(
     const without = list.slice(0, -1);
     const hasVisible = without.some((n) => {
       if (isBrNode(n) || isMergeChip(n)) return true;
-      if (isTextNode(n)) return stripAnchors(n.textContent ?? "").length > 0;
+      if (isTextNode(n)) {
+        return (
+          plainTextFromDomText(n.textContent ?? "", {
+            collapseNewlines: options.collapseTextNewlines,
+          }).length > 0
+        );
+      }
       return isElementNode(n);
     });
     if (hasVisible) list = without;
@@ -121,7 +135,9 @@ function serializeInlineNodes(
   let out = "";
   for (const node of list) {
     if (isTextNode(node)) {
-      out += stripAnchors(node.textContent ?? "");
+      out += plainTextFromDomText(node.textContent ?? "", {
+        collapseNewlines: options.collapseTextNewlines,
+      });
       continue;
     }
     if (!isElementNode(node)) continue;
@@ -143,11 +159,13 @@ function serializeInlineNodes(
       if (out && !out.endsWith("\n")) out += "\n";
       out += serializeInlineNodes(Array.from(node.childNodes), {
         stripTrailingPaddingBr: true,
+        collapseTextNewlines: true,
       });
       continue;
     }
     out += serializeInlineNodes(Array.from(node.childNodes), {
       stripTrailingPaddingBr: false,
+      collapseTextNewlines: options.collapseTextNewlines,
     });
   }
   return out;
@@ -174,7 +192,11 @@ export function serializeMergeEditor(root: HTMLElement): string {
   let out = "";
 
   if (!usesBlocks) {
-    out = serializeInlineNodes(top, { stripTrailingPaddingBr: false });
+    // フラット構造: <br> とテキスト内 \n の両方を改行として読む（貼付け対策）
+    out = serializeInlineNodes(top, {
+      stripTrailingPaddingBr: false,
+      collapseTextNewlines: false,
+    });
   } else {
     const lines: string[] = [];
     for (const child of top) {
@@ -183,8 +205,10 @@ export function serializeMergeEditor(root: HTMLElement): string {
           lines.push("");
           continue;
         }
+        // ブロック内のテキスト \n は落とす（Chrome が行分割したあと残ると二重になる）
         const piece = serializeInlineNodes(Array.from(child.childNodes), {
           stripTrailingPaddingBr: true,
+          collapseTextNewlines: true,
         });
         const parts = piece.split("\n");
         lines.push(...parts);
@@ -199,6 +223,7 @@ export function serializeMergeEditor(root: HTMLElement): string {
       if (isTextNode(child) || isElementNode(child)) {
         const piece = serializeInlineNodes([child], {
           stripTrailingPaddingBr: false,
+          collapseTextNewlines: true,
         });
         if (lines.length === 0) {
           lines.push(...piece.split("\n"));
@@ -439,8 +464,8 @@ export function insertMergeChip(
 }
 
 /**
- * Enter 用: キャレット位置に実改行を挿入（pre-wrap 前提）。
- * execCommand に頼らず Range で入れる。
+ * Enter 用: キャレット位置に <br> を挿入。
+ * テキストノードに実改行を入れると、Chrome の div 行分割と二重化する。
  */
 export function insertNewlineAtSelection(root: HTMLElement): boolean {
   const sel = window.getSelection();
@@ -449,11 +474,42 @@ export function insertNewlineAtSelection(root: HTMLElement): boolean {
   if (!root.contains(range.commonAncestorContainer)) return false;
 
   range.deleteContents();
-  const text = root.ownerDocument.createTextNode("\n");
-  range.insertNode(text);
+  const br = root.ownerDocument.createElement("br");
+  range.insertNode(br);
 
   const next = root.ownerDocument.createRange();
-  next.setStartAfter(text);
+  next.setStartAfter(br);
+  next.collapse(true);
+  sel.removeAllRanges();
+  sel.addRange(next);
+  return true;
+}
+
+/** プレーンテキスト貼付け（改行は <br>、HTML は持たない） */
+export function insertPlainTextAtSelection(
+  root: HTMLElement,
+  text: string
+): boolean {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return false;
+  const range = sel.getRangeAt(0);
+  if (!root.contains(range.commonAncestorContainer)) return false;
+
+  range.deleteContents();
+  const doc = root.ownerDocument;
+  const frag = doc.createDocumentFragment();
+  const normalized = String(text ?? "").replace(/\r\n?/g, "\n");
+  const parts = normalized.split("\n");
+  parts.forEach((part, index) => {
+    if (part) frag.appendChild(doc.createTextNode(part));
+    if (index < parts.length - 1) frag.appendChild(doc.createElement("br"));
+  });
+
+  const last = frag.lastChild;
+  range.insertNode(frag);
+  const next = doc.createRange();
+  if (last) next.setStartAfter(last);
+  else next.setStart(range.startContainer, range.startOffset);
   next.collapse(true);
   sel.removeAllRanges();
   sel.addRange(next);
