@@ -41,58 +41,137 @@ export function mergeTextToHtml(text: string): string {
     .join("");
 }
 
+const DOM_ELEMENT_NODE = 1;
+const DOM_TEXT_NODE = 3;
+
+function isElementNode(node: Node): node is HTMLElement {
+  return node.nodeType === DOM_ELEMENT_NODE;
+}
+
+function isBrNode(node: Node): boolean {
+  return isElementNode(node) && node.tagName === "BR";
+}
+
+function isBlockNode(node: Node): boolean {
+  return isElementNode(node) && (node.tagName === "DIV" || node.tagName === "P");
+}
+
+function isEmptyBlock(el: HTMLElement): boolean {
+  const kids = el.childNodes;
+  if (kids.length === 0) return true;
+  return kids.length === 1 && isBrNode(kids[0]!);
+}
+
+/**
+ * contenteditable の DOM をプレーンテキストへ戻す。
+ *
+ * Chrome は行を <div> で包み、空行を <div><br></div>、非空ブロック末尾に
+ * キャレット用の <br> を付けることがある。ブロック境界と <br> を二重に数えると
+ * 保存のたびに改行が増えるため、末尾の padding <br> は無視する。
+ */
 export function serializeMergeEditor(root: HTMLElement): string {
   const lines: string[] = [];
   let current = "";
 
-  const pushLine = () => {
+  const flush = () => {
     lines.push(current);
     current = "";
   };
 
-  const walk = (node: Node) => {
-    if (node.nodeType === Node.TEXT_NODE) {
-      current += node.textContent ?? "";
-      return;
-    }
-    if (node.nodeType !== Node.ELEMENT_NODE) return;
-
-    const el = node as HTMLElement;
-    const mergeKey = el.getAttribute("data-merge");
-    if (mergeKey) {
-      current += encodeMergeField(mergeKey);
-      return;
-    }
-
-    if (el.tagName === "BR") {
-      pushLine();
-      return;
+  const appendInlineNodes = (
+    nodes: Node[],
+    options: { stripTrailingPaddingBr: boolean }
+  ) => {
+    let list = nodes;
+    if (
+      options.stripTrailingPaddingBr &&
+      list.length >= 2 &&
+      isBrNode(list[list.length - 1]!)
+    ) {
+      list = list.slice(0, -1);
     }
 
-    if (el.tagName === "DIV" || el.tagName === "P") {
-      const onlyBr =
-        el.childNodes.length === 1 &&
-        el.firstChild?.nodeType === Node.ELEMENT_NODE &&
-        (el.firstChild as HTMLElement).tagName === "BR";
+    for (const node of list) {
+      if (node.nodeType === DOM_TEXT_NODE) {
+        current += node.textContent ?? "";
+        continue;
+      }
+      if (!isElementNode(node)) continue;
 
-      if (onlyBr) {
-        pushLine();
-        return;
+      const mergeKey = node.getAttribute("data-merge");
+      if (mergeKey) {
+        current += encodeMergeField(mergeKey);
+        continue;
       }
 
-      if (current) pushLine();
-      else if (el.previousSibling) pushLine();
+      if (isBrNode(node)) {
+        flush();
+        continue;
+      }
 
-      el.childNodes.forEach(walk);
-      return;
+      if (isBlockNode(node)) {
+        // 稀なネストブロックは行境界として扱う
+        if (isEmptyBlock(node)) {
+          flush();
+          continue;
+        }
+        if (current) flush();
+        appendInlineNodes(Array.from(node.childNodes), {
+          stripTrailingPaddingBr: true,
+        });
+        flush();
+        continue;
+      }
+
+      appendInlineNodes(Array.from(node.childNodes), {
+        stripTrailingPaddingBr: false,
+      });
     }
-
-    el.childNodes.forEach(walk);
   };
 
-  root.childNodes.forEach(walk);
-  pushLine();
+  const top = Array.from(root.childNodes).filter((node) => {
+    if (node.nodeType !== DOM_TEXT_NODE) return true;
+    // ブロック間の整形用ホワイトスペースは無視
+    return Boolean((node.textContent ?? "").replace(/\s+/g, "").length);
+  });
+  const usesBlocks = top.some(isBlockNode);
 
+  if (!usesBlocks) {
+    appendInlineNodes(top, { stripTrailingPaddingBr: false });
+    flush();
+  } else {
+    for (const child of top) {
+      if (isBlockNode(child)) {
+        if (isEmptyBlock(child)) {
+          flush();
+          continue;
+        }
+        if (current) flush();
+        appendInlineNodes(Array.from(child.childNodes), {
+          stripTrailingPaddingBr: true,
+        });
+        flush();
+        continue;
+      }
+
+      if (isBrNode(child)) {
+        flush();
+        continue;
+      }
+
+      if (child.nodeType === DOM_TEXT_NODE) {
+        current += child.textContent ?? "";
+        continue;
+      }
+
+      if (isElementNode(child)) {
+        appendInlineNodes([child], { stripTrailingPaddingBr: false });
+      }
+    }
+    if (current) flush();
+  }
+
+  // 末尾の空行は 1 つまで残す（連続しすぎた保存崩れの吸収はしない）
   while (lines.length > 1 && lines[lines.length - 1] === "") {
     lines.pop();
   }
