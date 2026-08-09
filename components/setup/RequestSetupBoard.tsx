@@ -24,9 +24,6 @@ import {
   toRequestSetupEditable,
   type RequestSetupEditable,
 } from "@/lib/services/setup-diff";
-import { applyRequestListFilter } from "@/lib/services/request-list-filter";
-import { filterListBySearch } from "@/lib/utils/list-search";
-import { parseListSort, sortListItems } from "@/lib/utils/list-sort";
 import { markLocalDataMutation } from "@/lib/utils/local-mutation";
 import { showErrorToast, showSuccessToast } from "@/lib/utils/toast";
 
@@ -49,27 +46,8 @@ export function RequestSetupBoard({ requests }: Props) {
   const searchParams = useSearchParams();
   const fullPath = getFullPath(pathname, searchParams);
   const draftKey = setupDraftStorageKey(fullPath);
-  const q = searchParams.get("q") ?? undefined;
-  const checkIn = searchParams.get("checkIn") ?? undefined;
-  const filterField = searchParams.get("filterField") ?? undefined;
-  const filterValue = searchParams.get("filterValue") ?? undefined;
-  const sort = useMemo(
-    () =>
-      searchParams.get("sort") || searchParams.get("dir")
-        ? parseListSort(searchParams.get("sort"), searchParams.get("dir"))
-        : ({ field: "received", dir: "desc" } as const),
-    [searchParams]
-  );
-
-  const filteredSource = useMemo(() => {
-    const filtered = applyRequestListFilter(requests, filterField, filterValue);
-    const searched = filterListBySearch(
-      filtered.map((item) => ({ ...item, id: item.request_id })),
-      q,
-      checkIn
-    );
-    return sortListItems(searched, sort);
-  }, [requests, filterField, filterValue, q, checkIn, sort]);
+  // 絞込・検索・ソート・ページはサーバー側済み。ここで再フィルタしない。
+  const filteredSource = requests;
 
   const sourceKey = useMemo(
     () =>

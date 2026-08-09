@@ -33,7 +33,6 @@ import {
   setupDraftStorageKey,
 } from "@/lib/nav/session-memory";
 import type { ReservationListItem } from "@/lib/queries/reservations";
-import { applyReservationListFilter } from "@/lib/services/reservation-list-filter";
 import {
   computeReservationRoomChanges,
   computeReservationSetupChanges,
@@ -41,8 +40,6 @@ import {
   toReservationSetupEditable,
   type ReservationSetupEditable,
 } from "@/lib/services/setup-diff";
-import { filterListBySearch } from "@/lib/utils/list-search";
-import { parseListSort, sortListItems } from "@/lib/utils/list-sort";
 import { markLocalDataMutation } from "@/lib/utils/local-mutation";
 import { showErrorToast, showSuccessToast } from "@/lib/utils/toast";
 
@@ -80,25 +77,8 @@ export function ReservationSetupBoard({ reservations, rooms }: Props) {
   const searchParams = useSearchParams();
   const fullPath = getFullPath(pathname, searchParams);
   const draftKey = setupDraftStorageKey(fullPath);
-  const q = searchParams.get("q") ?? undefined;
-  const checkIn = searchParams.get("checkIn") ?? undefined;
-  const filterField = searchParams.get("filterField") ?? undefined;
-  const filterValue = searchParams.get("filterValue") ?? undefined;
-  const sort = parseListSort(searchParams.get("sort"), searchParams.get("dir"));
-
-  const filteredSource = useMemo(() => {
-    const filtered = applyReservationListFilter(
-      reservations,
-      filterField,
-      filterValue
-    );
-    const searched = filterListBySearch(
-      filtered.map((item) => ({ ...item, id: item.reservation_id })),
-      q,
-      checkIn
-    );
-    return sortListItems(searched, sort);
-  }, [reservations, filterField, filterValue, q, checkIn, sort]);
+  // 絞込・検索・ソート・ページはサーバー側済み。ここで再フィルタすると件数と表がズレる。
+  const filteredSource = reservations;
 
   const sourceById = useMemo(
     () => new Map(filteredSource.map((r) => [r.reservation_id, r])),

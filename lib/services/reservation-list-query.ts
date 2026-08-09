@@ -23,6 +23,8 @@ export function needsInMemoryReservationListProcessing(
   list?: ReservationListQuery
 ): boolean {
   if (filters.mailPending || filters.companionPending) return true;
+  // SQL ilike はカナ折り・電話数字正規化ができないため、キーワード検索は JS 側に統一
+  if (String(list?.q ?? "").trim()) return true;
   if (!list?.filterField || !list.filterValue) return false;
   // assignment_status は派生キャッシュ。アーカイブ後や人数不一致の取りこぼしがあるため
   // 未割当は実部屋割＋人数一致で判定する（SQL の eq では足りない）
@@ -40,8 +42,9 @@ export function needsInMemoryReservationListProcessing(
 }
 
 export function needsInMemoryRequestListProcessing(
-  list?: { filterField?: string; filterValue?: string }
+  list?: { filterField?: string; filterValue?: string; q?: string }
 ): boolean {
+  if (String(list?.q ?? "").trim()) return true;
   if (!list?.filterField || !list.filterValue) return false;
   return list.filterField === "replyEmail";
 }

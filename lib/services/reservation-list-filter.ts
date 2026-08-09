@@ -25,6 +25,16 @@ export function isReservationRoomUnassigned(r: ReservationListItem): boolean {
   return !isRoomAssignmentComplete(r.guest_total, r.assignments);
 }
 
+/**
+ * 一覧の「連絡: 未連絡」。
+ * - 確定なのに予約確定連絡が未送信
+ * - または今対応が必要な連絡タスク（11日前・3日前など）が残っている
+ */
+export function isReservationContactPending(r: ReservationListItem): boolean {
+  if (r.status === "確定" && !r.completion_email_sent) return true;
+  return Boolean(r.any_mail_pending);
+}
+
 export function applyReservationListFilter(
   items: ReservationListItem[],
   field?: string,
@@ -42,27 +52,33 @@ export function applyReservationListFilter(
   }
 
   if (field === "companionInfo") {
+    // タスク用の companion_pending は過去日・キャンセルで常に false になる。
+    // 一覧フィルタは保存フラグで見る（アーカイブでも未回答が拾える）。
     if (value === "未回答") {
-      return items.filter((r) => r.companion_pending);
+      return items.filter(
+        (r) => r.companion_required && !r.companion_form_answered
+      );
     }
     if (value === "回答済み") {
       return items.filter(
-        (r) => r.companion_required && !r.companion_pending
+        (r) => r.companion_required && r.companion_form_answered
       );
     }
     return items;
   }
 
   if (field === "completionEmail") {
+    // any_mail_pending は「今対応が必要」な残タスク。アーカイブでは常に false。
+    // フィルタは予約確定連絡の送達＋残タスクの両方で未連絡を拾う。
     if (
       value === CONTACT_LABELS.filterPending ||
       value === "未確認" ||
       value === "確認未完了"
     ) {
-      return items.filter((r) => r.any_mail_pending);
+      return items.filter((r) => isReservationContactPending(r));
     }
     if (value === CONTACT_LABELS.filterDone || value === "確認済") {
-      return items.filter((r) => !r.any_mail_pending);
+      return items.filter((r) => !isReservationContactPending(r));
     }
     return items;
   }
