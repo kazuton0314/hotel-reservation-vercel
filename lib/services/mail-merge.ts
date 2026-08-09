@@ -2,7 +2,7 @@
 export const MERGE_OPEN = "⟦";
 export const MERGE_CLOSE = "⟧";
 
-/** 行末キャレット用。serialize では除去する */
+/** チップ前後・行末のキャレット足場。serialize 時は除去 */
 export const CARET_ANCHOR = "\u200B";
 
 const MERGE_LEGACY_RE = /\{\{([^}]+)\}\}/g;
@@ -31,15 +31,14 @@ export function escapeHtml(text: string): string {
 
 function chipHtml(key: string): string {
   return (
-    `<span class="mail-merge-chip" data-merge="${escapeHtml(key)}" ` +
-    `contenteditable="false" draggable="true">${escapeHtml(key)}</span>`
+    `${CARET_ANCHOR}<span class="mail-merge-chip" data-merge="${escapeHtml(key)}" ` +
+    `contenteditable="false" draggable="true">${escapeHtml(key)}</span>${CARET_ANCHOR}`
   );
 }
 
 /**
- * プレーンテキスト → エディタ HTML。
- * 改行は <br>。末尾が改行のときだけ ZWSP を足し、行末 Enter 後に次行へキャレットが乗る。
- * 空内容は <br>（空の ZWSP だけだと入力できないブラウザがある）。
+ * プレーンテキスト → エディタ HTML（チップ見た目を維持）。
+ * 改行は <br>。空は <br>。末尾改行のあとに ZWSP。
  */
 export function mergeTextToHtml(text: string): string {
   const normalized = normalizeMergeText(text);
@@ -54,9 +53,7 @@ export function mergeTextToHtml(text: string): string {
     })
     .join("");
 
-  if (html.endsWith("<br>")) {
-    html += CARET_ANCHOR;
-  }
+  if (html.endsWith("<br>")) html += CARET_ANCHOR;
   return html;
 }
 
@@ -84,6 +81,15 @@ function isMergeChip(node: Node | null): boolean {
   );
 }
 
+function isAnchorOnlyText(node: Node | null): node is Text {
+  return (
+    !!node &&
+    isTextNode(node) &&
+    (node.textContent ?? "").length > 0 &&
+    /^[\u200B]+$/.test(node.textContent ?? "")
+  );
+}
+
 function stripAnchors(text: string): string {
   return text.replace(/\u200B/g, "");
 }
@@ -99,7 +105,6 @@ function isEmptyBlock(el: HTMLElement): boolean {
   );
 }
 
-/** インライン列を文字列化 */
 function serializeInline(
   nodes: Node[],
   options: { collapseTextNewlines: boolean; stripTrailingPaddingBr: boolean }
@@ -146,10 +151,7 @@ function serializeInline(
   return out;
 }
 
-/**
- * contenteditable DOM → プレーンテキスト。
- * 末尾改行は保持。ZWSP は除去。
- */
+/** contenteditable DOM → プレーンテキスト（末尾改行保持、二重化しない） */
 export function serializeMergeEditor(root: HTMLElement): string {
   const top = Array.from(root.childNodes).filter((node) => {
     if (!isTextNode(node)) return true;
@@ -205,241 +207,214 @@ export function serializeMergeEditor(root: HTMLElement): string {
   return out;
 }
 
-/** DOM 位置までのプレーンテキストオフセット */
-export function getPlainOffsetAt(
-  root: HTMLElement,
-  node: Node | null,
-  offset: number
-): number {
-  if (!node || !root.contains(node)) {
-    return serializeMergeEditor(root).length;
-  }
-  try {
-    const pre = root.ownerDocument.createRange();
-    pre.selectNodeContents(root);
-    pre.setEnd(node, offset);
-    const holder = root.ownerDocument.createElement("div");
-    holder.appendChild(pre.cloneContents());
-    return serializeMergeEditor(holder).length;
-  } catch {
-    return serializeMergeEditor(root).length;
-  }
-}
-
-/** キャレット（または選択の始点）のプレーンテキストオフセット */
-export function getPlainCaretOffset(root: HTMLElement): number {
-  const sel = root.ownerDocument.defaultView?.getSelection();
-  if (!sel || sel.rangeCount === 0 || !sel.anchorNode) {
-    return serializeMergeEditor(root).length;
-  }
-  return getPlainOffsetAt(root, sel.anchorNode, sel.anchorOffset);
-}
-
-/** 選択範囲のプレーンテキストオフセット（start <= end） */
-export function getPlainSelectionOffsets(root: HTMLElement): {
-  start: number;
-  end: number;
-} {
-  const sel = root.ownerDocument.defaultView?.getSelection();
-  if (!sel || sel.rangeCount === 0 || !sel.anchorNode || !sel.focusNode) {
-    const n = serializeMergeEditor(root).length;
-    return { start: n, end: n };
-  }
-  const a = getPlainOffsetAt(root, sel.anchorNode, sel.anchorOffset);
-  const b = getPlainOffsetAt(root, sel.focusNode, sel.focusOffset);
-  return { start: Math.min(a, b), end: Math.max(a, b) };
-}
-
-/** 選択範囲を insertion で置き換える */
-export function replacePlainRange(
-  text: string,
-  start: number,
-  end: number,
-  insertion: string
-): { text: string; caret: number } {
-  const value = normalizeMergeText(text);
-  const a = Math.max(0, Math.min(start, value.length));
-  const b = Math.max(a, Math.min(end, value.length));
-  const ins = String(insertion ?? "").replace(/\r\n?/g, "\n");
-  return {
-    text: value.slice(0, a) + ins + value.slice(b),
-    caret: a + ins.length,
-  };
-}
-
-export function setPlainCaretOffset(root: HTMLElement, plainOffset: number): void {
-  const target = Math.max(0, plainOffset);
-  let remaining = target;
-  let focusNode: Node | null = null;
-  let focusOffset = 0;
-  let found = false;
-
-  const parentOf = (node: Node): Node | null => node.parentNode;
-
-  const consumeText = (node: Text): boolean => {
-    const raw = node.textContent ?? "";
-    for (let i = 0; i <= raw.length; i++) {
-      if (remaining <= 0) {
-        focusNode = node;
-        focusOffset = i;
-        return true;
-      }
-      if (i === raw.length) break;
-      const ch = raw[i]!;
-      if (ch === "\u200B") continue;
-      remaining -= 1;
-    }
-    return false;
-  };
-
-  const walk = (node: Node): boolean => {
-    if (isTextNode(node)) return consumeText(node);
-    if (!isElementNode(node)) return false;
-    if (isMergeChip(node)) {
-      const el = node as HTMLElement;
-      const len = encodeMergeField(el.getAttribute("data-merge") ?? "").length;
-      if (remaining <= 0) {
-        focusNode = parentOf(el);
-        focusOffset = focusNode
-          ? Array.from(focusNode.childNodes).indexOf(el)
-          : 0;
-        return true;
-      }
-      if (remaining < len) {
-        remaining = 0;
-        focusNode = parentOf(el);
-        focusOffset = focusNode
-          ? Array.from(focusNode.childNodes).indexOf(el) + 1
-          : 0;
-        return true;
-      }
-      remaining -= len;
-      return false;
-    }
-    if (isBrNode(node)) {
-      if (remaining <= 0) {
-        focusNode = parentOf(node);
-        focusOffset = focusNode
-          ? Array.from(focusNode.childNodes).indexOf(node as ChildNode)
-          : 0;
-        return true;
-      }
-      remaining -= 1;
-      if (remaining <= 0) {
-        focusNode = parentOf(node);
-        focusOffset = focusNode
-          ? Array.from(focusNode.childNodes).indexOf(node as ChildNode) + 1
-          : 0;
-        return true;
-      }
-      return false;
-    }
-    for (const child of Array.from(node.childNodes)) {
-      if (walk(child)) return true;
-    }
-    return false;
-  };
-
-  for (const child of Array.from(root.childNodes)) {
-    if (walk(child)) {
-      found = true;
-      break;
-    }
-  }
-
-  const sel = root.ownerDocument.defaultView?.getSelection();
+function placeCaretAfter(node: Node): void {
+  const sel = node.ownerDocument?.defaultView?.getSelection();
   if (!sel) return;
-  const range = root.ownerDocument.createRange();
-
-  if (found && focusNode) {
-    try {
-      const node: Node = focusNode;
-      if (isTextNode(node)) {
-        range.setStart(
-          node,
-          Math.min(focusOffset, node.textContent?.length ?? 0)
-        );
-      } else if (isElementNode(node)) {
-        range.setStart(
-          node,
-          Math.min(focusOffset, node.childNodes.length)
-        );
-      } else {
-        range.selectNodeContents(root);
-        range.collapse(false);
-      }
-    } catch {
-      range.selectNodeContents(root);
-      range.collapse(false);
-    }
-  } else {
-    range.selectNodeContents(root);
-    range.collapse(false);
-  }
+  const range = node.ownerDocument!.createRange();
+  range.setStartAfter(node);
   range.collapse(true);
   sel.removeAllRanges();
   sel.addRange(range);
 }
 
-export function insertPlainNewline(
-  text: string,
-  start: number,
-  end: number = start
-): { text: string; caret: number } {
-  return replacePlainRange(text, start, end, "\n");
+function getSelectionRange(root: HTMLElement): Range | null {
+  const sel = root.ownerDocument.defaultView?.getSelection();
+  if (!sel || sel.rangeCount === 0) return null;
+  const range = sel.getRangeAt(0);
+  if (!root.contains(range.commonAncestorContainer)) return null;
+  return range;
 }
 
-export function insertPlainToken(
-  text: string,
-  start: number,
-  key: string,
-  end: number = start
-): { text: string; caret: number } {
-  return replacePlainRange(text, start, end, encodeMergeField(key));
+/** Enter: <br> を挿入。行末なら ZWSP を付けて次行にキャレットを置く */
+export function insertNewlineAtSelection(root: HTMLElement): boolean {
+  const sel = root.ownerDocument.defaultView?.getSelection();
+  const range = getSelectionRange(root);
+  if (!sel || !range) return false;
+
+  range.deleteContents();
+  const doc = root.ownerDocument;
+  const br = doc.createElement("br");
+  range.insertNode(br);
+
+  // 行末（あとに実質コンテンツがない）ではキャレット足場が必要
+  let probe: Node | null = br.nextSibling;
+  while (probe && isAnchorOnlyText(probe)) probe = probe.nextSibling;
+  const atEnd = !probe;
+
+  if (atEnd) {
+    const zw = doc.createTextNode(CARET_ANCHOR);
+    br.parentNode?.insertBefore(zw, br.nextSibling);
+    // キャレットを ZWSP 内へ
+    const r = doc.createRange();
+    r.setStart(zw, 1);
+    r.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(r);
+  } else {
+    placeCaretAfter(br);
+  }
+  return true;
 }
 
-export function insertPlainText(
-  text: string,
-  start: number,
-  insertion: string,
-  end: number = start
-): { text: string; caret: number } {
-  return replacePlainRange(text, start, end, insertion);
-}
-
-export function deleteChipBeforeCaret(
-  text: string,
-  caret: number
-): { text: string; caret: number } | null {
-  const value = normalizeMergeText(text);
-  const at = Math.max(0, Math.min(caret, value.length));
-  const m = value.slice(0, at).match(/⟦[^⟧]+⟧$/);
-  if (!m) return null;
-  const start = at - m[0].length;
-  return { text: value.slice(0, start) + value.slice(at), caret: start };
-}
-
-export function deleteChipAfterCaret(
-  text: string,
-  caret: number
-): { text: string; caret: number } | null {
-  const value = normalizeMergeText(text);
-  const at = Math.max(0, Math.min(caret, value.length));
-  const m = value.slice(at).match(/^⟦[^⟧]+⟧/);
-  if (!m) return null;
-  return {
-    text: value.slice(0, at) + value.slice(at + m[0].length),
-    caret: at,
-  };
-}
-
-export function renderMergeEditor(
+export function insertPlainTextAtSelection(
   root: HTMLElement,
-  text: string,
-  caret: number
+  text: string
+): boolean {
+  const sel = root.ownerDocument.defaultView?.getSelection();
+  const range = getSelectionRange(root);
+  if (!sel || !range) return false;
+
+  range.deleteContents();
+  const doc = root.ownerDocument;
+  const frag = doc.createDocumentFragment();
+  const parts = String(text ?? "").replace(/\r\n?/g, "\n").split("\n");
+  parts.forEach((part, i) => {
+    if (part) frag.appendChild(doc.createTextNode(part));
+    if (i < parts.length - 1) frag.appendChild(doc.createElement("br"));
+  });
+  const last = frag.lastChild;
+  range.insertNode(frag);
+  if (last) placeCaretAfter(last);
+  return true;
+}
+
+function createChipElement(doc: Document, key: string): HTMLElement {
+  const chip = doc.createElement("span");
+  chip.className = "mail-merge-chip";
+  chip.setAttribute("data-merge", key);
+  chip.setAttribute("contenteditable", "false");
+  chip.setAttribute("draggable", "true");
+  chip.textContent = key;
+  return chip;
+}
+
+/** チップをキャレット位置へ挿入（見た目のピルを維持） */
+export function insertMergeChip(
+  root: HTMLElement,
+  key: string,
+  range?: Range | null
 ): void {
-  root.innerHTML = mergeTextToHtml(text);
-  setPlainCaretOffset(root, caret);
+  const doc = root.ownerDocument;
+  const before = doc.createTextNode(CARET_ANCHOR);
+  const chip = createChipElement(doc, key);
+  const after = doc.createTextNode(CARET_ANCHOR);
+  const sel = doc.defaultView?.getSelection();
+
+  let target = range ?? null;
+  if (!target && sel && sel.rangeCount > 0) {
+    target = sel.getRangeAt(0);
+  }
+
+  if (!target || !root.contains(target.commonAncestorContainer)) {
+    root.appendChild(before);
+    root.appendChild(chip);
+    root.appendChild(after);
+  } else {
+    target.deleteContents();
+    const frag = doc.createDocumentFragment();
+    frag.appendChild(before);
+    frag.appendChild(chip);
+    frag.appendChild(after);
+    target.insertNode(frag);
+  }
+
+  if (sel) {
+    const r = doc.createRange();
+    r.setStart(after, 1);
+    r.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(r);
+  }
+}
+
+function skipAnchors(
+  start: Node | null,
+  direction: "backward" | "forward"
+): Node | null {
+  let n = start;
+  while (n && isAnchorOnlyText(n)) {
+    n = direction === "backward" ? n.previousSibling : n.nextSibling;
+  }
+  return n;
+}
+
+/** キャレット隣接のチップを削除 */
+export function removeAdjacentMergeChip(
+  root: HTMLElement,
+  direction: "backward" | "forward"
+): boolean {
+  const range = getSelectionRange(root);
+  if (!range || !range.collapsed) return false;
+
+  const { startContainer, startOffset } = range;
+  let chip: HTMLElement | null = null;
+
+  if (startContainer === root) {
+    const idx = direction === "backward" ? startOffset - 1 : startOffset;
+    const node = skipAnchors(root.childNodes[idx] ?? null, direction);
+    chip = isMergeChip(node) ? (node as HTMLElement) : null;
+  } else if (isTextNode(startContainer)) {
+    const value = startContainer.textContent ?? "";
+    if (direction === "backward") {
+      const before = value.slice(0, startOffset);
+      if (stripAnchors(before).length > 0) return false;
+      const node = skipAnchors(startContainer.previousSibling, "backward");
+      chip = isMergeChip(node) ? (node as HTMLElement) : null;
+    } else {
+      const after = value.slice(startOffset);
+      if (stripAnchors(after).length > 0) return false;
+      const node = skipAnchors(startContainer.nextSibling, "forward");
+      chip = isMergeChip(node) ? (node as HTMLElement) : null;
+    }
+  } else if (isElementNode(startContainer)) {
+    if (direction === "backward") {
+      const node = skipAnchors(
+        startOffset === 0
+          ? startContainer.previousSibling
+          : startContainer.childNodes[startOffset - 1] ?? null,
+        "backward"
+      );
+      chip = isMergeChip(node) ? (node as HTMLElement) : null;
+    } else {
+      const node = skipAnchors(
+        startContainer.childNodes[startOffset] ?? null,
+        "forward"
+      );
+      chip = isMergeChip(node) ? (node as HTMLElement) : null;
+    }
+  }
+
+  if (!chip || !root.contains(chip)) return false;
+
+  const prev = chip.previousSibling;
+  const next = chip.nextSibling;
+  if (isAnchorOnlyText(prev)) prev.remove();
+  if (isAnchorOnlyText(next)) next.remove();
+
+  const restore =
+    direction === "backward" ? chip.previousSibling : chip.nextSibling;
+  chip.remove();
+
+  const sel = root.ownerDocument.defaultView?.getSelection();
+  if (sel) {
+    const r = root.ownerDocument.createRange();
+    if (restore && isTextNode(restore)) {
+      r.setStart(
+        restore,
+        direction === "backward" ? restore.textContent?.length ?? 0 : 0
+      );
+    } else if (restore) {
+      if (direction === "backward") r.setStartAfter(restore);
+      else r.setStartBefore(restore);
+    } else {
+      r.selectNodeContents(root);
+      r.collapse(false);
+    }
+    r.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(r);
+  }
+  return true;
 }
 
 export function placeCaretAtPoint(
@@ -475,12 +450,11 @@ export function placeCaretAtPoint(
     range.collapse(false);
   }
 
-  const sel = root.ownerDocument.defaultView?.getSelection();
+  const sel = doc.defaultView?.getSelection();
   if (sel) {
     sel.removeAllRanges();
     sel.addRange(range);
   }
-
   return range;
 }
 

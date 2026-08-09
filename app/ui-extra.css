@@ -508,6 +508,10 @@
   display: none;
 }
 
+.mail-merge-editor-wrap {
+  position: relative;
+}
+
 .mail-merge-editor {
   display: block;
   width: 100%;
@@ -522,9 +526,11 @@
   font-size: 0.88rem;
   line-height: 1.5;
   outline: none;
-  resize: vertical;
   white-space: pre-wrap;
   word-break: break-word;
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .mail-merge-editor:focus {
@@ -532,10 +538,9 @@
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
-.mail-merge-editor-single {
+.mail-merge-editor-single,
+.mail-merge-editor-wrap-single .mail-merge-editor {
   min-height: 42px;
-  height: 42px;
-  resize: none;
   white-space: nowrap;
   overflow-x: auto;
   overflow-y: hidden;
@@ -543,6 +548,39 @@
 
 .mail-merge-editor-body {
   min-height: 220px;
+}
+
+.mail-merge-placeholder {
+  position: absolute;
+  left: 12px;
+  top: 10px;
+  color: var(--muted);
+  font-size: 0.88rem;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.mail-merge-chip,
+.mail-merge-editor .mail-merge-chip {
+  display: inline-flex;
+  align-items: center;
+  margin: 0 1px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 700;
+  vertical-align: baseline;
+  user-select: none;
+  cursor: grab;
+  touch-action: none;
+}
+
+.mail-merge-chip:active,
+.mail-merge-editor .mail-merge-chip:active {
+  cursor: grabbing;
 }
 
 .mail-compose-preview {
