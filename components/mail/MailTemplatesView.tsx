@@ -63,7 +63,7 @@ export function MailTemplatesView({
       template: {
         templateId: nextTemplateId(templates),
         name: "",
-        category: "共通",
+        category: "一般",
         defaultPurpose: "",
         subject: "",
         body: "",

@@ -1,7 +1,11 @@
 "use server";
 
-import { revalidateMailTemplates } from "@/lib/cache/revalidate";import { nextTemplateId } from "@/lib/config/mail-templates";
-import type { MailTemplate, MailTemplateCategory } from "@/lib/config/mail-templates";
+import { revalidateMailTemplates } from "@/lib/cache/revalidate";
+import {
+  nextTemplateId,
+  normalizeMailTemplateCategory,
+} from "@/lib/config/mail-templates";
+import type { MailTemplate } from "@/lib/config/mail-templates";
 import { getMailTemplates } from "@/lib/queries/mail-templates";
 import { createStaffClient } from "@/lib/supabase/server";
 
@@ -13,7 +17,9 @@ function parseTemplateForm(formData: FormData, templateId: string): MailTemplate
   return {
     templateId,
     name: String(formData.get("name") ?? "").trim(),
-    category: String(formData.get("category") ?? "共通").trim() as MailTemplateCategory,
+    category: normalizeMailTemplateCategory(
+      String(formData.get("category") ?? "一般")
+    ),
     defaultPurpose: String(formData.get("default_purpose") ?? "").trim(),
     subject: String(formData.get("subject") ?? "").trim(),
     body: String(formData.get("body") ?? "").trim(),

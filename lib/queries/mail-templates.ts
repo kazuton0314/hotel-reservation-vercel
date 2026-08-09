@@ -2,7 +2,10 @@ import { unstable_cache } from "next/cache";
 import { CACHE_TAGS } from "@/lib/cache/tags";
 import { createReadClient } from "@/lib/supabase/read";
 import type { MailTemplate } from "@/lib/config/mail-templates";
-import { DEFAULT_MAIL_TEMPLATES } from "@/lib/config/mail-templates";
+import {
+  DEFAULT_MAIL_TEMPLATES,
+  normalizeMailTemplateCategory,
+} from "@/lib/config/mail-templates";
 
 type DbMailTemplate = {
   template_id: string;
@@ -20,7 +23,7 @@ function rowToTemplate(row: DbMailTemplate): MailTemplate {
   return {
     templateId: row.template_id,
     name: row.name,
-    category: row.category as MailTemplate["category"],
+    category: normalizeMailTemplateCategory(row.category),
     defaultPurpose: row.default_purpose ?? "",
     subject: row.subject ?? "",
     body: row.body ?? "",

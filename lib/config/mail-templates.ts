@@ -1,4 +1,4 @@
-export type MailTemplateCategory = "リクエスト" | "本予約" | "共通";
+export type MailTemplateCategory = "一般" | "リクエスト" | "本予約";
 
 export type MailTemplate = {
   templateId: string;
@@ -13,23 +13,36 @@ export type MailTemplate = {
 };
 
 export type MailTemplateMeta = {
-  categories: { value: string; label: string }[];
+  categories: { value: MailTemplateCategory; label: string }[];
   defaultPurposes: { value: string; label: string }[];
   variables: {
     key: string;
     label: string;
     token: string;
-    categories: string[];
+    /** 差し込みチップを出すカテゴリ（一般＝両フォーム共通の回答項目） */
+    categories: MailTemplateCategory[];
   }[];
 };
 
 export const MAIL_TEMPLATE_STORAGE_KEY = "mr_mail_templates_v1";
 
+/** DB 旧値「共通」を新カテゴリ「一般」へ正規化 */
+export function normalizeMailTemplateCategory(
+  raw: string | null | undefined
+): MailTemplateCategory {
+  const value = String(raw ?? "").trim();
+  if (value === "リクエスト" || value === "本予約" || value === "一般") {
+    return value;
+  }
+  // 旧「共通」および不明値
+  return "一般";
+}
+
 export const MAIL_TEMPLATE_META: MailTemplateMeta = {
   categories: [
-    { value: "リクエスト", label: "リクエストのみ" },
-    { value: "本予約", label: "本予約のみ" },
-    { value: "共通", label: "リクエスト・本予約 共通" },
+    { value: "一般", label: "一般" },
+    { value: "リクエスト", label: "リクエスト" },
+    { value: "本予約", label: "本予約" },
   ],
   defaultPurposes: [
     { value: "", label: "（なし）" },
@@ -37,25 +50,40 @@ export const MAIL_TEMPLATE_META: MailTemplateMeta = {
     { value: "11日前", label: "11日前" },
     { value: "3日前", label: "3日前" },
   ],
+  /**
+   * 差し込みチップはフォーム回答由来の項目のみ。
+   * 施設名・却下理由・本予約URL・各ID などはチップに出さない
+   * （本文への手書きや既存テンプレの置換は mail-placeholders 側で継続可）。
+   */
   variables: [
-    { key: "代表者名", label: "代表者名", token: "{{代表者名}}", categories: ["共通"] },
-    { key: "姓", label: "姓", token: "{{姓}}", categories: ["共通"] },
-    { key: "名", label: "名", token: "{{名}}", categories: ["共通"] },
-    { key: "ふりがな", label: "ふりがな", token: "{{ふりがな}}", categories: ["共通"] },
-    { key: "メール", label: "メール", token: "{{メール}}", categories: ["共通"] },
-    { key: "電話", label: "電話", token: "{{電話}}", categories: ["共通"] },
-    { key: "施設名", label: "施設名", token: "{{施設名}}", categories: ["共通"] },
-    { key: "予約ID", label: "予約ID", token: "{{予約ID}}", categories: ["本予約", "共通"] },
-    { key: "リクエストID", label: "リクエストID", token: "{{リクエストID}}", categories: ["リクエスト"] },
-    { key: "チェックイン", label: "チェックイン", token: "{{チェックイン}}", categories: ["共通"] },
-    { key: "チェックイン予定時間", label: "チェックイン予定時間", token: "{{チェックイン予定時間}}", categories: ["本予約", "共通"] },
-    { key: "チェックアウト", label: "チェックアウト", token: "{{チェックアウト}}", categories: ["共通"] },
-    { key: "泊数", label: "泊数", token: "{{泊数}}", categories: ["共通"] },
-    { key: "人数", label: "人数", token: "{{人数}}", categories: ["共通"] },
-    { key: "BBQ利用予定", label: "BBQ利用予定", token: "{{BBQ利用予定}}", categories: ["本予約", "共通"] },
-    { key: "本予約URL", label: "本予約URL", token: "{{本予約URL}}", categories: ["リクエスト"] },
-    { key: "同行者フォームURL", label: "同行者フォームURL", token: "{{同行者フォームURL}}", categories: ["本予約"] },
-    { key: "却下理由", label: "却下理由", token: "{{却下理由}}", categories: ["リクエスト"] },
+    { key: "代表者名", label: "代表者名", token: "{{代表者名}}", categories: ["一般"] },
+    { key: "姓", label: "姓", token: "{{姓}}", categories: ["一般"] },
+    { key: "名", label: "名", token: "{{名}}", categories: ["一般"] },
+    { key: "ふりがな", label: "ふりがな", token: "{{ふりがな}}", categories: ["一般"] },
+    { key: "メール", label: "メール", token: "{{メール}}", categories: ["一般"] },
+    { key: "電話", label: "電話", token: "{{電話}}", categories: ["一般"] },
+    { key: "チェックイン", label: "チェックイン", token: "{{チェックイン}}", categories: ["一般"] },
+    { key: "チェックアウト", label: "チェックアウト", token: "{{チェックアウト}}", categories: ["一般"] },
+    { key: "泊数", label: "泊数", token: "{{泊数}}", categories: ["一般"] },
+    { key: "人数", label: "人数", token: "{{人数}}", categories: ["一般"] },
+    {
+      key: "チェックイン予定時間",
+      label: "チェックイン予定時間",
+      token: "{{チェックイン予定時間}}",
+      categories: ["本予約"],
+    },
+    {
+      key: "BBQ利用予定",
+      label: "BBQ利用予定",
+      token: "{{BBQ利用予定}}",
+      categories: ["本予約"],
+    },
+    {
+      key: "同行者フォームURL",
+      label: "同行者リンク",
+      token: "{{同行者フォームURL}}",
+      categories: ["本予約"],
+    },
   ],
 };
 

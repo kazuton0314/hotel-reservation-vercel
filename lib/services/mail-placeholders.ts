@@ -24,8 +24,6 @@ export type MailEntityContext = {
   mailFrom?: string;
 };
 
-const TOKEN_KEYS = MAIL_TEMPLATE_META.variables.map((v) => v.token);
-
 /** GAS buildMailVariableMap_ と同じキー名（{{}} なし） */
 export function buildVariableMap(ctx: MailEntityContext): Record<string, string> {
   return {
@@ -96,19 +94,30 @@ export function listUnresolvedPlaceholders(
   return [...found];
 }
 
+/**
+ * 差し込みチップの表示。
+ * - request → 一般＋リクエストフォーム由来
+ * - reservation → 一般＋本予約フォーム由来（同行者リンク含む）
+ * - それ以外（テンプレ編集の「一般」など）→ 一般のみ
+ */
 export function filterVariablesForEntity(
   entityType: string,
-  mailKind?: string
+  _mailKind?: string
 ): typeof MAIL_TEMPLATE_META.variables {
-  const category =
-    entityType === "request"
-      ? "リクエスト"
-      : entityType === "reservation"
-        ? "本予約"
-        : "共通";
-
-  return MAIL_TEMPLATE_META.variables.filter(
-    (v) => v.categories.includes("共通") || v.categories.includes(category)
+  if (entityType === "request") {
+    return MAIL_TEMPLATE_META.variables.filter(
+      (v) =>
+        v.categories.includes("一般") || v.categories.includes("リクエスト")
+    );
+  }
+  if (entityType === "reservation") {
+    return MAIL_TEMPLATE_META.variables.filter(
+      (v) =>
+        v.categories.includes("一般") || v.categories.includes("本予約")
+    );
+  }
+  return MAIL_TEMPLATE_META.variables.filter((v) =>
+    v.categories.includes("一般")
   );
 }
 
@@ -127,7 +136,8 @@ export function filterTemplatesForCompose(
   return templates.filter((t) => {
     if (!t.active) return false;
     if (!category) return true;
-    if (t.category === "共通") return true;
+    // 「一般」は旧「共通」相当で両エンティティから選べる
+    if (t.category === "一般") return true;
     if (t.category !== category) return false;
     if (mailKind && t.defaultPurpose && t.defaultPurpose !== mailKind) {
       return false;

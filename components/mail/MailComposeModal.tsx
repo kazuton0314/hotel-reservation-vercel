@@ -59,7 +59,7 @@ export function MailComposeModal({
   const [templateFormMode, setTemplateFormMode] = useState<"new" | "edit">("new");
   const [templateName, setTemplateName] = useState("");
   const [templateCategory, setTemplateCategory] =
-    useState<MailTemplateCategory>("共通");
+    useState<MailTemplateCategory>("一般");
   const [activeField, setActiveField] = useState<ActiveField>("body");
   const [pending, startTransition] = useTransition();
   const [savePending, startSave] = useTransition();
@@ -124,7 +124,11 @@ export function MailComposeModal({
     } else {
       setTemplateName("");
       setTemplateCategory(
-        entityType === "request" ? "リクエスト" : entityType === "reservation" ? "本予約" : "共通"
+        entityType === "request"
+          ? "リクエスト"
+          : entityType === "reservation"
+            ? "本予約"
+            : "一般"
       );
     }
     setTemplateFormMode(mode);
@@ -261,9 +265,9 @@ export function MailComposeModal({
                       setTemplateCategory(e.target.value as MailTemplateCategory)
                     }
                   >
-                    <option value="共通">共通</option>
-                    <option value="本予約">本予約</option>
+                    <option value="一般">一般</option>
                     <option value="リクエスト">リクエスト</option>
+                    <option value="本予約">本予約</option>
                   </Select>
                 </div>
                 <Button type="button" size="sm" disabled={savePending} onClick={handleSaveTemplate}>
