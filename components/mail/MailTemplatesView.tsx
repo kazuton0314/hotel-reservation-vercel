@@ -88,16 +88,10 @@ export function MailTemplatesView({
   function insertMergeKey(key: string) {
     if (!editor) return;
     if (activeField === "subject") {
-      const next = subjectEditorRef.current?.insertKey(key);
-      if (next != null) {
-        setEditor({ ...editor, template: { ...editor.template, subject: next } });
-      }
+      subjectEditorRef.current?.insertKey(key);
       return;
     }
-    const next = bodyEditorRef.current?.insertKey(key);
-    if (next != null) {
-      setEditor({ ...editor, template: { ...editor.template, body: next } });
-    }
+    bodyEditorRef.current?.insertKey(key);
   }
 
   function deleteTemplate(id: string) {
@@ -342,10 +336,14 @@ export function MailTemplatesView({
                 id="mt-subject"
                 value={editor.template.subject}
                 onChange={(subject) =>
-                  setEditor({
-                    ...editor,
-                    template: { ...editor.template, subject },
-                  })
+                  setEditor((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          template: { ...prev.template, subject },
+                        }
+                      : prev
+                  )
                 }
                 onFocus={() => setActiveField("subject")}
                 multiline={false}
@@ -372,10 +370,14 @@ export function MailTemplatesView({
                 id="mt-body"
                 value={editor.template.body}
                 onChange={(body) =>
-                  setEditor({
-                    ...editor,
-                    template: { ...editor.template, body },
-                  })
+                  setEditor((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          template: { ...prev.template, body },
+                        }
+                      : prev
+                  )
                 }
                 onFocus={() => setActiveField("body")}
                 multiline

@@ -13,7 +13,9 @@ export function MailPlaceholderBar({ entityType, mailKind, onInsert }: Props) {
 
   return (
     <div className="mail-placeholder-bar">
-      <p className="mail-placeholder-label">差し込み（クリックまたはドラッグ）</p>
+      <p className="mail-placeholder-label">
+        差し込み（クリックでカーソル位置へ挿入 / ドラッグ可）
+      </p>
       <div className="mail-placeholder-chips">
         {variables.map((v) => (
           <button

@@ -508,24 +508,23 @@
   display: none;
 }
 
-.mail-merge-editor-wrap {
-  position: relative;
-}
-
 .mail-merge-editor {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
   min-height: 42px;
   padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--card);
+  color: var(--text);
+  font: inherit;
   font-size: 0.88rem;
   line-height: 1.5;
   outline: none;
+  resize: vertical;
   white-space: pre-wrap;
   word-break: break-word;
-  -webkit-user-select: text;
-  user-select: text;
-  -webkit-tap-highlight-color: transparent;
 }
 
 .mail-merge-editor:focus {
@@ -534,27 +533,22 @@
 }
 
 .mail-merge-editor-single {
-  min-height: 38px;
+  min-height: 42px;
+  height: 42px;
+  resize: none;
+  white-space: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .mail-merge-editor-body {
-  min-height: 180px;
+  min-height: 220px;
 }
 
-.mail-merge-placeholder {
-  position: absolute;
-  left: 12px;
-  top: 10px;
-  color: var(--muted);
-  font-size: 0.88rem;
-  pointer-events: none;
-}
-
-.mail-merge-chip,
-.mail-merge-editor .mail-merge-chip {
+.mail-placeholder-chip,
+.mail-merge-chip {
   display: inline-flex;
   align-items: center;
-  /* 外側 margin だと文字としてのスペースとズレて削除が不自然になる */
   margin: 0;
   padding: 1px 8px;
   border-radius: 999px;
@@ -569,8 +563,8 @@
   touch-action: none;
 }
 
-.mail-merge-chip:active,
-.mail-merge-editor .mail-merge-chip:active {
+.mail-placeholder-chip:active,
+.mail-merge-chip:active {
   cursor: grabbing;
 }
 

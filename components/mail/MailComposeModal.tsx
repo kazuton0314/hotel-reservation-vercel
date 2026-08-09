@@ -94,12 +94,10 @@ export function MailComposeModal({
 
   function insertMergeKey(key: string) {
     if (activeField === "subject") {
-      const next = subjectEditorRef.current?.insertKey(key);
-      if (next != null) setSubject(next);
+      subjectEditorRef.current?.insertKey(key);
       return;
     }
-    const next = bodyEditorRef.current?.insertKey(key);
-    if (next != null) setBody(next);
+    bodyEditorRef.current?.insertKey(key);
   }
 
   function applyTemplate(templateId: string) {
