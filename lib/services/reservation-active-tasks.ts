@@ -50,7 +50,11 @@ export function reservationHasActiveCompanionTask(
   );
 }
 
-/** 部屋割チップが action（未割当）の確定予約 */
+/**
+ * 部屋割チップが action（未割当）の確定予約。
+ * 注意: assignment_status キャッシュ列を見る。ホーム件数・一覧フィルタは
+ * 実部屋割＋人数一致（isRoomAssignmentComplete）を使うこと。
+ */
 export function reservationHasActiveAssignmentTask(r: ReservationTaskRow): boolean {
   if (r.status !== "確定") return false;
   if (!isUpcomingReservation(r)) return false;

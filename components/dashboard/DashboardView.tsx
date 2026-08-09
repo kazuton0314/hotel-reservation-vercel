@@ -73,16 +73,19 @@ export function DashboardView({ dashboard: d }: Props) {
           href="/requests?status=リクエスト"
           value={d.requestCount}
           label="リクエスト"
+          title="これから（チェックアウトが今日以降）のリクエスト"
         />
         <StatNavLink
           href="/reservations?period=provisional"
           value={d.provisionalCount}
           label="仮予約"
+          title="これから（チェックアウトが今日以降）の仮予約"
         />
         <StatNavLink
           href="/reservations?period=confirmed"
           value={d.confirmedCount}
           label="確定"
+          title="これから（チェックアウトが今日以降）の確定予約"
         />
       </div>
 
@@ -91,6 +94,7 @@ export function DashboardView({ dashboard: d }: Props) {
           variant="todo"
           value={d.companionPendingCount}
           label="同行者未回答"
+          title="確定かつ2名以上で同行者フォーム未回答（1名予約は対象外）"
           href={
             "/reservations?period=confirmed&filterField=companionInfo&filterValue=" +
             encodeURIComponent("未回答")
@@ -110,6 +114,7 @@ export function DashboardView({ dashboard: d }: Props) {
           variant="todo"
           value={d.unassignedCount}
           label="部屋未割当"
+          title="確定予約で部屋未割当、または割当人数が宿泊人数と不一致"
           href="/reservations?period=confirmed&filterField=roomId&filterValue=__unassigned__"
         />
       </div>

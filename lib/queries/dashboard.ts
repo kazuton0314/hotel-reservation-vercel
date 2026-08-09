@@ -3,9 +3,11 @@ import { CACHE_TAGS } from "@/lib/cache/tags";
 import { createReadClient } from "@/lib/supabase/read";
 import { stripTime } from "@/lib/import/date-utils";
 import {
-  reservationHasActiveCompanionTask,
-  reservationHasActiveConfirmationTask,
-} from "@/lib/services/reservation-active-tasks";
+  computeDashboardCounts,
+  groupAssignmentsByReservation,
+  type DashboardAssignmentRow,
+  type DashboardCountRow,
+} from "@/lib/services/dashboard-counts";
 import { reservationNeedsCompanionInfo } from "@/lib/services/mail-pending";
 import {
   guestDisplayFieldsFromRoomAssignment,
@@ -19,6 +21,7 @@ import {
   parseReservationDate,
   todayIso,
 } from "@/lib/utils/date-label";
+import { effectiveGuestCountForCompanion } from "@/lib/utils/guest-display";
 
 const ACTIVE_STATUSES = ["仮予約", "確定"];
 const STAYING_STATUSES = ["仮予約", "確定"];
@@ -169,8 +172,7 @@ function toListItem(
       .map((a) => a.room_name)
       .filter(Boolean)
       .join(" / ") || "";
-  const guestRequired =
-    (parseInt(String(r.guest_total ?? "").replace(/[^\d]/g, ""), 10) || 0) >= 2;
+  const guestRequired = effectiveGuestCountForCompanion(r) >= 2;
 
   return {
     reservationId: r.reservation_id,
@@ -316,17 +318,15 @@ async function getDashboardSummaryUncached(): Promise<{
   const todayOrClause = `check_in.eq.${iso},check_out.eq.${iso},and(check_in.lt.${iso},check_out.gt.${iso})`;
 
   const TASK_COUNTER_SELECT =
-    "reservation_id, status, check_out, assignment_status, completion_email_sent, day11_email_sent, day3_email_sent, companion_form_answered, email, check_in, created_at, sheet_created_at, guest_total, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3";
+    "reservation_id, status, check_out, is_archived, assignment_status, completion_email_sent, day11_email_sent, day3_email_sent, companion_form_answered, email, check_in, created_at, sheet_created_at, guest_total, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3";
 
   const [
     { data: todayReservations, error: resError },
     { data: counterRows, error: counterError },
     { data: assignments, error: assignError },
+    { data: allActiveAssignments, error: allAssignError },
     { data: rooms, error: roomsError },
     { count: requestCountRaw, error: reqError },
-    { count: provisionalCount, error: provisionalError },
-    { count: confirmedCount, error: confirmedError },
-    { count: unassignedCount, error: unassignedError },
     { data: syncRuns },
   ] = await Promise.all([
     supabase
@@ -336,6 +336,7 @@ async function getDashboardSummaryUncached(): Promise<{
       )
       .eq("is_archived", false)
       .or(todayOrClause),
+    // これから（一覧デフォルトと同じ）— ステータス／TODO件数の母集団
     supabase
       .from("reservations")
       .select(TASK_COUNTER_SELECT)
@@ -349,33 +350,24 @@ async function getDashboardSummaryUncached(): Promise<{
       .eq("is_archived", false)
       .lte("stay_start", iso)
       .gte("stay_end", iso),
+    // 部屋未割当は一覧と同じ実割当判定のため、アクティブ割当を全件取る
+    supabase
+      .from("room_assignments")
+      .select(
+        "reservation_id, assigned_guest_count, male_count, female_count, boy_student_count, girl_student_count, age_3plus_count, under_3_count"
+      )
+      .eq("is_archived", false),
     supabase
       .from("rooms")
       .select("room_id, room_name, sort_order")
       .eq("is_active", true)
       .order("sort_order", { ascending: true }),
+    // リクエスト一覧デフォルト（これから）と揃える
     supabase
       .from("reservation_requests")
       .select("request_id", { count: "exact", head: true })
       .eq("is_archived", false)
-      .eq("status", "リクエスト"),
-    supabase
-      .from("reservations")
-      .select("reservation_id", { count: "exact", head: true })
-      .eq("is_archived", false)
-      .eq("status", "仮予約"),
-    supabase
-      .from("reservations")
-      .select("reservation_id", { count: "exact", head: true })
-      .eq("is_archived", false)
-      .eq("status", "確定"),
-    // 部屋なし＋人数不一致の両方（assignment_status は一致時のみ割当済）
-    supabase
-      .from("reservations")
-      .select("reservation_id", { count: "exact", head: true })
-      .eq("is_archived", false)
-      .eq("status", "確定")
-      .eq("assignment_status", "未割当")
+      .eq("status", "リクエスト")
       .gte("check_out", iso),
     supabase
       .from("sync_runs")
@@ -387,11 +379,9 @@ async function getDashboardSummaryUncached(): Promise<{
   if (resError) return { dashboard: null, error: resError.message };
   if (counterError) return { dashboard: null, error: counterError.message };
   if (assignError) return { dashboard: null, error: assignError.message };
+  if (allAssignError) return { dashboard: null, error: allAssignError.message };
   if (roomsError) return { dashboard: null, error: roomsError.message };
   if (reqError) return { dashboard: null, error: reqError.message };
-  if (provisionalError) return { dashboard: null, error: provisionalError.message };
-  if (confirmedError) return { dashboard: null, error: confirmedError.message };
-  if (unassignedError) return { dashboard: null, error: unassignedError.message };
 
   const all = (todayReservations ?? []) as DbReservation[];
   const taskRows = (counterRows ?? []) as DbReservation[];
@@ -465,12 +455,14 @@ async function getDashboardSummaryUncached(): Promise<{
     .sort(byArrivalThenName);
 
   const requestCount = requestCountRaw ?? 0;
-  const companionPendingCount = taskRows.filter((r) =>
-    reservationHasActiveCompanionTask(r, refDate)
-  ).length;
-  const reservationMailPendingCount = taskRows.filter((r) =>
-    reservationHasActiveConfirmationTask(r, refDate)
-  ).length;
+  const taskCountRows = taskRows as unknown as DashboardCountRow[];
+  const counts = computeDashboardCounts(
+    taskCountRows,
+    groupAssignmentsByReservation(
+      (allActiveAssignments ?? []) as DashboardAssignmentRow[]
+    ),
+    refDate
+  );
 
   const todayRooms = buildTodayRoomsBoard(
     (rooms ?? []) as DbRoom[],
@@ -493,11 +485,11 @@ async function getDashboardSummaryUncached(): Promise<{
       todayCheckoutCount: todayCheckouts.length,
       stayingCount: staying.length,
       requestCount,
-      provisionalCount: provisionalCount ?? 0,
-      confirmedCount: confirmedCount ?? 0,
-      companionPendingCount,
-      reservationMailPendingCount,
-      unassignedCount: unassignedCount ?? 0,
+      provisionalCount: counts.provisionalCount,
+      confirmedCount: counts.confirmedCount,
+      companionPendingCount: counts.companionPendingCount,
+      reservationMailPendingCount: counts.reservationMailPendingCount,
+      unassignedCount: counts.unassignedCount,
       todayCheckins,
       todayCheckouts,
       staying,

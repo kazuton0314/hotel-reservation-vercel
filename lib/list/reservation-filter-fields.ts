@@ -62,8 +62,8 @@ export function buildReservationListFilterFields(
       key: "companionInfo",
       label: "同行者情報",
       options: [
-        { value: "未回答", label: "同行者未回答" },
-        { value: "回答済み", label: "同行者回答済" },
+        { value: "未回答", label: "同行者未回答（2名以上）" },
+        { value: "回答済み", label: "同行者回答済（2名以上）" },
       ],
     },
     {
