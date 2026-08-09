@@ -16,6 +16,7 @@ import {
   isActiveReservationForRoomAssignment,
   shouldClearRoomAssignmentsOnStatus,
 } from "@/lib/services/room-assignment-lifecycle";
+import { reconcileDuplicateRoomAssignments } from "@/lib/services/room-assignment-reconcile";
 import { createAdminClient, createStaffClient } from "@/lib/supabase/server";
 import { CONFLICT_MESSAGE } from "@/lib/utils/optimistic-lock";
 
@@ -81,7 +82,7 @@ export async function createRoomAssignmentAction(
   const [{ data: reservation }, { data: room }] = await Promise.all([
     supabase
       .from("reservations")
-      .select("reservation_id")
+      .select("reservation_id, is_archived")
       .eq("reservation_id", reservationId)
       .maybeSingle(),
     supabase
@@ -94,17 +95,35 @@ export async function createRoomAssignmentAction(
   if (!reservation) return { ok: false, message: "予約が見つかりません。" };
   if (!room) return { ok: false, message: "部屋が見つかりません。" };
 
-  const { data: duplicate } = await supabase
+  const reservationArchived = Boolean(reservation.is_archived);
+
+  // archived / active を問わず同一キーを探し、あれば更新（二重 insert 防止）
+  const { data: duplicateRows } = await supabase
     .from("room_assignments")
     .select("room_assignment_id")
     .eq("reservation_id", reservationId)
     .eq("room_id", roomId)
     .eq("stay_start", stayStart)
     .eq("stay_end", stayEnd)
-    .eq("is_archived", false)
-    .maybeSingle();
+    .order("updated_at", { ascending: false })
+    .limit(1);
+  const duplicate = duplicateRows?.[0] ?? null;
 
   if (duplicate) {
+    const nowIso = new Date().toISOString();
+    const guestCounts = guestCountsFromAssignmentForm(formData);
+    const { error: updError } = await supabase
+      .from("room_assignments")
+      .update({
+        ...guestCounts,
+        room_name: room.room_name,
+        is_archived: reservationArchived,
+        updated_at: nowIso,
+        sheet_updated_at: nowIso,
+      })
+      .eq("room_assignment_id", duplicate.room_assignment_id);
+    if (updError) return { ok: false, message: updError.message };
+    await reconcileDuplicateRoomAssignments(supabase, reservationId);
     await syncAssignmentStatus(supabase, reservationId);
     revalidateReservationPaths(reservationId);
     return { ok: true, assignmentId: duplicate.room_assignment_id };
@@ -139,7 +158,7 @@ export async function createRoomAssignmentAction(
     ...guestCounts,
     display_memo: null,
     assignment_memo: null,
-    is_archived: false,
+    is_archived: reservationArchived,
     sheet_created_at: nowIso,
     sheet_updated_at: nowIso,
     synced_at: nowIso,
@@ -148,6 +167,7 @@ export async function createRoomAssignmentAction(
 
   if (error) return { ok: false, message: error.message };
 
+  await reconcileDuplicateRoomAssignments(supabase, reservationId);
   await syncAssignmentStatus(supabase, reservationId);
   revalidateReservationPaths(reservationId);
   return { ok: true, assignmentId: roomAssignmentId };
@@ -523,7 +543,7 @@ export async function batchRoomAssignmentChangesAction(
       const [{ data: reservation }, { data: room }] = await Promise.all([
         supabase
           .from("reservations")
-          .select("reservation_id")
+          .select("reservation_id, is_archived")
           .eq("reservation_id", p.reservationId)
           .maybeSingle(),
         supabase
@@ -536,24 +556,46 @@ export async function batchRoomAssignmentChangesAction(
       if (!reservation) return { ok: false, message: "予約が見つかりません。" };
       if (!room) return { ok: false, message: "部屋が見つかりません。" };
 
-      const { data: duplicate } = await supabase
+      const reservationArchived = Boolean(reservation.is_archived);
+
+      // アーカイブ行も含めて同一キーを探す（二重カード防止）
+      const { data: duplicateRows } = await supabase
         .from("room_assignments")
         .select("room_assignment_id")
         .eq("reservation_id", p.reservationId)
         .eq("room_id", p.roomId)
         .eq("stay_start", p.startDate)
         .eq("stay_end", p.endDate)
-        .eq("is_archived", false)
-        .maybeSingle();
+        .order("updated_at", { ascending: false })
+        .limit(1);
+      const duplicate = duplicateRows?.[0] ?? null;
 
+      const nowIso = new Date().toISOString();
       if (duplicate) {
+        const { error: updError } = await supabase
+          .from("room_assignments")
+          .update({
+            room_name: room.room_name,
+            assigned_guest_count: p.guestCount,
+            male_count: p.maleCount,
+            female_count: p.femaleCount,
+            child_count: p.childCount,
+            boy_student_count: p.boyStudent,
+            girl_student_count: p.girlStudent,
+            age_3plus_count: p.age3plus,
+            under_3_count: p.under3,
+            is_archived: reservationArchived,
+            updated_at: nowIso,
+            sheet_updated_at: nowIso,
+          })
+          .eq("room_assignment_id", duplicate.room_assignment_id);
+        if (updError) return { ok: false, message: updError.message };
         affected.add(ch.reservationId);
         applied++;
         continue;
       }
 
       const roomAssignmentId = await nextRoomAssignmentId(supabase);
-      const nowIso = new Date().toISOString();
       const { error } = await supabase.from("room_assignments").insert({
         room_assignment_id: roomAssignmentId,
         reservation_id: p.reservationId,
@@ -569,7 +611,7 @@ export async function batchRoomAssignmentChangesAction(
         girl_student_count: p.girlStudent,
         age_3plus_count: p.age3plus,
         under_3_count: p.under3,
-        is_archived: false,
+        is_archived: reservationArchived,
         sheet_created_at: nowIso,
         sheet_updated_at: nowIso,
         synced_at: nowIso,
@@ -591,6 +633,13 @@ export async function batchRoomAssignmentChangesAction(
 
       if (existingError) return { ok: false, message: existingError.message };
       if (!existing) return { ok: false, message: "部屋割りが見つかりません。" };
+
+      const { data: parentRes } = await supabase
+        .from("reservations")
+        .select("is_archived")
+        .eq("reservation_id", existing.reservation_id)
+        .maybeSingle();
+      const reservationArchived = Boolean(parentRes?.is_archived);
 
       let nextRoomId = existing.room_id as string | null;
       let nextRoomName = existing.room_name as string | null;
@@ -621,6 +670,7 @@ export async function batchRoomAssignmentChangesAction(
           girl_student_count: p.girlStudent,
           age_3plus_count: p.age3plus,
           under_3_count: p.under3,
+          is_archived: reservationArchived,
           updated_at: nowIso,
           sheet_updated_at: nowIso,
         })
@@ -659,7 +709,10 @@ export async function batchRoomAssignmentChangesAction(
 
   const affectedList = [...affected];
   await Promise.all(
-    affectedList.map((rid) => syncAssignmentStatus(supabase, rid))
+    affectedList.map(async (rid) => {
+      await reconcileDuplicateRoomAssignments(supabase, rid);
+      await syncAssignmentStatus(supabase, rid);
+    })
   );
   revalidateReservationDetailsBatch(affectedList);
   if (affectedList.length) {

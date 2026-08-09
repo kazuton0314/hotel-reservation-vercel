@@ -14,7 +14,12 @@ import {
 } from "@/lib/queries/reservations";
 import { getRooms } from "@/lib/queries/rooms";
 import { buildMailEntityContext } from "@/lib/services/mail-context";
+import {
+  hasDuplicateRoomAssignments,
+  reconcileDuplicateRoomAssignments,
+} from "@/lib/services/room-assignment-reconcile";
 import { createReadClient } from "@/lib/supabase/read";
+import { createStaffClient } from "@/lib/supabase/server";
 import { ConnectionError } from "@/components/SetupRequired";
 
 function SectionFallback({ label }: { label: string }) {
@@ -125,7 +130,7 @@ async function RoomsCompanionsAsync({
   reservationId: string;
   reservation: Record<string, unknown>;
 }) {
-  const [
+  let [
     { assignments, error: assignmentError },
     { rooms, error: roomsError },
     { companions, tableMissing: companionsTableMissing },
@@ -138,10 +143,21 @@ async function RoomsCompanionsAsync({
   if (assignmentError) return <ConnectionError message={assignmentError} />;
   if (roomsError) return <ConnectionError message={roomsError} />;
 
+  // アーカイブ編集で同一部屋が二重登録された残骸を詳細表示前に畳む
+  if (hasDuplicateRoomAssignments(assignments)) {
+    const staff = await createStaffClient();
+    await reconcileDuplicateRoomAssignments(staff, reservationId);
+    const refreshed = await getRoomAssignmentsByReservationId(reservationId);
+    if (refreshed.error) {
+      return <ConnectionError message={refreshed.error} />;
+    }
+    assignments = refreshed.assignments;
+  }
+
   const r = reservation;
   const reservationArchived = Boolean(r.is_archived);
   // 日次アーカイブは room_assignments も is_archived=true にする。
-  // 予約がアーカイブ済みのときは履歴として archived 行も表示する。
+  // 予約がアーカイブ済みのときはその行も含めて編集対象にする。
   const visibleAssignments = reservationArchived
     ? assignments
     : assignments.filter((a) => !a.is_archived);
@@ -164,7 +180,6 @@ async function RoomsCompanionsAsync({
         }}
         rooms={rooms}
         assignments={visibleAssignments}
-        readOnly={reservationArchived}
       />
 
       <DetailBlock title="同行者">
