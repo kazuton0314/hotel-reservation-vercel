@@ -21,9 +21,8 @@ async function main() {
   const { data: rows, error } = await supabase
     .from("reservations")
     .select(
-      "reservation_id, representative_name, assignment_status, guest_total, status"
+      "reservation_id, representative_name, assignment_status, guest_total, status, is_archived"
     )
-    .eq("is_archived", false)
     .in("status", ["仮予約", "確定"]);
 
   if (error) {
@@ -35,10 +34,9 @@ async function main() {
   const { data: assignments, error: assignError } = await supabase
     .from("room_assignments")
     .select(
-      "reservation_id, assigned_guest_count, male_count, female_count, boy_student_count, girl_student_count, age_3plus_count, under_3_count"
+      "reservation_id, assigned_guest_count, male_count, female_count, boy_student_count, girl_student_count, age_3plus_count, under_3_count, is_archived"
     )
-    .in("reservation_id", ids.length ? ids : ["__none__"])
-    .eq("is_archived", false);
+    .in("reservation_id", ids.length ? ids : ["__none__"]);
 
   if (assignError) {
     console.error(assignError.message);
@@ -55,14 +53,18 @@ async function main() {
   let wouldChange = 0;
   let changed = 0;
   for (const r of rows ?? []) {
-    const rooms = byReservation.get(r.reservation_id) ?? [];
+    // syncAssignmentStatus と同じ：アーカイブ予約は履歴行、それ以外は現行行のみ
+    const allRooms = byReservation.get(r.reservation_id) ?? [];
+    const rooms = r.is_archived
+      ? allRooms
+      : allRooms.filter((a) => !a.is_archived);
     const next = isRoomAssignmentComplete(r.guest_total, rooms)
       ? "割当済"
       : "未割当";
     if (next === r.assignment_status) continue;
     wouldChange++;
     console.log(
-      `${r.reservation_id} | ${r.representative_name} | ${r.assignment_status} → ${next} | guest=${r.guest_total} rooms=${rooms.length}`
+      `${r.reservation_id} | ${r.representative_name} | ${r.assignment_status} → ${next} | guest=${r.guest_total} rooms=${rooms.length}${r.is_archived ? " | archived" : ""}`
     );
     if (execute) {
       await syncAssignmentStatus(supabase, r.reservation_id);

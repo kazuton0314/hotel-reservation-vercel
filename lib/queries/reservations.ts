@@ -12,8 +12,10 @@ import {
   needsInMemoryReservationListProcessing,
   reservationIdsForRoomFilter,
 } from "@/lib/services/reservation-list-query";
+import { isRoomAssignmentComplete } from "@/lib/services/assignment-status";
 import { UNASSIGNED_ROOM_FILTER } from "@/lib/services/reservation-list-filter";
 import { applyReservationListFilter } from "@/lib/services/reservation-list-filter";
+import { DEFAULTS } from "@/lib/config/forms";
 import { effectiveGuestCountForCompanion } from "@/lib/utils/guest-display";
 import { idPrefixIlikePattern, isIdLikeQuery } from "@/lib/utils/id-search";
 import { todayIso } from "@/lib/utils/date-label";
@@ -77,6 +79,13 @@ export type ReservationListItem = {
     stay_start: string;
     stay_end: string;
     updated_at: string | null;
+    assigned_guest_count: number | null;
+    male_count: number | null;
+    female_count: number | null;
+    boy_student_count: number | null;
+    girl_student_count: number | null;
+    age_3plus_count: number | null;
+    under_3_count: number | null;
   }[];
   companion_pending: boolean;
   companion_required: boolean;
@@ -131,6 +140,13 @@ type AssignmentListRow = {
   stay_start: string;
   stay_end: string;
   updated_at: string | null;
+  assigned_guest_count: number | null;
+  male_count: number | null;
+  female_count: number | null;
+  boy_student_count: number | null;
+  girl_student_count: number | null;
+  age_3plus_count: number | null;
+  under_3_count: number | null;
 };
 
 const LIST_SELECT =
@@ -188,18 +204,9 @@ function periodToStatus(period?: ReservationFilters["period"]): string | undefin
 
 function mapReservationListItem(
   row: DbListRow,
-  assignmentsByReservation: Map<
-    string,
-    {
-      room_assignment_id: string;
-      room_id: string | null;
-      room_name: string | null;
-      stay_start: string;
-      stay_end: string;
-      updated_at: string | null;
-    }[]
-  >,
-  refDate: Date
+  assignmentsByReservation: Map<string, AssignmentListRow[]>,
+  refDate: Date,
+  options?: { deriveAssignmentStatus?: boolean }
 ): ReservationListItem {
   const assignments = assignmentsByReservation.get(row.reservation_id) ?? [];
   const assignedRooms = assignments
@@ -209,6 +216,12 @@ function mapReservationListItem(
   const guestRequired = effectiveGuestCountForCompanion(row) > 1;
   const companionPending = reservationNeedsCompanionInfo(row, refDate);
   const receivedSource = row.sheet_created_at || row.created_at;
+  // 一覧に載せる割当はスコープに応じた行だけ。表示・未割当判定をキャッシュ列と揃える
+  const assignment_status = options?.deriveAssignmentStatus
+    ? isRoomAssignmentComplete(row.guest_total, assignments)
+      ? "割当済"
+      : DEFAULTS.assignmentStatus
+    : row.assignment_status;
   return {
     reservation_id: row.reservation_id,
     representative_name: row.representative_name,
@@ -223,7 +236,7 @@ function mapReservationListItem(
     check_in: row.check_in,
     check_out: row.check_out,
     guest_total: row.guest_total,
-    assignment_status: row.assignment_status,
+    assignment_status,
     channel: row.channel,
     meal: row.meal,
     bbq: row.bbq,
@@ -280,10 +293,13 @@ async function loadAssignmentsByReservationIds(
   const chunkSize = 100;
   for (let i = 0; i < ids.length; i += chunkSize) {
     const chunk = ids.slice(i, i + chunkSize);
+    for (const id of chunk) {
+      assignmentsByReservation.set(id, []);
+    }
     let assignQuery = supabase
       .from("room_assignments")
       .select(
-        "room_assignment_id, reservation_id, room_id, room_name, stay_start, stay_end, updated_at"
+        "room_assignment_id, reservation_id, room_id, room_name, stay_start, stay_end, updated_at, assigned_guest_count, male_count, female_count, boy_student_count, girl_student_count, age_3plus_count, under_3_count"
       )
       .in("reservation_id", chunk);
     if (!includeArchivedAssignments) {
@@ -299,6 +315,13 @@ async function loadAssignmentsByReservationIds(
         stay_start: a.stay_start,
         stay_end: a.stay_end,
         updated_at: a.updated_at,
+        assigned_guest_count: a.assigned_guest_count,
+        male_count: a.male_count,
+        female_count: a.female_count,
+        boy_student_count: a.boy_student_count,
+        girl_student_count: a.girl_student_count,
+        age_3plus_count: a.age_3plus_count,
+        under_3_count: a.under_3_count,
       });
       assignmentsByReservation.set(a.reservation_id, list);
     }
@@ -360,8 +383,10 @@ function buildReservationBaseQuery(
   }
 
   if (list?.filterField === "roomId" && list.filterValue) {
+    // 未割当は assignment_status キャッシュが古いことがあるため SQL では扱わず
+    // needsInMemoryReservationListProcessing 経由の実割当判定に任せる
     if (list.filterValue === UNASSIGNED_ROOM_FILTER) {
-      query = query.eq("assignment_status", "未割当");
+      // no-op on SQL path
     } else if (roomReservationIds?.length) {
       query = query.in("reservation_id", roomReservationIds);
     } else {
@@ -434,7 +459,9 @@ async function getReservationsUncached(filters: ReservationFilters = {}) {
       includeArchivedAssignments
     );
     const reservations = rows.map((row) =>
-      mapReservationListItem(row, assignmentsByReservation, refDate)
+      mapReservationListItem(row, assignmentsByReservation, refDate, {
+        deriveAssignmentStatus: true,
+      })
     );
 
     return {
@@ -490,9 +517,7 @@ async function getReservationsUncached(filters: ReservationFilters = {}) {
 
   const needsAllAssignments =
     !paged ||
-    (list?.filterField === "roomId" &&
-      list.filterValue &&
-      list.filterValue !== UNASSIGNED_ROOM_FILTER);
+    (list?.filterField === "roomId" && Boolean(list.filterValue));
 
   let assignmentsByReservation = new Map<string, AssignmentListRow[]>();
   if (needsAllAssignments) {
@@ -504,7 +529,9 @@ async function getReservationsUncached(filters: ReservationFilters = {}) {
   }
 
   const reservations = rows.map((row) =>
-    mapReservationListItem(row, assignmentsByReservation, refDate)
+    mapReservationListItem(row, assignmentsByReservation, refDate, {
+      deriveAssignmentStatus: needsAllAssignments,
+    })
   );
 
   if (!paged) {
@@ -538,7 +565,9 @@ async function getReservationsUncached(filters: ReservationFilters = {}) {
     const hydrated = pagedResult.items.map((item) => {
       const row = rowById.get(item.reservation_id);
       if (!row) return item;
-      return mapReservationListItem(row, pageAssignments, refDate);
+      return mapReservationListItem(row, pageAssignments, refDate, {
+        deriveAssignmentStatus: true,
+      });
     });
     return {
       reservations: hydrated,

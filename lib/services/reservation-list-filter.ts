@@ -1,4 +1,5 @@
 import type { ReservationListItem } from "@/lib/queries/reservations";
+import { isRoomAssignmentComplete } from "@/lib/services/assignment-status";
 import {
   hasIndefiniteGuestCount,
   hasMismatchedGuestCount,
@@ -19,6 +20,11 @@ function guestSourceFromItem(r: ReservationListItem) {
   };
 }
 
+/** 一覧の「部屋割: 未割当」。キャッシュ列ではなく実割当の人数一致で判定する */
+export function isReservationRoomUnassigned(r: ReservationListItem): boolean {
+  return !isRoomAssignmentComplete(r.guest_total, r.assignments);
+}
+
 export function applyReservationListFilter(
   items: ReservationListItem[],
   field?: string,
@@ -28,7 +34,7 @@ export function applyReservationListFilter(
 
   if (field === "roomId") {
     if (value === UNASSIGNED_ROOM_FILTER) {
-      return items.filter((r) => r.assignment_status === "未割当");
+      return items.filter((r) => isReservationRoomUnassigned(r));
     }
     return items.filter((r) =>
       r.assignments.some((a) => a.room_id === value)

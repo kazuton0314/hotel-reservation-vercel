@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ReservationFilters, ReservationListQuery } from "@/lib/queries/reservations";
+import { UNASSIGNED_ROOM_FILTER } from "@/lib/services/reservation-list-filter";
 import { idPrefixIlikePattern, isIdLikeQuery } from "@/lib/utils/id-search";
 import type { ListSort } from "@/lib/utils/list-sort";
 import { escapeIlike } from "@/lib/utils/sql-ilike";
@@ -16,13 +17,21 @@ export function isSqlEqReservationFilterField(field?: string): boolean {
   return Boolean(field && SQL_EQ_RESERVATION_FILTER_FIELDS.has(field));
 }
 
-/** 人数不一致・連絡・同行者など、JS 側の業務ロジックが必要な絞り込み */
+/** 人数不一致・連絡・同行者・部屋未割当など、JS 側の業務ロジックが必要な絞り込み */
 export function needsInMemoryReservationListProcessing(
   filters: ReservationFilters,
   list?: ReservationListQuery
 ): boolean {
   if (filters.mailPending || filters.companionPending) return true;
   if (!list?.filterField || !list.filterValue) return false;
+  // assignment_status は派生キャッシュ。アーカイブ後や人数不一致の取りこぼしがあるため
+  // 未割当は実部屋割＋人数一致で判定する（SQL の eq では足りない）
+  if (
+    list.filterField === "roomId" &&
+    list.filterValue === UNASSIGNED_ROOM_FILTER
+  ) {
+    return true;
+  }
   return (
     list.filterField === "guestTotal" ||
     list.filterField === "companionInfo" ||
