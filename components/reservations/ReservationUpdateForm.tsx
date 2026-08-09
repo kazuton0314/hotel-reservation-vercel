@@ -1,15 +1,21 @@
 "use client";
 
 import {
+  startTransition,
   useActionState,
   useEffect,
   useRef,
   useState,
 } from "react";
-import { useRouter } from "next/navigation";
 import { DateField } from "@/components/form/DateField";
 import { FormCheckboxGroup } from "@/components/form/FormCheckboxGroup";
 import { FormSelectField } from "@/components/form/FormSelectField";
+import {
+  GuestBreakdownFields,
+  guestBreakdownEqual,
+  guestBreakdownFromUnknown,
+  type GuestBreakdownValues,
+} from "@/components/reservations/GuestBreakdownFields";
 import { updateReservationAction } from "@/lib/actions/reservations";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
@@ -18,7 +24,6 @@ import {
   BBQ_OPTIONS,
   CHANNEL_OPTIONS,
   GROUP_TYPE_OPTIONS,
-  GUEST_COUNT_OPTIONS,
   MEAL_OPTIONS,
   PAYMENT_STATUS_OPTIONS,
   PHONE_AVAILABLE_OPTIONS,
@@ -73,17 +78,6 @@ type Props = {
   paymentStatus: string | null;
 };
 
-type GuestSeed = {
-  guestTotal: string | null;
-  adultMale: string | null;
-  adultFemale: string | null;
-  boyStudent: string | null;
-  girlStudent: string | null;
-  age3plus: string | null;
-  under3: string | null;
-};
-
-/** 編集フォーム全体の初期値（リマウント時のみ使う） */
 type FormSeed = {
   updatedAt: string | null;
   status: string;
@@ -103,7 +97,6 @@ type FormSeed = {
   addressLine: string | null;
   checkIn: string | null;
   checkOut: string | null;
-  guests: GuestSeed;
   arrivalTime: string | null;
   transport: string | null;
   vehicleCount: string | null;
@@ -121,13 +114,6 @@ type FormSeed = {
 };
 
 const initialState = { ok: true } as const;
-
-/** 内訳プルダウン用: 0 / 空は未選択（表示ラベル 0）へ寄せる */
-function guestCountSelectValue(value: string | null | undefined): string {
-  const v = String(value ?? "").trim();
-  if (!v || v === "0") return "";
-  return v;
-}
 
 function Fg({
   label,
@@ -153,18 +139,6 @@ function Fg({
   );
 }
 
-function guestSeedFromProps(props: Props): GuestSeed {
-  return {
-    guestTotal: props.guestTotal,
-    adultMale: props.adultMale,
-    adultFemale: props.adultFemale,
-    boyStudent: props.boyStudent,
-    girlStudent: props.girlStudent,
-    age3plus: props.age3plus,
-    under3: props.under3,
-  };
-}
-
 function formSeedFromProps(props: Props): FormSeed {
   return {
     updatedAt: props.updatedAt,
@@ -185,7 +159,6 @@ function formSeedFromProps(props: Props): FormSeed {
     addressLine: props.addressLine,
     checkIn: props.checkIn,
     checkOut: props.checkOut,
-    guests: guestSeedFromProps(props),
     arrivalTime: props.arrivalTime,
     transport: props.transport,
     vehicleCount: props.vehicleCount,
@@ -203,32 +176,21 @@ function formSeedFromProps(props: Props): FormSeed {
   };
 }
 
-function guestSeedsEqual(a: GuestSeed, b: GuestSeed): boolean {
-  return (
-    String(a.guestTotal ?? "") === String(b.guestTotal ?? "") &&
-    String(a.adultMale ?? "") === String(b.adultMale ?? "") &&
-    String(a.adultFemale ?? "") === String(b.adultFemale ?? "") &&
-    String(a.boyStudent ?? "") === String(b.boyStudent ?? "") &&
-    String(a.girlStudent ?? "") === String(b.girlStudent ?? "") &&
-    String(a.age3plus ?? "") === String(b.age3plus ?? "") &&
-    String(a.under3 ?? "") === String(b.under3 ?? "")
-  );
-}
-
 export function ReservationUpdateForm(props: Props) {
-  const router = useRouter();
-  const [state, formAction, isPending] = useActionState(
+  const [state, rawFormAction, isPending] = useActionState(
     updateReservationAction,
     initialState
   );
   const [formSeed, setFormSeed] = useState<FormSeed>(() =>
     formSeedFromProps(props)
   );
+  const [guests, setGuests] = useState<GuestBreakdownValues>(() =>
+    guestBreakdownFromUnknown(props)
+  );
   const [formEpoch, setFormEpoch] = useState(0);
   const [appliedSaveAt, setAppliedSaveAt] = useState<string | null>(null);
   const skipFirstPropsSync = useRef(true);
-  const lastSavedAtRef = useRef<string | null>(null);
-  const lastSavedGuestsRef = useRef<GuestSeed | null>(null);
+  const localSavePinRef = useRef<GuestBreakdownValues | null>(null);
 
   const savedGuests =
     state.ok === true && "guests" in state && state.guests
@@ -239,46 +201,39 @@ export function ReservationUpdateForm(props: Props) {
       ? state.updatedAt
       : null;
 
-  // 保存成功: optimistic lock 用 timestamp とピンだけ更新。
-  // フォームはリマウントしない（スマホで選択中の DOM 値を維持する）。
+  // 保存成功: 人数はアクション結果を正とし、フォーム全体はリマウントしない
   if (savedGuests && savedAt && savedAt !== appliedSaveAt) {
+    const nextGuests = guestBreakdownFromUnknown(savedGuests);
     setAppliedSaveAt(savedAt);
-    lastSavedAtRef.current = savedAt;
-    lastSavedGuestsRef.current = savedGuests;
-    setFormSeed((prev) => ({
-      ...prev,
-      updatedAt: savedAt,
-      guests: savedGuests,
-    }));
+    localSavePinRef.current = nextGuests;
+    setGuests(nextGuests);
+    setFormSeed((prev) => ({ ...prev, updatedAt: savedAt }));
   }
 
-  // 他端末更新・十分な新しさの props だけフォームを載せ替える。
-  // 保存直後の古いキャッシュでは人数内訳を書き戻さない。
+  // props 同期: 保存ピン中は人数が一致するまで絶対に書き戻さない。
+  // updatedAt が新しいだけでは受け入れない（GCal 等で timestamp だけ進むため）。
   useEffect(() => {
     if (skipFirstPropsSync.current) {
       skipFirstPropsSync.current = false;
       return;
     }
-    const propsUpdatedAt = props.updatedAt ?? "";
-    const savedAtPin = lastSavedAtRef.current;
-    const savedGuestsPin = lastSavedGuestsRef.current;
-    const propsGuests = guestSeedFromProps(props);
+    const propsGuests = guestBreakdownFromUnknown(props);
+    const pin = localSavePinRef.current;
 
-    if (savedGuestsPin) {
-      if (guestSeedsEqual(propsGuests, savedGuestsPin)) {
-        lastSavedAtRef.current = null;
-        lastSavedGuestsRef.current = null;
-      } else if (savedAtPin && propsUpdatedAt && propsUpdatedAt > savedAtPin) {
-        lastSavedAtRef.current = null;
-        lastSavedGuestsRef.current = null;
-      } else {
-        return;
+    if (pin) {
+      if (guestBreakdownEqual(propsGuests, pin)) {
+        localSavePinRef.current = null;
+        setFormSeed((prev) => ({
+          ...prev,
+          updatedAt: props.updatedAt,
+        }));
       }
-    } else if (savedAtPin && propsUpdatedAt && propsUpdatedAt < savedAtPin) {
+      // ピン中は人数も他フィールドもリマウントしない
       return;
     }
 
     setFormSeed(formSeedFromProps(props));
+    setGuests(propsGuests);
     setFormEpoch((n) => n + 1);
   }, [
     props.updatedAt,
@@ -296,45 +251,38 @@ export function ReservationUpdateForm(props: Props) {
     props.internalMemo,
     props.guestMemo,
     props.paymentStatus,
+    props.lastName,
+    props.firstName,
+    props.email,
+    props.phone,
   ]);
 
-  useEffect(() => {
-    if (!savedGuests || !savedAt) return;
-    markLocalDataMutation();
-    router.refresh();
-  }, [savedGuests, savedAt, router]);
+  // 保存直後の router.refresh は古い RSC キャッシュを呼び込みやすいので行わない。
+  // 詳細の読み取り専用ブロックは次回遷移 / Realtime で追いつく。
+
+  const formAction = (formData: FormData) => {
+    startTransition(() => {
+      rawFormAction(formData);
+    });
+  };
 
   const onSubmit = submitFormAction(formAction, {
-    beforeSubmit: (form, formData) => {
-      markLocalDataMutation();
-      // 人数内訳は DOM の select 現値を明示採用（スマホの FormData ずれ防止）
-      for (const name of [
-        "adult_male",
-        "adult_female",
-        "boy_student",
-        "girl_student",
-        "age_3plus",
-        "under_3",
-      ] as const) {
-        const el = form.elements.namedItem(name);
-        if (el instanceof HTMLSelectElement) {
-          formData.set(name, el.value);
-        }
-      }
-      const total = form.elements.namedItem("guest_total");
-      if (total instanceof HTMLInputElement) {
-        formData.set("guest_total", total.value);
-      }
+    beforeSubmit: (_form, formData) => {
+      markLocalDataMutation(30_000);
+      // controlled state を正として送信（PC/スマホ共通）
+      formData.set("guest_total", guests.guestTotal);
+      formData.set("adult_male", guests.adultMale);
+      formData.set("adult_female", guests.adultFemale);
+      formData.set("boy_student", guests.boyStudent);
+      formData.set("girl_student", guests.girlStudent);
+      formData.set("age_3plus", guests.age3plus);
+      formData.set("under_3", guests.under3);
+      localSavePinRef.current = { ...guests };
     },
   });
 
-  const g = formSeed.guests;
-
   return (
-    <form
-      key={`${props.reservationId}:${formEpoch}`}
-      onSubmit={onSubmit}
-    >
+    <form key={`${props.reservationId}:${formEpoch}`} onSubmit={onSubmit}>
       <input type="hidden" name="reservation_id" value={props.reservationId} />
       <input
         type="hidden"
@@ -414,49 +362,7 @@ export function ReservationUpdateForm(props: Props) {
         name="check_out"
         defaultValue={formSeed.checkOut}
       />
-      <Fg label="宿泊人数" name="guest_total" defaultValue={g.guestTotal} />
-      <FormSelectField
-        label="中学生以上男性"
-        name="adult_male"
-        options={GUEST_COUNT_OPTIONS}
-        defaultValue={guestCountSelectValue(g.adultMale)}
-        emptyLabel="0"
-      />
-      <FormSelectField
-        label="中学生以上女性"
-        name="adult_female"
-        options={GUEST_COUNT_OPTIONS}
-        defaultValue={guestCountSelectValue(g.adultFemale)}
-        emptyLabel="0"
-      />
-      <FormSelectField
-        label="小学生男"
-        name="boy_student"
-        options={GUEST_COUNT_OPTIONS}
-        defaultValue={guestCountSelectValue(g.boyStudent)}
-        emptyLabel="0"
-      />
-      <FormSelectField
-        label="小学生女"
-        name="girl_student"
-        options={GUEST_COUNT_OPTIONS}
-        defaultValue={guestCountSelectValue(g.girlStudent)}
-        emptyLabel="0"
-      />
-      <FormSelectField
-        label="3歳以上幼児"
-        name="age_3plus"
-        options={GUEST_COUNT_OPTIONS}
-        defaultValue={guestCountSelectValue(g.age3plus)}
-        emptyLabel="0"
-      />
-      <FormSelectField
-        label="3歳未満"
-        name="under_3"
-        options={GUEST_COUNT_OPTIONS}
-        defaultValue={guestCountSelectValue(g.under3)}
-        emptyLabel="0"
-      />
+      <GuestBreakdownFields values={guests} onChange={setGuests} />
 
       <p className="form-section-label">交通・到着</p>
       <FormSelectField
