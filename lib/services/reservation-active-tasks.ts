@@ -57,7 +57,11 @@ export function reservationHasActiveAssignmentTask(r: ReservationTaskRow): boole
   return r.assignment_status === "未割当";
 }
 
-/** 確認系チップ（予約確定/11日前/3日前）のいずれかが action の確定予約 */
+/**
+ * ホーム「連絡未」・一覧「連絡: 未連絡」の残タスク。
+ * 予約確定・11日前の「今対応」のみ数える。
+ * 3日前は同行者催促なので「同行者未回答」側に任せ、ここでは二重カウントしない。
+ */
 export function reservationHasActiveConfirmationTask(
   r: ReservationTaskRow,
   refDate: Date = businessToday()
@@ -65,7 +69,7 @@ export function reservationHasActiveConfirmationTask(
   if (r.status !== "確定") return false;
   if (!isUpcomingReservation(r)) return false;
   const statuses = reservationMailStatuses(r, refDate);
-  return (["confirmation", "day11", "day3"] as const).some((key) => {
+  return (["confirmation", "day11"] as const).some((key) => {
     const chip = mailKindChipState(statuses[key], r.status);
     return chip?.state === "action";
   });

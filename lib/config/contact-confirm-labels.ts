@@ -11,7 +11,7 @@ export const CONTACT_LABELS = {
   filterDone: "連絡済",
   /** ホーム残タスク */
   todoLabel: "連絡未",
-  todoHint: "予約確定・11日前・3日前の連絡が未了",
+  todoHint: "予約確定・11日前の連絡が未了（3日前の同行者催促は「同行者未回答」）",
   /** 予約詳細ブロック見出し */
   sectionTitle: "連絡",
   /** 一覧バッジ（短） */

@@ -43,10 +43,10 @@ export function isReservationRoomUnassigned(r: ReservationListItem): boolean {
 }
 
 /**
- * 一覧の「連絡: 未連絡」（ホーム残タスク件数と同じ集合になるようにする）。
+ * 一覧の「連絡: 未連絡」（ホーム「連絡未」と同じ集合）。
  * - 予約確定フラグ未送信 → アーカイブでも拾う
- * - 11日前・3日前など「今対応が必要」な残タスク → any_mail_pending
- *   （これから限定。アーカイブでは常に false）
+ * - 11日前など「今対応が必要」な残タスク → any_mail_pending
+ *   （これから限定。アーカイブでは常に false。3日前は同行者側）
  */
 export function isReservationContactPending(r: ReservationListItem): boolean {
   if (r.status !== "確定") return false;

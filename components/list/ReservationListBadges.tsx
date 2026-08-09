@@ -33,7 +33,8 @@ type MailStatuses = {
 };
 
 function hasMailTodo(statuses: MailStatuses) {
-  return [statuses.confirmation, statuses.day11, statuses.day3].some(
+  // 3日前は同行者催促。カードの「連絡未」バッジは予約確定・11日前のみ
+  return [statuses.confirmation, statuses.day11].some(
     (s) => s.pending && !s.notRequired && !s.sent
   );
 }
