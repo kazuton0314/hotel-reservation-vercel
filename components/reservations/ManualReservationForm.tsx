@@ -22,6 +22,7 @@ import {
   TRANSPORT_OPTIONS,
   TRAVEL_PURPOSE_OPTIONS,
 } from "@/lib/config/field-options";
+import { submitFormAction } from "@/lib/utils/submit-form-action";
 
 const initialState = { ok: true } as { ok: true } | { ok: false; message: string };
 
@@ -60,10 +61,12 @@ export function ManualReservationForm() {
     initialState
   );
 
+  const onSubmit = submitFormAction(formAction);
+
   return (
     <>
       <DetailBack href="/reservations" />
-      <form action={formAction}>
+      <form onSubmit={onSubmit}>
         <div className="detail-block">
           <h3>代表者</h3>
           <Fg label="姓" name="last_name" />

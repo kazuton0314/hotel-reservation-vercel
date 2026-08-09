@@ -3,7 +3,6 @@
 import {
   useActionState,
   useEffect,
-  useMemo,
   useRef,
   useState,
 } from "react";
@@ -29,6 +28,7 @@ import {
   TRAVEL_PURPOSE_OPTIONS,
 } from "@/lib/config/field-options";
 import { markLocalDataMutation } from "@/lib/utils/local-mutation";
+import { submitFormAction } from "@/lib/utils/submit-form-action";
 
 type Props = {
   reservationId: string;
@@ -83,6 +83,43 @@ type GuestSeed = {
   under3: string | null;
 };
 
+/** 編集フォーム全体の初期値（リマウント時のみ使う） */
+type FormSeed = {
+  updatedAt: string | null;
+  status: string;
+  channel: string | null;
+  groupType: string | null;
+  groupName: string | null;
+  lastName: string | null;
+  firstName: string | null;
+  lastNameKana: string | null;
+  firstNameKana: string | null;
+  email: string | null;
+  phone: string | null;
+  phoneAvailable: string | null;
+  postalCode: string | null;
+  prefecture: string | null;
+  city: string | null;
+  addressLine: string | null;
+  checkIn: string | null;
+  checkOut: string | null;
+  guests: GuestSeed;
+  arrivalTime: string | null;
+  transport: string | null;
+  vehicleCount: string | null;
+  meal: string | null;
+  bbq: string | null;
+  inquiry: string | null;
+  travelPurpose: string | null;
+  travelPurposeOther: string | null;
+  referral: string | null;
+  referralOther: string | null;
+  lastStay: string | null;
+  internalMemo: string | null;
+  guestMemo: string | null;
+  paymentStatus: string | null;
+};
+
 const initialState = { ok: true } as const;
 
 /** 内訳プルダウン用: 0 / 空は未選択（表示ラベル 0）へ寄せる */
@@ -128,6 +165,44 @@ function guestSeedFromProps(props: Props): GuestSeed {
   };
 }
 
+function formSeedFromProps(props: Props): FormSeed {
+  return {
+    updatedAt: props.updatedAt,
+    status: props.status,
+    channel: props.channel,
+    groupType: props.groupType,
+    groupName: props.groupName,
+    lastName: props.lastName,
+    firstName: props.firstName,
+    lastNameKana: props.lastNameKana,
+    firstNameKana: props.firstNameKana,
+    email: props.email,
+    phone: props.phone,
+    phoneAvailable: props.phoneAvailable,
+    postalCode: props.postalCode,
+    prefecture: props.prefecture,
+    city: props.city,
+    addressLine: props.addressLine,
+    checkIn: props.checkIn,
+    checkOut: props.checkOut,
+    guests: guestSeedFromProps(props),
+    arrivalTime: props.arrivalTime,
+    transport: props.transport,
+    vehicleCount: props.vehicleCount,
+    meal: props.meal,
+    bbq: props.bbq,
+    inquiry: props.inquiry,
+    travelPurpose: props.travelPurpose,
+    travelPurposeOther: props.travelPurposeOther,
+    referral: props.referral,
+    referralOther: props.referralOther,
+    lastStay: props.lastStay,
+    internalMemo: props.internalMemo,
+    guestMemo: props.guestMemo,
+    paymentStatus: props.paymentStatus,
+  };
+}
+
 function guestSeedsEqual(a: GuestSeed, b: GuestSeed): boolean {
   return (
     String(a.guestTotal ?? "") === String(b.guestTotal ?? "") &&
@@ -146,9 +221,8 @@ export function ReservationUpdateForm(props: Props) {
     updateReservationAction,
     initialState
   );
-  const [expectedUpdatedAt, setExpectedUpdatedAt] = useState(props.updatedAt);
-  const [guestSeed, setGuestSeed] = useState<GuestSeed>(() =>
-    guestSeedFromProps(props)
+  const [formSeed, setFormSeed] = useState<FormSeed>(() =>
+    formSeedFromProps(props)
   );
   const [formEpoch, setFormEpoch] = useState(0);
   const [appliedSaveAt, setAppliedSaveAt] = useState<string | null>(null);
@@ -156,8 +230,6 @@ export function ReservationUpdateForm(props: Props) {
   const lastSavedAtRef = useRef<string | null>(null);
   const lastSavedGuestsRef = useRef<GuestSeed | null>(null);
 
-  // 保存成功は render 内で seed に反映し、同一コミットで form を載せ替える
-  // （useEffect だけだと React 19 の select reset より後になり表示が戻る）
   const savedGuests =
     state.ok === true && "guests" in state && state.guests
       ? state.guests
@@ -166,17 +238,22 @@ export function ReservationUpdateForm(props: Props) {
     state.ok === true && "updatedAt" in state && state.updatedAt
       ? state.updatedAt
       : null;
+
+  // 保存成功: optimistic lock 用 timestamp とピンだけ更新。
+  // フォームはリマウントしない（スマホで選択中の DOM 値を維持する）。
   if (savedGuests && savedAt && savedAt !== appliedSaveAt) {
     setAppliedSaveAt(savedAt);
-    setExpectedUpdatedAt(savedAt);
-    setGuestSeed(savedGuests);
-    setFormEpoch((n) => n + 1);
     lastSavedAtRef.current = savedAt;
     lastSavedGuestsRef.current = savedGuests;
+    setFormSeed((prev) => ({
+      ...prev,
+      updatedAt: savedAt,
+      guests: savedGuests,
+    }));
   }
 
-  // サーバー props が追いついたら（他端末更新・再読込）フォームの初期値を同期。
-  // 保存直後の古いキャッシュや、updated_at だけ新しい不完全 props は書き戻さない。
+  // 他端末更新・十分な新しさの props だけフォームを載せ替える。
+  // 保存直後の古いキャッシュでは人数内訳を書き戻さない。
   useEffect(() => {
     if (skipFirstPropsSync.current) {
       skipFirstPropsSync.current = false;
@@ -191,12 +268,7 @@ export function ReservationUpdateForm(props: Props) {
       if (guestSeedsEqual(propsGuests, savedGuestsPin)) {
         lastSavedAtRef.current = null;
         lastSavedGuestsRef.current = null;
-      } else if (
-        savedAtPin &&
-        propsUpdatedAt &&
-        propsUpdatedAt > savedAtPin
-      ) {
-        // 他端末など、保存より新しい更新
+      } else if (savedAtPin && propsUpdatedAt && propsUpdatedAt > savedAtPin) {
         lastSavedAtRef.current = null;
         lastSavedGuestsRef.current = null;
       } else {
@@ -206,11 +278,12 @@ export function ReservationUpdateForm(props: Props) {
       return;
     }
 
-    setExpectedUpdatedAt(props.updatedAt);
-    setGuestSeed(propsGuests);
+    setFormSeed(formSeedFromProps(props));
     setFormEpoch((n) => n + 1);
   }, [
     props.updatedAt,
+    props.status,
+    props.channel,
     props.guestTotal,
     props.adultMale,
     props.adultFemale,
@@ -218,6 +291,11 @@ export function ReservationUpdateForm(props: Props) {
     props.girlStudent,
     props.age3plus,
     props.under3,
+    props.checkIn,
+    props.checkOut,
+    props.internalMemo,
+    props.guestMemo,
+    props.paymentStatus,
   ]);
 
   useEffect(() => {
@@ -226,47 +304,42 @@ export function ReservationUpdateForm(props: Props) {
     router.refresh();
   }, [savedGuests, savedAt, router]);
 
-  const formKey = useMemo(
-    () =>
-      [
-        props.reservationId,
-        expectedUpdatedAt ?? "",
-        formEpoch,
-        guestSeed.guestTotal ?? "",
-        guestSeed.adultMale ?? "",
-        guestSeed.adultFemale ?? "",
-        guestSeed.boyStudent ?? "",
-        guestSeed.girlStudent ?? "",
-        guestSeed.age3plus ?? "",
-        guestSeed.under3 ?? "",
-      ].join(":"),
-    [
-      props.reservationId,
-      expectedUpdatedAt,
-      formEpoch,
-      guestSeed.guestTotal,
-      guestSeed.adultMale,
-      guestSeed.adultFemale,
-      guestSeed.boyStudent,
-      guestSeed.girlStudent,
-      guestSeed.age3plus,
-      guestSeed.under3,
-    ]
-  );
+  const onSubmit = submitFormAction(formAction, {
+    beforeSubmit: (form, formData) => {
+      markLocalDataMutation();
+      // 人数内訳は DOM の select 現値を明示採用（スマホの FormData ずれ防止）
+      for (const name of [
+        "adult_male",
+        "adult_female",
+        "boy_student",
+        "girl_student",
+        "age_3plus",
+        "under_3",
+      ] as const) {
+        const el = form.elements.namedItem(name);
+        if (el instanceof HTMLSelectElement) {
+          formData.set(name, el.value);
+        }
+      }
+      const total = form.elements.namedItem("guest_total");
+      if (total instanceof HTMLInputElement) {
+        formData.set("guest_total", total.value);
+      }
+    },
+  });
+
+  const g = formSeed.guests;
 
   return (
     <form
-      key={formKey}
-      action={formAction}
-      onSubmit={() => {
-        markLocalDataMutation();
-      }}
+      key={`${props.reservationId}:${formEpoch}`}
+      onSubmit={onSubmit}
     >
       <input type="hidden" name="reservation_id" value={props.reservationId} />
       <input
         type="hidden"
         name="expected_updated_at"
-        value={expectedUpdatedAt ?? ""}
+        value={formSeed.updatedAt ?? ""}
       />
 
       <p className="form-section-label">基本</p>
@@ -275,7 +348,7 @@ export function ReservationUpdateForm(props: Props) {
         label="ステータス"
         name="status"
         options={RESERVATION_STATUS_OPTIONS}
-        defaultValue={props.status}
+        defaultValue={formSeed.status}
         allowEmpty={false}
       />
       <FormSelectField
@@ -283,92 +356,105 @@ export function ReservationUpdateForm(props: Props) {
         label="予約経路"
         name="channel"
         options={CHANNEL_OPTIONS}
-        defaultValue={props.channel}
+        defaultValue={formSeed.channel}
       />
-      <Fg label="姓" name="last_name" defaultValue={props.lastName} />
-      <Fg label="名" name="first_name" defaultValue={props.firstName} />
-      <Fg label="姓ふりがな" name="last_name_kana" defaultValue={props.lastNameKana} />
-      <Fg label="名ふりがな" name="first_name_kana" defaultValue={props.firstNameKana} />
+      <Fg label="姓" name="last_name" defaultValue={formSeed.lastName} />
+      <Fg label="名" name="first_name" defaultValue={formSeed.firstName} />
+      <Fg
+        label="姓ふりがな"
+        name="last_name_kana"
+        defaultValue={formSeed.lastNameKana}
+      />
+      <Fg
+        label="名ふりがな"
+        name="first_name_kana"
+        defaultValue={formSeed.firstNameKana}
+      />
       <FormSelectField
         label="グループ形態"
         name="group_type"
         options={GROUP_TYPE_OPTIONS}
-        defaultValue={props.groupType}
+        defaultValue={formSeed.groupType}
       />
-      <Fg label="グループ名" name="group_name" defaultValue={props.groupName} />
-      <Fg label="メール" name="email" type="email" defaultValue={props.email} />
-      <Fg label="電話" name="phone" defaultValue={props.phone} />
+      <Fg label="グループ名" name="group_name" defaultValue={formSeed.groupName} />
+      <Fg
+        label="メール"
+        name="email"
+        type="email"
+        defaultValue={formSeed.email}
+      />
+      <Fg label="電話" name="phone" defaultValue={formSeed.phone} />
       <FormSelectField
         label="電話可能時間"
         name="phone_available"
         options={PHONE_AVAILABLE_OPTIONS}
-        defaultValue={props.phoneAvailable}
+        defaultValue={formSeed.phoneAvailable}
       />
 
       <p className="form-section-label">住所</p>
-      <Fg label="郵便番号" name="postal_code" defaultValue={props.postalCode} />
-      <Fg label="都道府県" name="prefecture" defaultValue={props.prefecture} />
-      <Fg label="市区町村" name="city" defaultValue={props.city} />
-      <Fg label="建物名・番地" name="address_line" defaultValue={props.addressLine} />
+      <Fg label="郵便番号" name="postal_code" defaultValue={formSeed.postalCode} />
+      <Fg label="都道府県" name="prefecture" defaultValue={formSeed.prefecture} />
+      <Fg label="市区町村" name="city" defaultValue={formSeed.city} />
+      <Fg
+        label="建物名・番地"
+        name="address_line"
+        defaultValue={formSeed.addressLine}
+      />
 
       <p className="form-section-label">宿泊日・人数</p>
       <DateField
         id="f-checkin"
         label="チェックイン"
         name="check_in"
-        defaultValue={props.checkIn}
+        defaultValue={formSeed.checkIn}
       />
       <DateField
         id="f-checkout"
         label="チェックアウト"
         name="check_out"
-        defaultValue={props.checkOut}
+        defaultValue={formSeed.checkOut}
       />
-      <Fg
-        label="宿泊人数"
-        name="guest_total"
-        defaultValue={guestSeed.guestTotal}
-      />
+      <Fg label="宿泊人数" name="guest_total" defaultValue={g.guestTotal} />
       <FormSelectField
         label="中学生以上男性"
         name="adult_male"
         options={GUEST_COUNT_OPTIONS}
-        defaultValue={guestCountSelectValue(guestSeed.adultMale)}
+        defaultValue={guestCountSelectValue(g.adultMale)}
         emptyLabel="0"
       />
       <FormSelectField
         label="中学生以上女性"
         name="adult_female"
         options={GUEST_COUNT_OPTIONS}
-        defaultValue={guestCountSelectValue(guestSeed.adultFemale)}
+        defaultValue={guestCountSelectValue(g.adultFemale)}
         emptyLabel="0"
       />
       <FormSelectField
         label="小学生男"
         name="boy_student"
         options={GUEST_COUNT_OPTIONS}
-        defaultValue={guestCountSelectValue(guestSeed.boyStudent)}
+        defaultValue={guestCountSelectValue(g.boyStudent)}
         emptyLabel="0"
       />
       <FormSelectField
         label="小学生女"
         name="girl_student"
         options={GUEST_COUNT_OPTIONS}
-        defaultValue={guestCountSelectValue(guestSeed.girlStudent)}
+        defaultValue={guestCountSelectValue(g.girlStudent)}
         emptyLabel="0"
       />
       <FormSelectField
         label="3歳以上幼児"
         name="age_3plus"
         options={GUEST_COUNT_OPTIONS}
-        defaultValue={guestCountSelectValue(guestSeed.age3plus)}
+        defaultValue={guestCountSelectValue(g.age3plus)}
         emptyLabel="0"
       />
       <FormSelectField
         label="3歳未満"
         name="under_3"
         options={GUEST_COUNT_OPTIONS}
-        defaultValue={guestCountSelectValue(guestSeed.under3)}
+        defaultValue={guestCountSelectValue(g.under3)}
         emptyLabel="0"
       />
 
@@ -377,35 +463,39 @@ export function ReservationUpdateForm(props: Props) {
         label="到着予定時間"
         name="arrival_time"
         options={ARRIVAL_TIME_OPTIONS}
-        defaultValue={props.arrivalTime}
+        defaultValue={formSeed.arrivalTime}
       />
       <FormSelectField
         label="交通手段"
         name="transport"
         options={TRANSPORT_OPTIONS}
-        defaultValue={props.transport}
+        defaultValue={formSeed.transport}
       />
-      <Fg label="車両台数" name="vehicle_count" defaultValue={props.vehicleCount} />
+      <Fg
+        label="車両台数"
+        name="vehicle_count"
+        defaultValue={formSeed.vehicleCount}
+      />
 
       <p className="form-section-label">食事・支払</p>
       <FormSelectField
         label="食事"
         name="meal"
         options={MEAL_OPTIONS}
-        defaultValue={props.meal}
+        defaultValue={formSeed.meal}
       />
       <FormSelectField
         label="BBQ"
         name="bbq"
         options={BBQ_OPTIONS}
-        defaultValue={props.bbq}
+        defaultValue={formSeed.bbq}
       />
       <FormSelectField
         id="f-pay"
         label="支払"
         name="payment_status"
         options={PAYMENT_STATUS_OPTIONS}
-        defaultValue={props.paymentStatus ?? "未払い"}
+        defaultValue={formSeed.paymentStatus ?? "未払い"}
         allowEmpty={false}
       />
 
@@ -416,28 +506,32 @@ export function ReservationUpdateForm(props: Props) {
           id="f-inquiry"
           name="inquiry"
           rows={3}
-          defaultValue={props.inquiry ?? ""}
+          defaultValue={formSeed.inquiry ?? ""}
         />
       </div>
       <FormCheckboxGroup
         label="旅行の目的（複数選択可）"
         name="travel_purpose"
         options={TRAVEL_PURPOSE_OPTIONS}
-        defaultValue={props.travelPurpose}
+        defaultValue={formSeed.travelPurpose}
       />
       <Fg
         label="旅行の目的（その他）"
         name="travel_purpose_other"
-        defaultValue={props.travelPurposeOther}
+        defaultValue={formSeed.travelPurposeOther}
       />
       <FormSelectField
         label="きっかけ"
         name="referral"
         options={REFERRAL_OPTIONS}
-        defaultValue={props.referral}
+        defaultValue={formSeed.referral}
       />
-      <Fg label="きっかけ（その他）" name="referral_other" defaultValue={props.referralOther} />
-      <Fg label="前回ご宿泊時期" name="last_stay" defaultValue={props.lastStay} />
+      <Fg
+        label="きっかけ（その他）"
+        name="referral_other"
+        defaultValue={formSeed.referralOther}
+      />
+      <Fg label="前回ご宿泊時期" name="last_stay" defaultValue={formSeed.lastStay} />
 
       <p className="form-section-label">メモ</p>
       <div className="form-group">
@@ -446,7 +540,7 @@ export function ReservationUpdateForm(props: Props) {
           id="f-memo"
           name="internal_memo"
           rows={3}
-          defaultValue={props.internalMemo ?? ""}
+          defaultValue={formSeed.internalMemo ?? ""}
         />
       </div>
       <div className="form-group">
@@ -455,7 +549,7 @@ export function ReservationUpdateForm(props: Props) {
           id="f-guest-memo"
           name="guest_memo"
           rows={3}
-          defaultValue={props.guestMemo ?? ""}
+          defaultValue={formSeed.guestMemo ?? ""}
           placeholder="当日知りえた情報"
         />
       </div>

@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import { Select } from "@/components/ui/input";
 import { optionsWithCurrent } from "@/lib/config/field-options";
 
@@ -15,9 +14,9 @@ type Props = {
 };
 
 /**
- * React 19 + useActionState では、form action 成功後に <select> だけ
- * 初期値へ戻る既知不具合がある（text input は残る）。
- * 送信用は hidden、表示用 select は controlled + 送信後リマウントで回避する。
+ * ネイティブ <select name> で送信する（スマホの選択値を FormData が直接拾う）。
+ * React 19 の action 後 reset は親フォーム側で
+ * preventDefault + formAction(FormData) により回避する。
  */
 export function FormSelectField({
   label,
@@ -29,45 +28,13 @@ export function FormSelectField({
   emptyLabel = "（未選択）",
 }: Props) {
   const fieldId = id ?? name;
-  const incoming = String(defaultValue ?? "").trim();
-  const [value, setValue] = useState(incoming);
-  const [selectKey, setSelectKey] = useState(0);
-  const prevIncoming = useRef(incoming);
-
-  if (incoming !== prevIncoming.current) {
-    prevIncoming.current = incoming;
-    setValue(incoming);
-    setSelectKey((k) => k + 1);
-  }
-
-  const merged = optionsWithCurrent(options, value);
-
-  useEffect(() => {
-    const el = document.getElementById(fieldId);
-    const form = el?.closest("form");
-    if (!form) return;
-
-    const recoverAfterActionReset = () => {
-      // action 完了後の automatic reset より後に載せて表示を正す
-      window.setTimeout(() => {
-        setSelectKey((k) => k + 1);
-      }, 0);
-    };
-
-    form.addEventListener("submit", recoverAfterActionReset);
-    return () => form.removeEventListener("submit", recoverAfterActionReset);
-  }, [fieldId]);
+  const current = String(defaultValue ?? "").trim();
+  const merged = optionsWithCurrent(options, current);
 
   return (
     <div className="form-group">
       <label htmlFor={fieldId}>{label}</label>
-      <input type="hidden" name={name} value={value} />
-      <Select
-        key={`${fieldId}:${selectKey}`}
-        id={fieldId}
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-      >
+      <Select id={fieldId} name={name} defaultValue={current}>
         {allowEmpty ? (
           <option value="">{emptyLabel}</option>
         ) : null}

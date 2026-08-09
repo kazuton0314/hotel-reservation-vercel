@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import { Select } from "@/components/ui/input";
 import {
   GUEST_COUNT_OPTIONS,
@@ -61,41 +60,13 @@ function GuestCountSelect({
   label: string;
   defaultValue: number;
 }) {
-  const incoming = defaultValue > 0 ? String(defaultValue) : "";
-  const [value, setValue] = useState(incoming);
-  const [selectKey, setSelectKey] = useState(0);
-  const prevIncoming = useRef(incoming);
-
-  if (incoming !== prevIncoming.current) {
-    prevIncoming.current = incoming;
-    setValue(incoming);
-    setSelectKey((k) => k + 1);
-  }
-
-  const options = optionsWithCurrent(GUEST_COUNT_OPTIONS, value);
-
-  // React 19: form action 後に select だけ初期値へ戻る不具合の回復
-  useEffect(() => {
-    const el = document.getElementById(id);
-    const form = el?.closest("form");
-    if (!form) return;
-    const recover = () => {
-      window.setTimeout(() => setSelectKey((k) => k + 1), 0);
-    };
-    form.addEventListener("submit", recover);
-    return () => form.removeEventListener("submit", recover);
-  }, [id]);
+  const current = defaultValue > 0 ? String(defaultValue) : "";
+  const options = optionsWithCurrent(GUEST_COUNT_OPTIONS, current);
 
   return (
     <div className="form-group">
       <label htmlFor={id}>{label}</label>
-      <input type="hidden" name={name} value={value} />
-      <Select
-        key={`${id}:${selectKey}`}
-        id={id}
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-      >
+      <Select id={id} name={name} defaultValue={current}>
         <option value="">0</option>
         {options.map((opt) => (
           <option key={opt} value={opt}>

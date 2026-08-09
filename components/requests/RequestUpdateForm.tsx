@@ -1,11 +1,12 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useState } from "react";
 import { updateRequestAction } from "@/lib/actions/requests";
 import { Button } from "@/components/ui/button";
 import { Select, Textarea } from "@/components/ui/input";
 import { REQUEST_STATUS_EDIT_OPTIONS } from "@/lib/config/field-options";
 import { displayRequestStatus, isApprovedRequestStatus } from "@/lib/domain/request-status";
+import { submitFormAction } from "@/lib/utils/submit-form-action";
 
 type Props = {
   requestId: string;
@@ -27,26 +28,16 @@ export function RequestUpdateForm(props: Props) {
   const isApprovedLocked =
     isApprovedRequestStatus(props.status) && Boolean(props.linkedReservationId);
   const [selectedStatus, setSelectedStatus] = useState(displayStatus);
-  const [statusSelectKey, setStatusSelectKey] = useState(0);
   const showProvisionalOption =
     !props.linkedReservationId &&
     !isApprovedLocked &&
     selectedStatus === "承認済";
   const [createProvisional, setCreateProvisional] = useState(false);
 
-  // React 19: form action 後に select 表示だけ戻る不具合の回復
-  useEffect(() => {
-    const form = document.getElementById("req-status-edit")?.closest("form");
-    if (!form) return;
-    const recover = () => {
-      window.setTimeout(() => setStatusSelectKey((k) => k + 1), 0);
-    };
-    form.addEventListener("submit", recover);
-    return () => form.removeEventListener("submit", recover);
-  }, []);
+  const onSubmit = submitFormAction(formAction);
 
   return (
-    <form action={formAction}>
+    <form onSubmit={onSubmit}>
       <input type="hidden" name="request_id" value={props.requestId} />
       {props.linkedReservationId ? (
         <input
@@ -62,10 +53,9 @@ export function RequestUpdateForm(props: Props) {
       <p className="form-section-label">ステータス</p>
       <div className="form-group">
         <label htmlFor="req-status-edit">ステータス</label>
-        <input type="hidden" name="status" value={selectedStatus} />
         <Select
-          key={`req-status:${statusSelectKey}`}
           id="req-status-edit"
+          name="status"
           value={selectedStatus}
           onChange={(e) => {
             setSelectedStatus(e.target.value);
