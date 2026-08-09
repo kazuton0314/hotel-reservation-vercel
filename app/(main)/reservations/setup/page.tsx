@@ -48,6 +48,8 @@ export default async function ReservationsSetupPage({ searchParams }: PageProps)
   const params = await searchParams;
   const scope = parseListScope(params.scope);
   const period = resolvePeriod(params);
+  const { rooms, error: roomsError } = await getRooms();
+  const filterFields = buildReservationListFilterFields(rooms);
 
   return (
     <ListSearchProvider>
@@ -81,13 +83,29 @@ export default async function ReservationsSetupPage({ searchParams }: PageProps)
               ]}
             />
             <ListSearchBar />
+            {roomsError ? null : (
+              <ReservationListFilterBar
+                fields={filterFields}
+                activeField={params.filterField}
+                activeValue={params.filterValue}
+              />
+            )}
           </>
         }
       >
         <Suspense
           fallback={<div className="inline-loading">セットアップ表を読み込み中…</div>}
         >
-          <ReservationsSetupBody params={params} period={period} scope={scope} />
+          <ReservationsSetupBody
+            params={params}
+            period={period}
+            scope={scope}
+            roomsError={roomsError}
+            rooms={rooms.map((r) => ({
+              room_id: r.room_id,
+              room_name: r.room_name,
+            }))}
+          />
         </Suspense>
       </SetupPageShell>
     </ListSearchProvider>
@@ -98,6 +116,8 @@ async function ReservationsSetupBody({
   params,
   period,
   scope,
+  rooms,
+  roomsError,
 }: {
   params: {
     period?: string;
@@ -113,68 +133,56 @@ async function ReservationsSetupBody({
   };
   period: "provisional" | "confirmed" | "cancelled";
   scope: ReturnType<typeof parseListScope>;
+  rooms: { room_id: string; room_name: string }[];
+  roomsError: string | null;
 }) {
   const page = parsePageParam(params.page);
-  const [{ reservations, total, error }, { rooms, error: roomsError }] =
-    await Promise.all([
-      getReservations({
-        period,
-        status: params.status,
-        scope,
-        list: {
-          q: params.q,
-          checkIn: params.checkIn,
-          filterField: params.filterField,
-          filterValue: params.filterValue,
-          sort: params.sort,
-          dir: params.dir,
-          page,
-          pageSize: SETUP_BOARD_PAGE_SIZE,
-        },
-      }),
-      getRooms(),
-    ]);
+  const { reservations, total, error } = await getReservations({
+    period,
+    status: params.status,
+    scope,
+    list: {
+      q: params.q,
+      checkIn: params.checkIn,
+      filterField: params.filterField,
+      filterValue: params.filterValue,
+      sort: params.sort,
+      dir: params.dir,
+      page,
+      pageSize: SETUP_BOARD_PAGE_SIZE,
+    },
+  });
 
   if (error || roomsError) {
     return <ConnectionError message={error || roomsError || ""} />;
   }
 
-  const filterFields = buildReservationListFilterFields(rooms);
   const totalPages = Math.max(1, Math.ceil(total / SETUP_BOARD_PAGE_SIZE));
   const safePage = Math.min(Math.max(1, page), totalPages);
 
   return (
     <>
-      <ReservationListFilterBar
-        fields={filterFields}
-        activeField={params.filterField}
-        activeValue={params.filterValue}
-      />
-      <ReservationSetupBoard
-        reservations={reservations}
-        rooms={rooms.map((r) => ({
-          room_id: r.room_id,
-          room_name: r.room_name,
-        }))}
-      />
-      <ListPagination
-        page={safePage}
-        totalPages={totalPages}
-        total={total}
-        pageSize={SETUP_BOARD_PAGE_SIZE}
-        basePath="/reservations/setup"
-        searchParams={{
-          period: params.period,
-          status: params.status,
-          scope: params.scope,
-          filterField: params.filterField,
-          filterValue: params.filterValue,
-          sort: params.sort,
-          dir: params.dir,
-          q: params.q,
-          checkIn: params.checkIn,
-        }}
-      />
+      <ReservationSetupBoard reservations={reservations} rooms={rooms} />
+      <div className="setup-page-chrome-top">
+        <ListPagination
+          page={safePage}
+          totalPages={totalPages}
+          total={total}
+          pageSize={SETUP_BOARD_PAGE_SIZE}
+          basePath="/reservations/setup"
+          searchParams={{
+            period: params.period,
+            status: params.status,
+            scope: params.scope,
+            filterField: params.filterField,
+            filterValue: params.filterValue,
+            sort: params.sort,
+            dir: params.dir,
+            q: params.q,
+            checkIn: params.checkIn,
+          }}
+        />
+      </div>
     </>
   );
 }

@@ -131,23 +131,25 @@ async function RequestsSetupBody({
   return (
     <>
       <RequestSetupBoard requests={requests} />
-      <ListPagination
-        page={safePage}
-        totalPages={totalPages}
-        total={total}
-        pageSize={SETUP_BOARD_PAGE_SIZE}
-        basePath="/requests/setup"
-        searchParams={{
-          status: params.status,
-          scope: params.scope,
-          sort: params.sort,
-          dir: params.dir,
-          q: params.q,
-          checkIn: params.checkIn,
-          filterField: params.filterField,
-          filterValue: params.filterValue,
-        }}
-      />
+      <div className="setup-page-chrome-top">
+        <ListPagination
+          page={safePage}
+          totalPages={totalPages}
+          total={total}
+          pageSize={SETUP_BOARD_PAGE_SIZE}
+          basePath="/requests/setup"
+          searchParams={{
+            status: params.status,
+            scope: params.scope,
+            sort: params.sort,
+            dir: params.dir,
+            q: params.q,
+            checkIn: params.checkIn,
+            filterField: params.filterField,
+            filterValue: params.filterValue,
+          }}
+        />
+      </div>
     </>
   );
 }

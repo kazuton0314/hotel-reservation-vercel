@@ -26,13 +26,15 @@ export function isReservationRoomUnassigned(r: ReservationListItem): boolean {
 }
 
 /**
- * 一覧の「連絡: 未連絡」。
- * 保存フラグ `completion_email_sent` のみで判定する（アーカイブでも同じ）。
- * ホーム残タスクの「今対応が必要」（時期・これから限定）とは別物。
+ * 一覧の「連絡: 未連絡」（ホーム残タスク件数と同じ集合になるようにする）。
+ * - 予約確定フラグ未送信 → アーカイブでも拾う
+ * - 11日前・3日前など「今対応が必要」な残タスク → any_mail_pending
+ *   （これから限定。アーカイブでは常に false）
  */
 export function isReservationContactPending(r: ReservationListItem): boolean {
   if (r.status !== "確定") return false;
-  return !r.completion_email_sent;
+  if (!r.completion_email_sent) return true;
+  return Boolean(r.any_mail_pending);
 }
 
 export function applyReservationListFilter(

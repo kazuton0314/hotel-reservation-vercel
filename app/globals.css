@@ -1193,6 +1193,24 @@ body.setup-active .main {
 .setup-page-chrome-top .list-filter-bar {
   margin-bottom: 0;
 }
+/* 一覧設定の絞込・並び替えが表の全幅に引き伸ばされないようにする */
+.setup-page-chrome-top .list-filter-bar {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.setup-page-chrome-top .list-filter-select {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 100%;
+}
+.setup-page-chrome-top .list-sort-dir {
+  margin-left: 0;
+}
+.setup-page-chrome-top .list-pagination {
+  margin-top: 8px;
+  margin-bottom: 4px;
+}
 .setup-commit-bar {
   display: flex;
   align-items: center;
