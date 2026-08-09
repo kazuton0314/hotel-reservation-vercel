@@ -1,8 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { headers } from "next/headers";
 import type { MailEntityContext } from "@/lib/services/mail-placeholders";
 import { formatDateIso, parseDateValue } from "@/lib/import/date-utils";
 import { generateAccessKey } from "@/lib/utils/access-key";
-import { buildCompanionFormUrl } from "@/lib/utils/companion-form-url";
+import {
+  buildCompanionFormUrl,
+  resolveAppBaseUrl,
+} from "@/lib/utils/companion-form-url";
 import { formatGuestBreakdownMail } from "@/lib/utils/guest-display";
 import { formatBbqDisplayLabel } from "@/lib/utils/occ-display";
 import { resolveMailFromHeader } from "@/lib/services/mail-send";
@@ -41,22 +45,51 @@ function extractMailAddress(from: string): string {
   return (m?.[1] ?? from).trim();
 }
 
+/** リクエスト Host から公開 URL を組み立て（環境変数未設定時のフォールバック） */
+async function appBaseUrlFromRequest(): Promise<string> {
+  try {
+    const h = await headers();
+    const host = (h.get("x-forwarded-host") ?? h.get("host") ?? "").trim();
+    if (!host) return "";
+    const forwardedProto = (h.get("x-forwarded-proto") ?? "").split(",")[0]?.trim();
+    const proto =
+      forwardedProto ||
+      (host.includes("localhost") || host.startsWith("127.") ? "http" : "https");
+    return `${proto}://${host}`.replace(/\/$/, "");
+  } catch {
+    return "";
+  }
+}
+
 async function ensureReservationAccessKey(
   supabase: SupabaseClient,
   reservationId: string,
   current: string | null | undefined
 ): Promise<string> {
-  const key = String(current ?? "").trim();
-  if (key) return key;
+  const existing = String(current ?? "").trim();
+  if (existing) return existing;
 
   const newKey = generateAccessKey();
-  await supabase
+  const { error } = await supabase
     .from("reservations")
     .update({
       access_key: newKey,
       updated_at: new Date().toISOString(),
     })
     .eq("reservation_id", reservationId);
+
+  if (error) {
+    // 競合で他が先に書いた場合は読み直す
+    const { data } = await supabase
+      .from("reservations")
+      .select("access_key")
+      .eq("reservation_id", reservationId)
+      .maybeSingle();
+    const recovered = String(data?.access_key ?? "").trim();
+    if (recovered) return recovered;
+    throw new Error(`同行者URL用の access_key 保存に失敗しました: ${error.message}`);
+  }
+
   return newKey;
 }
 
@@ -76,6 +109,8 @@ export async function buildMailEntityContext(
   entityId: string
 ): Promise<MailEntityContext> {
   const base = baseContext();
+  // 公開URLは環境変数を優先（ゲスト向けリンクのため）。未設定時のみリクエスト Host を使う
+  const appBase = resolveAppBaseUrl() || (await appBaseUrlFromRequest());
 
   if (entityType === "reservation" && entityId) {
     const { data } = await supabase
@@ -115,7 +150,7 @@ export async function buildMailEntityContext(
         under_3: data.under_3,
       }),
       bbq: formatBbqDisplayLabel(data.bbq),
-      companionFormUrl: buildCompanionFormUrl(accessKey),
+      companionFormUrl: buildCompanionFormUrl(accessKey, appBase),
     };
   }
 

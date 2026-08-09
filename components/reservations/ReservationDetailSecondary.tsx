@@ -18,7 +18,6 @@ import {
   hasDuplicateRoomAssignments,
   reconcileDuplicateRoomAssignments,
 } from "@/lib/services/room-assignment-reconcile";
-import { createReadClient } from "@/lib/supabase/read";
 import { createStaffClient } from "@/lib/supabase/server";
 import { ConnectionError } from "@/components/SetupRequired";
 
@@ -54,7 +53,8 @@ async function ReservationMailAsync({
   reservationId: string;
   reservation: Record<string, unknown>;
 }) {
-  const supabase = await createReadClient();
+  // access_key 未設定時に発行・保存するため書き込み可能なクライアントを使う
+  const supabase = await createStaffClient();
   const [{ templates: mailTemplates }, placeholderContext] = await Promise.all([
     getMailTemplates(),
     buildMailEntityContext(supabase, "reservation", reservationId),
