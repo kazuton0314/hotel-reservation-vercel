@@ -36,13 +36,6 @@ export type BatchSimAssignment = {
   reservation_is_archived?: boolean | null;
 };
 
-function isActiveBatchSimRow(row: BatchSimAssignment): boolean {
-  return isActiveReservationForRoomAssignment(
-    row.reservation_status,
-    row.reservation_is_archived
-  );
-}
-
 export type BatchRoomChangeForConflict =
   | {
       type: "move";
@@ -76,13 +69,46 @@ export type BatchRoomChangeForConflict =
       reservationId: string;
     };
 
-function datesOverlap(
+/**
+ * 宿泊期間の重複判定（半開区間 [start, end)）。
+ * チェックアウト日＝次のチェックイン日の「入れ替え」は重複しない。
+ */
+export function stayDatesOverlap(
   aStart: Date,
   aEnd: Date,
   bStart: Date,
   bEnd: Date
 ): boolean {
   return aStart.getTime() < bEnd.getTime() && bStart.getTime() < aEnd.getTime();
+}
+
+/** YYYY-MM-DD 同士の半開重複。パースできない値は重複なし。 */
+export function stayDateStringsOverlap(
+  aStart: string,
+  aEnd: string,
+  bStart: string,
+  bEnd: string
+): boolean {
+  const as = parseDateValue(aStart);
+  const ae = parseDateValue(aEnd);
+  const bs = parseDateValue(bStart);
+  const be = parseDateValue(bEnd);
+  if (!as || !ae || !bs || !be) return false;
+  return stayDatesOverlap(as, ae, bs, be);
+}
+
+function isActiveBatchSimRow(row: BatchSimAssignment): boolean {
+  // バッチで新規追加したシミュレーション行は status 未設定。衝突判定には含める。
+  if (
+    row.reservation_status === undefined &&
+    row.reservation_is_archived === undefined
+  ) {
+    return true;
+  }
+  return isActiveReservationForRoomAssignment(
+    row.reservation_status,
+    row.reservation_is_archived
+  );
 }
 
 /** GAS checkRoomConflict 相当 */
@@ -109,7 +135,7 @@ export async function checkRoomConflict(
     if (id) excludeIds.add(id);
   }
 
-  // datesOverlap: stay_start < end && stay_end > start（入力は YYYY-MM-DD）
+  // 半開区間: stay_start < end && stay_end > start（入力は YYYY-MM-DD）
   const startIso = String(input.startDate).trim().slice(0, 10);
   const endIso = String(input.endDate).trim().slice(0, 10);
 
@@ -129,7 +155,9 @@ export async function checkRoomConflict(
     room_name: string | null;
     stay_start: string;
     stay_end: string;
-    reservations: { status: string; is_archived: boolean } | { status: string; is_archived: boolean }[];
+    reservations:
+      | { status: string; is_archived: boolean }
+      | { status: string; is_archived: boolean }[];
   };
 
   const conflicts = (roomAssignments as Row[] | null ?? []).filter((a) => {
@@ -140,10 +168,12 @@ export async function checkRoomConflict(
       return false;
     }
     if (excludeIds.has(a.room_assignment_id)) return false;
-    const aStart = parseDateValue(a.stay_start);
-    const aEnd = parseDateValue(a.stay_end);
-    if (!aStart || !aEnd) return false;
-    return datesOverlap(aStart, aEnd, start, end);
+    return stayDateStringsOverlap(
+      a.stay_start,
+      a.stay_end,
+      startIso,
+      endIso
+    );
   });
 
   const otherReservationConflicts = conflicts.filter(
@@ -164,8 +194,12 @@ export async function checkRoomConflict(
 }
 
 /**
- * バッチ変更をメモリ上で適用した「最終状態」に別グループ重複があるか。
- * 途中経過（A→B の前に C→A など）では判定しない。
+ * バッチ変更をメモリ上で適用した「最終状態」に、
+ * 今回変更した予約が絡む別グループ重複があるか。
+ *
+ * - チェックアウト日＝次チェックイン日の入れ替えは重複にしない
+ * - 部屋に元からある無関係な重複だけでは警告しない
+ *   （一覧設定・部屋割ボードで「入れ替えなのに警告」になる原因だった）
  */
 export function hasOtherReservationConflictInFinalState(
   baseline: BatchSimAssignment[],
@@ -175,6 +209,11 @@ export function hasOtherReservationConflictInFinalState(
   for (const row of baseline) {
     if (!isActiveBatchSimRow(row)) continue;
     byId.set(row.room_assignment_id, { ...row });
+  }
+
+  const affectedReservationIds = new Set<string>();
+  for (const ch of changes) {
+    affectedReservationIds.add(ch.reservationId);
   }
 
   let tempId = 0;
@@ -214,17 +253,28 @@ export function hasOtherReservationConflictInFinalState(
   const finalRows = [...byId.values()].filter(isActiveBatchSimRow);
   for (let i = 0; i < finalRows.length; i++) {
     const a = finalRows[i]!;
-    const aStart = parseDateValue(a.stay_start);
-    const aEnd = parseDateValue(a.stay_end);
-    if (!aStart || !aEnd || !a.room_id) continue;
+    if (!a.room_id) continue;
     for (let j = i + 1; j < finalRows.length; j++) {
       const b = finalRows[j]!;
       if (a.room_id !== b.room_id) continue;
       if (a.reservation_id === b.reservation_id) continue;
-      const bStart = parseDateValue(b.stay_start);
-      const bEnd = parseDateValue(b.stay_end);
-      if (!bStart || !bEnd) continue;
-      if (datesOverlap(aStart, aEnd, bStart, bEnd)) return true;
+      // 今回の変更に関係ない既存同士の重複は、この操作の警告に使わない
+      if (
+        !affectedReservationIds.has(a.reservation_id) &&
+        !affectedReservationIds.has(b.reservation_id)
+      ) {
+        continue;
+      }
+      if (
+        stayDateStringsOverlap(
+          a.stay_start,
+          a.stay_end,
+          b.stay_start,
+          b.stay_end
+        )
+      ) {
+        return true;
+      }
     }
   }
   return false;
