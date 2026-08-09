@@ -621,6 +621,16 @@ export async function archiveReservationAction(
 
   if (error) return { ok: false, message: error.message };
 
+  // 日次アーカイブと同様、紐づく部屋割の is_archived も揃える（復元時は戻す）
+  const { error: roomError } = await supabase
+    .from("room_assignments")
+    .update({ is_archived: archive, updated_at: nowIso })
+    .eq("reservation_id", reservationId);
+  if (roomError) return { ok: false, message: roomError.message };
+
+  // アーカイブ状態に合わせた部屋割で assignment_status を再計算
+  await syncAssignmentStatus(supabase, reservationId);
+
   if (!archive) {
     after(async () => {
       const admin = createAdminClient();

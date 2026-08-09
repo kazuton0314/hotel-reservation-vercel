@@ -139,6 +139,12 @@ async function RoomsCompanionsAsync({
   if (roomsError) return <ConnectionError message={roomsError} />;
 
   const r = reservation;
+  const reservationArchived = Boolean(r.is_archived);
+  // 日次アーカイブは room_assignments も is_archived=true にする。
+  // 予約がアーカイブ済みのときは履歴として archived 行も表示する。
+  const visibleAssignments = reservationArchived
+    ? assignments
+    : assignments.filter((a) => !a.is_archived);
 
   return (
     <>
@@ -157,7 +163,8 @@ async function RoomsCompanionsAsync({
           under_3: asString(r.under_3),
         }}
         rooms={rooms}
-        assignments={assignments.filter((a) => !a.is_archived)}
+        assignments={visibleAssignments}
+        readOnly={reservationArchived}
       />
 
       <DetailBlock title="同行者">

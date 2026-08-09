@@ -53,6 +53,8 @@ type Props = {
   };
   rooms: RoomOption[];
   assignments: Assignment[];
+  /** アーカイブ予約は履歴表示のみ（編集不可） */
+  readOnly?: boolean;
 };
 
 type DraftRow = {
@@ -172,15 +174,15 @@ function CountSelect({
 }
 
 function AssignmentStatusBadge({
-  status,
   hasRooms,
   remaining,
 }: {
-  status: string | null;
   hasRooms: boolean;
   remaining: number;
 }) {
-  if (status === "割当済") {
+  // キャッシュの assignment_status ではなく、画面上の部屋割から判定する
+  // （アーカイブで部屋行が隠れたまま「割当済」だけ残る不整合を防ぐ）
+  if (hasRooms && remaining === 0) {
     return <span className="badge badge-ok">部屋割当済</span>;
   }
   if (hasRooms && remaining !== 0) {
@@ -191,12 +193,12 @@ function AssignmentStatusBadge({
 
 export function RoomAssignmentManager({
   reservationId,
-  assignmentStatus,
   checkIn,
   checkOut,
   guestSource,
   rooms,
   assignments,
+  readOnly = false,
 }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -408,9 +410,8 @@ export function RoomAssignmentManager({
   return (
     <div className="detail-block room-manage-block" id="room-manage-block">
       <div className="room-assign-heading">
-        <h3>部屋割り</h3>
+        <h3>部屋割り{readOnly ? "（アーカイブ）" : ""}</h3>
         <AssignmentStatusBadge
-          status={assignmentStatus}
           hasRooms={rows.length > 0}
           remaining={remaining}
         />
@@ -429,57 +430,89 @@ export function RoomAssignmentManager({
       </p>
 
       {!rows.length ? (
-        <p className="empty room-assign-empty">未割当（＋で部屋を追加）</p>
+        <p className="empty room-assign-empty">
+          {readOnly
+            ? "部屋割の記録がありません"
+            : "未割当（＋で部屋を追加）"}
+        </p>
       ) : (
         <div className="room-assign-draft-list">
           {rows.map((row) => {
             const roomChoices = sortedRooms.filter(
               (r) => r.room_id === row.roomId || !assignedRoomIds.has(r.room_id)
             );
+            const choicesWithCurrent = roomChoices.some(
+              (r) => r.room_id === row.roomId
+            )
+              ? roomChoices
+              : [
+                  { room_id: row.roomId, room_name: row.roomName },
+                  ...roomChoices,
+                ];
             return (
               <div key={row.key} className="room-assign-draft-row">
                 <div className="room-assign-draft-head">
                   <label className="room-assign-room-field">
                     <span className="sr-only">部屋</span>
-                    <Select
-                      className="room-assign-room-select"
-                      value={row.roomId}
-                      disabled={pending}
-                      onChange={(e) => changeRoom(row.key, e.target.value)}
-                      aria-label="部屋を変更"
-                    >
-                      {roomChoices.map((r) => (
-                        <option key={r.room_id} value={r.room_id}>
-                          {r.room_name}
-                        </option>
-                      ))}
-                    </Select>
+                    {readOnly ? (
+                      <span className="room-assign-room-readonly">
+                        {row.roomName}
+                      </span>
+                    ) : (
+                      <Select
+                        className="room-assign-room-select"
+                        value={row.roomId}
+                        disabled={pending}
+                        onChange={(e) => changeRoom(row.key, e.target.value)}
+                        aria-label="部屋を変更"
+                      >
+                        {choicesWithCurrent.map((r) => (
+                          <option key={r.room_id} value={r.room_id}>
+                            {r.room_name}
+                          </option>
+                        ))}
+                      </Select>
+                    )}
                   </label>
                   <span className="room-assign-draft-sub">
                     {formatGuestCompact(rowGuestSource(row))}人
                   </span>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    className="room-assign-remove-btn"
-                    aria-label={`${row.roomName}を外す`}
-                    onClick={() => removeRow(row.key)}
-                    disabled={pending}
-                  >
-                    −
-                  </Button>
+                  {!readOnly ? (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      className="room-assign-remove-btn"
+                      aria-label={`${row.roomName}を外す`}
+                      onClick={() => removeRow(row.key)}
+                      disabled={pending}
+                    >
+                      −
+                    </Button>
+                  ) : null}
                 </div>
                 <div className="room-guest-grid">
-                  {countFields.map(({ field, label }) => (
-                    <CountSelect
-                      key={field}
-                      id={`${row.key}-${field}`}
-                      label={label}
-                      value={row[field]}
-                      onChange={(v) => patchRow(row.key, field, v)}
-                    />
-                  ))}
+                  {countFields.map(({ field, label }) =>
+                    readOnly ? (
+                      <div key={field} className="form-group">
+                        <label htmlFor={`${row.key}-${field}`}>{label}</label>
+                        <div
+                          id={`${row.key}-${field}`}
+                          className="room-assign-count-readonly"
+                        >
+                          {row[field] || 0}
+                        </div>
+                      </div>
+                    ) : (
+                      <CountSelect
+                        key={field}
+                        id={`${row.key}-${field}`}
+                        label={label}
+                        value={row[field]}
+                        onChange={(v) => patchRow(row.key, field, v)}
+                      />
+                    )
+                  )}
                 </div>
               </div>
             );
@@ -487,25 +520,29 @@ export function RoomAssignmentManager({
         </div>
       )}
 
-      <div className="detail-actions room-assign-actions">
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          onClick={addRoom}
-          disabled={!canAdd || pending}
-          title={
-            canAdd
-              ? `${nextRoom?.room_name ?? "部屋"}を追加`
-              : "追加できる部屋がありません"
-          }
-        >
-          ＋ 部屋を追加
-        </Button>
-        <Button type="button" size="sm" onClick={save} disabled={pending}>
-          {pending ? "保存中…" : "部屋割りを保存"}
-        </Button>
-      </div>
+      {!readOnly ? (
+        <div className="detail-actions room-assign-actions">
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={addRoom}
+            disabled={!canAdd || pending}
+            title={
+              canAdd
+                ? `${nextRoom?.room_name ?? "部屋"}を追加`
+                : "追加できる部屋がありません"
+            }
+          >
+            ＋ 部屋を追加
+          </Button>
+          <Button type="button" size="sm" onClick={save} disabled={pending}>
+            {pending ? "保存中…" : "部屋割りを保存"}
+          </Button>
+        </div>
+      ) : (
+        <p className="detail-hint">アーカイブ済みのため部屋割は閲覧のみです</p>
+      )}
     </div>
   );
 }

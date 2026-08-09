@@ -79,25 +79,34 @@ export function isRoomAssignmentComplete(
 /**
  * assignment_status は room_assignments + 宿泊人数からの派生キャッシュ。
  * 割当 CRUD・宿泊人数変更のたびに呼ぶ。直接書き込まず、ここに同期させる。
+ *
+ * アーカイブ予約は日次処理で部屋割行も is_archived=true になるため、
+ * アクティブ行だけ見ると常に「未割当」へ落ちる。予約の archive 状態に合わせて
+ * 集計対象の部屋割を切り替える。
  */
 export async function syncAssignmentStatus(
   supabase: SupabaseClient,
   reservationId: string
 ): Promise<string> {
-  const [{ data: reservation }, { data: assignments }] = await Promise.all([
-    supabase
-      .from("reservations")
-      .select("guest_total")
-      .eq("reservation_id", reservationId)
-      .maybeSingle(),
-    supabase
-      .from("room_assignments")
-      .select(
-        "assigned_guest_count, male_count, female_count, boy_student_count, girl_student_count, age_3plus_count, under_3_count"
-      )
-      .eq("reservation_id", reservationId)
-      .eq("is_archived", false),
-  ]);
+  const { data: reservation } = await supabase
+    .from("reservations")
+    .select("guest_total, is_archived")
+    .eq("reservation_id", reservationId)
+    .maybeSingle();
+
+  let assignmentQuery = supabase
+    .from("room_assignments")
+    .select(
+      "assigned_guest_count, male_count, female_count, boy_student_count, girl_student_count, age_3plus_count, under_3_count"
+    )
+    .eq("reservation_id", reservationId);
+
+  // アクティブ予約は現行の部屋割のみ。アーカイブ予約は履歴行を含めて判定。
+  if (!reservation?.is_archived) {
+    assignmentQuery = assignmentQuery.eq("is_archived", false);
+  }
+
+  const { data: assignments } = await assignmentQuery;
 
   const status = isRoomAssignmentComplete(
     reservation?.guest_total,
