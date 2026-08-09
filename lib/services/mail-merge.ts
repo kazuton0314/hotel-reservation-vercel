@@ -38,11 +38,12 @@ function chipHtml(key: string): string {
 
 /**
  * プレーンテキスト → エディタ HTML。
- * 改行は <br>。末尾に ZWSP を置き、行末 Enter 後も次行にキャレットが乗る。
+ * 改行は <br>。末尾が改行のときだけ ZWSP を足し、行末 Enter 後に次行へキャレットが乗る。
+ * 空内容は <br>（空の ZWSP だけだと入力できないブラウザがある）。
  */
 export function mergeTextToHtml(text: string): string {
   const normalized = normalizeMergeText(text);
-  if (!normalized) return CARET_ANCHOR;
+  if (!normalized) return "<br>";
 
   const parts = normalized.split(/(⟦[^⟧]+⟧)/g);
   let html = parts
@@ -53,8 +54,7 @@ export function mergeTextToHtml(text: string): string {
     })
     .join("");
 
-  // 常に末尾へキャレット足場（行末 br / チップ直後でも次入力・Enter 可能）
-  if (!html.endsWith(CARET_ANCHOR)) {
+  if (html.endsWith("<br>")) {
     html += CARET_ANCHOR;
   }
   return html;
