@@ -83,7 +83,7 @@ export function applyReservationListFilter(
 
   if (field === "companionInfo") {
     // タスク用の companion_pending は過去日・キャンセルで常に false になる。
-    // 一覧フィルタは保存フラグで見る（アーカイブでも未回答が拾える）。
+    // 一覧フィルタは保存フラグ／対象人数で見る（アーカイブでも拾える）。
     if (value === "未回答") {
       return items.filter(
         (r) => r.companion_required && !r.companion_form_answered
@@ -93,6 +93,10 @@ export function applyReservationListFilter(
       return items.filter(
         (r) => r.companion_required && r.companion_form_answered
       );
+    }
+    if (value === "対象外") {
+      // 1名など同行者フォーム不要
+      return items.filter((r) => !r.companion_required);
     }
     return items;
   }

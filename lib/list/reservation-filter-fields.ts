@@ -64,6 +64,7 @@ export function buildReservationListFilterFields(
       options: [
         { value: "未回答", label: "同行者未回答（2名以上）" },
         { value: "回答済み", label: "同行者回答済（2名以上）" },
+        { value: "対象外", label: "同行者対象外（1名）" },
       ],
     },
     {
