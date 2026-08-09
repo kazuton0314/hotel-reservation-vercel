@@ -3,6 +3,7 @@ import type { MailEntityContext } from "@/lib/services/mail-placeholders";
 import { formatDateIso, parseDateValue } from "@/lib/import/date-utils";
 import { generateAccessKey } from "@/lib/utils/access-key";
 import { buildCompanionFormUrl } from "@/lib/utils/companion-form-url";
+import { formatGuestBreakdownMail } from "@/lib/utils/guest-display";
 import { formatBbqDisplayLabel } from "@/lib/utils/occ-display";
 import { resolveMailFromHeader } from "@/lib/services/mail-send";
 
@@ -80,7 +81,7 @@ export async function buildMailEntityContext(
     const { data } = await supabase
       .from("reservations")
       .select(
-        "reservation_id, access_key, representative_name, last_name, first_name, name_kana, last_name_kana, first_name_kana, email, phone, check_in, check_out, nights, guest_total, arrival_time, bbq"
+        "reservation_id, access_key, representative_name, last_name, first_name, name_kana, last_name_kana, first_name_kana, email, phone, check_in, check_out, nights, guest_total, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3, arrival_time, bbq"
       )
       .eq("reservation_id", entityId)
       .maybeSingle();
@@ -105,6 +106,14 @@ export async function buildMailEntityContext(
       arrivalTime: formatArrivalTime(data.arrival_time),
       nights: formatNightsLabel(data.nights),
       guestTotal: data.guest_total ?? "",
+      guestBreakdown: formatGuestBreakdownMail({
+        adult_male: data.adult_male,
+        adult_female: data.adult_female,
+        boy_student: data.boy_student,
+        girl_student: data.girl_student,
+        age_3plus: data.age_3plus,
+        under_3: data.under_3,
+      }),
       bbq: formatBbqDisplayLabel(data.bbq),
       companionFormUrl: buildCompanionFormUrl(accessKey),
     };
