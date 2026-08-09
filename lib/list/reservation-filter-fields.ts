@@ -1,14 +1,25 @@
 import type { ListFilterFieldDef } from "@/components/list/ReservationListFilterBar";
 import {
-  LIST_FILTER_BBQ_OPTIONS,
-  LIST_FILTER_CHANNEL_OPTIONS,
-  LIST_FILTER_MEAL_OPTIONS,
-  LIST_FILTER_PAYMENT_OPTIONS,
+  BBQ_OPTIONS,
+  CHANNEL_OPTIONS,
+  MEAL_OPTIONS,
+  PAYMENT_STATUS_OPTIONS,
 } from "@/lib/config/field-options";
 import { CONTACT_LABELS } from "@/lib/config/contact-confirm-labels";
+import {
+  ASSIGNED_ROOM_FILTER,
+  withOtherOption,
+  withUnsetOption,
+} from "@/lib/list/filter-partition";
 import { UNASSIGNED_ROOM_FILTER } from "@/lib/services/reservation-list-filter";
 
 type RoomOption = { room_id: string; room_name: string };
+
+function eqFieldOptions(values: readonly string[]) {
+  return withOtherOption(
+    withUnsetOption(values.map((value) => ({ value, label: value })))
+  );
+}
 
 /** 本予約一覧・一覧設定で共通の絞り込み定義 */
 export function buildReservationListFilterFields(
@@ -18,16 +29,15 @@ export function buildReservationListFilterFields(
     {
       key: "channel",
       label: "予約経路",
-      options: LIST_FILTER_CHANNEL_OPTIONS.map((value) => ({
-        value,
-        label: value,
-      })),
+      options: eqFieldOptions(CHANNEL_OPTIONS),
     },
     {
       key: "roomId",
       label: "部屋割",
       options: [
         { value: UNASSIGNED_ROOM_FILTER, label: "未割当" },
+        { value: ASSIGNED_ROOM_FILTER, label: "割当済" },
+        // 個別部屋は割当済の内訳（複数部屋は複数に出るため、合計は未割当+割当済で見る）
         ...rooms.map((r) => ({
           value: r.room_id,
           label: r.room_name,
@@ -37,26 +47,17 @@ export function buildReservationListFilterFields(
     {
       key: "payment_status",
       label: "支払い",
-      options: LIST_FILTER_PAYMENT_OPTIONS.map((value) => ({
-        value,
-        label: value,
-      })),
+      options: eqFieldOptions(PAYMENT_STATUS_OPTIONS),
     },
     {
       key: "meal",
       label: "食事",
-      options: LIST_FILTER_MEAL_OPTIONS.map((value) => ({
-        value,
-        label: value,
-      })),
+      options: eqFieldOptions(MEAL_OPTIONS),
     },
     {
       key: "bbq",
       label: "BBQ",
-      options: LIST_FILTER_BBQ_OPTIONS.map((value) => ({
-        value,
-        label: value,
-      })),
+      options: eqFieldOptions(BBQ_OPTIONS),
     },
     {
       key: "companionInfo",
@@ -88,6 +89,7 @@ export function buildReservationListFilterFields(
           value: CONTACT_LABELS.filterDone,
           label: CONTACT_LABELS.filterDone,
         },
+        { value: "対象外", label: "対象外（確定以外）" },
       ],
     },
   ];

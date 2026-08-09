@@ -1,5 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ReservationFilters, ReservationListQuery } from "@/lib/queries/reservations";
+import {
+  ASSIGNED_ROOM_FILTER,
+  isOtherFilterValue,
+  isUnsetFilterValue,
+} from "@/lib/list/filter-partition";
 import { UNASSIGNED_ROOM_FILTER } from "@/lib/services/reservation-list-filter";
 import { idPrefixIlikePattern, isIdLikeQuery } from "@/lib/utils/id-search";
 import type { ListSort } from "@/lib/utils/list-sort";
@@ -26,15 +31,23 @@ export function needsInMemoryReservationListProcessing(
   // SQL ilike はカナ折り・電話数字正規化ができないため、キーワード検索は JS 側に統一
   if (String(list?.q ?? "").trim()) return true;
   if (!list?.filterField || !list.filterValue) return false;
+  // 未設定・マスタ外は null/空文字・例外値の扱いが必要なのでメモリ側
+  if (
+    isUnsetFilterValue(list.filterValue) ||
+    isOtherFilterValue(list.filterValue)
+  ) {
+    return true;
+  }
   // SQL で完結する絞り込み以外はすべてメモリ側（未知フィールドの取りこぼし防止）
   if (isSqlEqReservationFilterField(list.filterField)) return false;
   if (
     list.filterField === "roomId" &&
-    list.filterValue !== UNASSIGNED_ROOM_FILTER
+    list.filterValue !== UNASSIGNED_ROOM_FILTER &&
+    list.filterValue !== ASSIGNED_ROOM_FILTER
   ) {
     return false;
   }
-  // assignment_status は派生キャッシュ。未割当は実部屋割＋人数一致で判定する
+  // 未割当・割当済は実部屋割＋人数一致で判定する
   return true;
 }
 

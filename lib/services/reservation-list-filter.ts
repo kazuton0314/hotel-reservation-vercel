@@ -1,28 +1,58 @@
 import type { ReservationListItem } from "@/lib/queries/reservations";
 import { isRoomAssignmentComplete } from "@/lib/services/assignment-status";
 import {
+  BBQ_OPTIONS,
+  CHANNEL_OPTIONS,
+  MEAL_OPTIONS,
+  PAYMENT_STATUS_OPTIONS,
+} from "@/lib/config/field-options";
+import {
   hasIndefiniteGuestCount,
   hasMismatchedGuestCount,
 } from "@/lib/utils/guest-count-format";
 import { CONTACT_LABELS } from "@/lib/config/contact-confirm-labels";
+import {
+  ASSIGNED_ROOM_FILTER,
+  OTHER_FILTER_VALUE,
+  UNSET_FILTER_VALUE,
+  isBlankFilterFieldValue,
+  isOtherFilterValue,
+  isUnsetFilterValue,
+} from "@/lib/list/filter-partition";
 
 export const UNASSIGNED_ROOM_FILTER = "__unassigned__";
+export { ASSIGNED_ROOM_FILTER, UNSET_FILTER_VALUE, OTHER_FILTER_VALUE };
+
+/** 各 SQL eq フィールドのマスタ値（その他判定用。BBQ は表記ゆれ含む） */
+const MASTER_VALUES_BY_FIELD: Record<string, readonly string[]> = {
+  channel: CHANNEL_OPTIONS,
+  meal: MEAL_OPTIONS,
+  bbq: [...BBQ_OPTIONS, "持込", "持参"],
+  payment_status: PAYMENT_STATUS_OPTIONS,
+};
 
 /**
  * 一覧フィルタ値 → SQL 比較用の生値（レガシー表記ゆれを吸収）。
  * BBQ「持参する」は過去データの「持込」「持参」も含める。
+ * 未設定・その他は SQL では扱わずメモリ側へ。
  */
 export function sqlValuesForReservationFilter(
   field: string,
   value: string
 ): string[] {
   const v = String(value ?? "").trim();
-  if (!v) return [];
+  if (!v || isUnsetFilterValue(v) || isOtherFilterValue(v)) return [];
   if (field === "bbq") {
     if (v === "持参する") return ["持参する", "持込", "持参"];
     return [v];
   }
   return [v];
+}
+
+export function masterValuesForReservationFilterField(
+  field: string
+): readonly string[] {
+  return MASTER_VALUES_BY_FIELD[field] ?? [];
 }
 
 function guestSourceFromItem(r: ReservationListItem) {
@@ -42,6 +72,10 @@ export function isReservationRoomUnassigned(r: ReservationListItem): boolean {
   return !isRoomAssignmentComplete(r.guest_total, r.assignments);
 }
 
+export function isReservationRoomAssigned(r: ReservationListItem): boolean {
+  return isRoomAssignmentComplete(r.guest_total, r.assignments);
+}
+
 /**
  * 一覧の「連絡: 未連絡」（ホーム「連絡未」と同じ集合）。
  * - 予約確定フラグ未送信 → アーカイブでも拾う
@@ -54,15 +88,32 @@ export function isReservationContactPending(r: ReservationListItem): boolean {
   return Boolean(r.any_mail_pending);
 }
 
+function fieldRawValue(
+  item: ReservationListItem,
+  field: string
+): string {
+  return String((item as Record<string, unknown>)[field] ?? "").trim();
+}
+
 function matchesSqlEqFilterField(
   item: ReservationListItem,
   field: string,
   value: string
 ): boolean {
+  if (isUnsetFilterValue(value)) {
+    return isBlankFilterFieldValue((item as Record<string, unknown>)[field]);
+  }
+  if (isOtherFilterValue(value)) {
+    const raw = fieldRawValue(item, field);
+    if (!raw) return false;
+    const master = new Set(masterValuesForReservationFilterField(field));
+    // BBQ の持参表記ゆれはマスタ扱い
+    if (field === "bbq" && (raw === "持込" || raw === "持参")) return false;
+    return !master.has(raw);
+  }
   const allowed = new Set(sqlValuesForReservationFilter(field, value));
   if (!allowed.size) return false;
-  const raw = String((item as Record<string, unknown>)[field] ?? "").trim();
-  return allowed.has(raw);
+  return allowed.has(fieldRawValue(item, field));
 }
 
 export function applyReservationListFilter(
@@ -75,6 +126,9 @@ export function applyReservationListFilter(
   if (field === "roomId") {
     if (value === UNASSIGNED_ROOM_FILTER) {
       return items.filter((r) => isReservationRoomUnassigned(r));
+    }
+    if (value === ASSIGNED_ROOM_FILTER) {
+      return items.filter((r) => isReservationRoomAssigned(r));
     }
     return items.filter((r) =>
       r.assignments.some((a) => a.room_id === value)
@@ -95,7 +149,6 @@ export function applyReservationListFilter(
       );
     }
     if (value === "対象外") {
-      // 1名など同行者フォーム不要
       return items.filter((r) => !r.companion_required);
     }
     return items;
@@ -110,7 +163,13 @@ export function applyReservationListFilter(
       return items.filter((r) => isReservationContactPending(r));
     }
     if (value === CONTACT_LABELS.filterDone || value === "確認済") {
-      return items.filter((r) => !isReservationContactPending(r));
+      // 確定かつ連絡残なし（仮予約・キャンセルは対象外へ）
+      return items.filter(
+        (r) => r.status === "確定" && !isReservationContactPending(r)
+      );
+    }
+    if (value === "対象外") {
+      return items.filter((r) => r.status !== "確定");
     }
     return items;
   }

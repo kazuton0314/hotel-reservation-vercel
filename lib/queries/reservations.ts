@@ -13,6 +13,7 @@ import {
   reservationIdsForRoomFilter,
 } from "@/lib/services/reservation-list-query";
 import { isRoomAssignmentComplete } from "@/lib/services/assignment-status";
+import { ASSIGNED_ROOM_FILTER } from "@/lib/list/filter-partition";
 import {
   UNASSIGNED_ROOM_FILTER,
   applyReservationListFilter,
@@ -389,9 +390,11 @@ function buildReservationBaseQuery(
   }
 
   if (list?.filterField === "roomId" && list.filterValue) {
-    // 未割当は assignment_status キャッシュが古いことがあるため SQL では扱わず
-    // needsInMemoryReservationListProcessing 経由の実割当判定に任せる
-    if (list.filterValue === UNASSIGNED_ROOM_FILTER) {
+    // 未割当・割当済は実割当判定のため SQL では扱わずメモリ側へ
+    if (
+      list.filterValue === UNASSIGNED_ROOM_FILTER ||
+      list.filterValue === ASSIGNED_ROOM_FILTER
+    ) {
       // no-op on SQL path
     } else if (roomReservationIds?.length) {
       query = query.in("reservation_id", roomReservationIds);
@@ -437,7 +440,8 @@ async function getReservationsUncached(filters: ReservationFilters = {}) {
     if (
       list.filterField === "roomId" &&
       list.filterValue &&
-      list.filterValue !== UNASSIGNED_ROOM_FILTER
+      list.filterValue !== UNASSIGNED_ROOM_FILTER &&
+      list.filterValue !== ASSIGNED_ROOM_FILTER
     ) {
       roomReservationIds = await reservationIdsForRoomFilter(
         supabase,
