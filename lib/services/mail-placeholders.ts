@@ -102,8 +102,9 @@ export function listUnresolvedPlaceholders(
  */
 export function filterVariablesForEntity(
   entityType: string,
-  _mailKind?: string
+  mailKind?: string
 ): typeof MAIL_TEMPLATE_META.variables {
+  void mailKind;
   if (entityType === "request") {
     return MAIL_TEMPLATE_META.variables.filter(
       (v) =>
