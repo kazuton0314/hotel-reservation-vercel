@@ -23,11 +23,18 @@ export async function syncRoomAssignmentGuestBreakdown(
     under_3?: unknown;
   }
 ) {
+  const { data: reservation } = await supabase
+    .from("reservations")
+    .select("is_archived")
+    .eq("reservation_id", reservationId)
+    .maybeSingle();
+  const wantArchived = Boolean(reservation?.is_archived);
+
   const { data: assignments } = await supabase
     .from("room_assignments")
     .select("room_assignment_id")
     .eq("reservation_id", reservationId)
-    .eq("is_archived", false);
+    .eq("is_archived", wantArchived);
 
   if (!assignments?.length || assignments.length > 1) return;
 
@@ -46,7 +53,8 @@ export async function syncRoomAssignmentGuestBreakdown(
     age_3plus_count: age3,
     under_3_count: under3,
     child_count: boy + girl + age3 + under3,
-    assigned_guest_count: male + female + boy + girl + age3 + under3,
+    // 3歳未満は合計人数に含めない（部屋割ボード・割当判定と同じ）
+    assigned_guest_count: male + female + boy + girl + age3,
     updated_at: new Date().toISOString(),
   };
 
@@ -54,5 +62,5 @@ export async function syncRoomAssignmentGuestBreakdown(
     .from("room_assignments")
     .update(patch)
     .eq("reservation_id", reservationId)
-    .eq("is_archived", false);
+    .eq("is_archived", wantArchived);
 }

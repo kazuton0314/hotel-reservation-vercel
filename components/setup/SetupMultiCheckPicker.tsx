@@ -1,6 +1,14 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
+import { createPortal } from "react-dom";
 
 export type SetupCheckOption = {
   value: string;
@@ -16,7 +24,9 @@ type Props = {
   className?: string;
 };
 
-/** スプシセル用の複数選択ドロップダウン */
+const MENU_MAX_HEIGHT = 220;
+
+/** スプシセル用の複数選択ドロップダウン（表の overflow 外へ portal） */
 export function SetupMultiCheckPicker({
   options,
   value,
@@ -26,17 +36,75 @@ export function SetupMultiCheckPicker({
   className,
 }: Props) {
   const [open, setOpen] = useState(false);
+  const [menuStyle, setMenuStyle] = useState<CSSProperties>({});
   const rootRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const listId = useId();
   const selected = new Set(value);
+
+  useLayoutEffect(() => {
+    if (!open || !rootRef.current) return;
+
+    const updatePosition = () => {
+      const trigger = rootRef.current;
+      if (!trigger) return;
+      const rect = trigger.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const openUp = spaceBelow < MENU_MAX_HEIGHT + 8 && rect.top > spaceBelow;
+      const width = Math.max(rect.width, 160);
+      const left = Math.min(
+        Math.max(8, rect.left),
+        Math.max(8, window.innerWidth - width - 8)
+      );
+
+      setMenuStyle({
+        position: "fixed",
+        left,
+        width,
+        maxHeight: MENU_MAX_HEIGHT,
+        zIndex: 400,
+        ...(openUp
+          ? { bottom: window.innerHeight - rect.top + 2, top: "auto" }
+          : { top: rect.bottom + 2, bottom: "auto" }),
+      });
+    };
+
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    // 表スクロールでずれるので閉じる（position 追従より確実）
+    const onScroll = (e: Event) => {
+      const target = e.target;
+      if (
+        target instanceof Node &&
+        menuRef.current?.contains(target)
+      ) {
+        return;
+      }
+      setOpen(false);
+    };
+    window.addEventListener("scroll", onScroll, true);
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", onScroll, true);
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
     const onDoc = (e: MouseEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (rootRef.current?.contains(t) || menuRef.current?.contains(t)) return;
+      setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
     };
     document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
   }, [open]);
 
   const label =
@@ -52,6 +120,34 @@ export function SetupMultiCheckPicker({
     else next.add(optionValue);
     onChange([...next]);
   };
+
+  const menu =
+    open && typeof document !== "undefined"
+      ? createPortal(
+          <div
+            ref={menuRef}
+            id={listId}
+            className="setup-room-menu setup-room-menu-portal"
+            role="listbox"
+            style={menuStyle}
+          >
+            {options.map((opt) => (
+              <label key={opt.value} className="setup-room-option">
+                <input
+                  type="checkbox"
+                  checked={selected.has(opt.value)}
+                  onChange={() => toggle(opt.value)}
+                />
+                {opt.label}
+              </label>
+            ))}
+            {!options.length ? (
+              <p className="setup-room-empty">選択肢がありません</p>
+            ) : null}
+          </div>,
+          document.body
+        )
+      : null;
 
   return (
     <div
@@ -70,23 +166,7 @@ export function SetupMultiCheckPicker({
         <span className="setup-room-trigger-text">{label}</span>
         <span aria-hidden>▾</span>
       </button>
-      {open ? (
-        <div id={listId} className="setup-room-menu" role="listbox">
-          {options.map((opt) => (
-            <label key={opt.value} className="setup-room-option">
-              <input
-                type="checkbox"
-                checked={selected.has(opt.value)}
-                onChange={() => toggle(opt.value)}
-              />
-              {opt.label}
-            </label>
-          ))}
-          {!options.length ? (
-            <p className="setup-room-empty">選択肢がありません</p>
-          ) : null}
-        </div>
-      ) : null}
+      {menu}
     </div>
   );
 }

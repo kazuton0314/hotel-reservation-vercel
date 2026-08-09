@@ -1432,6 +1432,14 @@ body.setup-active .main {
   background: var(--card);
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
 }
+/* 表の overflow:auto にクリップされないよう body portal + fixed で出す */
+.setup-room-menu-portal {
+  position: fixed;
+  top: auto;
+  left: auto;
+  z-index: 400;
+  margin: 0;
+}
 .setup-room-option {
   display: flex !important;
   align-items: center;

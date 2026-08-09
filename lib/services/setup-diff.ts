@@ -306,15 +306,16 @@ export function buildRoomAssignmentChangesForSetup(
       .map((a) => a.room_id)
   );
 
+  // 部屋割ボードの＋追加と同じく、予約の人数を初期値として全入れする。
+  // 3歳未満は内訳に残すが割当合計（guestCount）には含めない。
   const male = parseCount(draft.adult_male);
   const female = parseCount(draft.adult_female);
   const boy = parseCount(draft.boy_student);
   const girl = parseCount(draft.girl_student);
   const age3 = parseCount(draft.age_3plus);
   const under3 = parseCount(draft.under_3);
-  const guestCount =
-    parseCount(draft.guest_total) ||
-    male + female + boy + girl + age3 + under3;
+  const breakdownMain = male + female + boy + girl + age3;
+  const guestCount = parseCount(draft.guest_total) || breakdownMain;
 
   for (const roomId of desired) {
     if (existingRooms.has(roomId)) continue;

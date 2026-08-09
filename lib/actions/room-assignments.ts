@@ -702,6 +702,13 @@ export async function batchRoomAssignmentChangesAction(
         .eq("updated_at", ch.expectedUpdatedAt ?? existing.updated_at ?? "");
 
       if (error) return { ok: false, message: error.message };
+      // eq 不一致だと 0 件削除でも error にならないため、残存を衝突として扱う
+      const { data: stillThere } = await supabase
+        .from("room_assignments")
+        .select("room_assignment_id")
+        .eq("room_assignment_id", ch.roomAssignmentId)
+        .maybeSingle();
+      if (stillThere) return { ok: false, message: CONFLICT_MESSAGE };
       affected.add(ch.reservationId);
       applied++;
     }
