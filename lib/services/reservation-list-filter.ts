@@ -8,6 +8,23 @@ import { CONTACT_LABELS } from "@/lib/config/contact-confirm-labels";
 
 export const UNASSIGNED_ROOM_FILTER = "__unassigned__";
 
+/**
+ * 一覧フィルタ値 → SQL 比較用の生値（レガシー表記ゆれを吸収）。
+ * BBQ「持参する」は過去データの「持込」「持参」も含める。
+ */
+export function sqlValuesForReservationFilter(
+  field: string,
+  value: string
+): string[] {
+  const v = String(value ?? "").trim();
+  if (!v) return [];
+  if (field === "bbq") {
+    if (v === "持参する") return ["持参する", "持込", "持参"];
+    return [v];
+  }
+  return [v];
+}
+
 function guestSourceFromItem(r: ReservationListItem) {
   return {
     guest_total: r.guest_total,
@@ -35,6 +52,17 @@ export function isReservationContactPending(r: ReservationListItem): boolean {
   if (r.status !== "確定") return false;
   if (!r.completion_email_sent) return true;
   return Boolean(r.any_mail_pending);
+}
+
+function matchesSqlEqFilterField(
+  item: ReservationListItem,
+  field: string,
+  value: string
+): boolean {
+  const allowed = new Set(sqlValuesForReservationFilter(field, value));
+  if (!allowed.size) return false;
+  const raw = String((item as Record<string, unknown>)[field] ?? "").trim();
+  return allowed.has(raw);
 }
 
 export function applyReservationListFilter(
@@ -99,6 +127,15 @@ export function applyReservationListFilter(
       });
     }
     return items;
+  }
+
+  if (
+    field === "channel" ||
+    field === "meal" ||
+    field === "bbq" ||
+    field === "payment_status"
+  ) {
+    return items.filter((r) => matchesSqlEqFilterField(r, field, value));
   }
 
   return items.filter((r) => {

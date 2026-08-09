@@ -27,6 +27,7 @@ export function ListSortBar({ kind }: ListSortBarProps) {
     const params = new URLSearchParams(searchParams.toString());
     params.set("sort", field);
     params.set("dir", dir ?? defaultDirForSortField(field));
+    params.delete("page");
     router.push(`${pathname}?${params.toString()}`);
   }
 

@@ -41,6 +41,8 @@ export function ReservationListFilterBar({
       params.set("filterField", nextField);
       params.set("filterValue", nextValue);
     }
+    // 絞り込み変更後に古い page が残ると SQL range が 416 になる
+    params.delete("page");
     router.push(`${pathname}?${params.toString()}`);
   }
 

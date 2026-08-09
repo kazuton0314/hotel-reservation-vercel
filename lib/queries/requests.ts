@@ -14,6 +14,9 @@ import {
 import { todayIso } from "@/lib/utils/date-label";
 import {
   DEFAULT_LIST_PAGE_SIZE,
+  clampPage,
+  isRangeNotSatisfiableError,
+  pageRange,
   paginateItems,
   parsePageParam,
 } from "@/lib/utils/list-pagination";
@@ -109,41 +112,65 @@ async function getRequestsUncached(filters: RequestListFilters = {}) {
       list.sort || list.dir
         ? parseListSort(list.sort, list.dir)
         : ({ field: "received", dir: "desc" } as const);
-    const page = list.page ?? parsePageParam(undefined);
+    const requestedPage = list.page ?? parsePageParam(undefined);
     const pageSize = list.pageSize ?? DEFAULT_LIST_PAGE_SIZE;
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
 
-    let query = supabase
-      .from("reservation_requests")
-      .select(REQUEST_LIST_SELECT, { count: "exact" });
+    let page = requestedPage;
+    let data: Record<string, unknown>[] | null = null;
+    let error: { message: string; code?: string; details?: string } | null =
+      null;
+    let count: number | null = null;
 
-    if (filters.scope === "archive" || filters.scope === "past") {
-      query = query.or(`is_archived.eq.true,check_out.lt.${today}`);
-    } else {
-      query = query.eq("is_archived", false).gte("check_out", today);
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const { from, to } = pageRange(page, pageSize);
+      let query = supabase
+        .from("reservation_requests")
+        .select(REQUEST_LIST_SELECT, { count: "exact" });
+
+      if (filters.scope === "archive" || filters.scope === "past") {
+        query = query.or(`is_archived.eq.true,check_out.lt.${today}`);
+      } else {
+        query = query.eq("is_archived", false).gte("check_out", today);
+      }
+      if (filters.status === "承認済") {
+        query = query.in("status", ["承認済", "本予約連携済"]);
+      } else if (filters.status) {
+        query = query.eq("status", filters.status);
+      }
+
+      const checkIn = String(list.checkIn ?? "").trim();
+      if (checkIn) {
+        query = query.eq("check_in", checkIn);
+      }
+      query = applyRequestKeywordFilter(query, list.q);
+      query = applyRequestListOrder(query, sort);
+
+      const result = await query.range(from, to);
+      data = (result.data ?? null) as Record<string, unknown>[] | null;
+      error = result.error;
+      count = result.count;
+
+      if (!error) {
+        if (count != null && count > 0 && from >= count && page > 1) {
+          page = clampPage(page, count, pageSize);
+          continue;
+        }
+        break;
+      }
+
+      if (isRangeNotSatisfiableError(error) && page > 1) {
+        page = 1;
+        continue;
+      }
+      break;
     }
-    if (filters.status === "承認済") {
-      query = query.in("status", ["承認済", "本予約連携済"]);
-    } else if (filters.status) {
-      query = query.eq("status", filters.status);
-    }
 
-    const checkIn = String(list.checkIn ?? "").trim();
-    if (checkIn) {
-      query = query.eq("check_in", checkIn);
-    }
-    query = applyRequestKeywordFilter(query, list.q);
-
-    query = applyRequestListOrder(query, sort);
-
-    const { data, error, count } = await query.range(from, to);
     if (error) {
       return { requests: [] as RequestListItem[], total: 0, error: error.message };
     }
 
     return {
-      requests: mapRequestListRows((data ?? []) as Record<string, unknown>[]),
+      requests: mapRequestListRows(data ?? []),
       total: count ?? 0,
       error: null,
     };

@@ -13,8 +13,11 @@ import {
   reservationIdsForRoomFilter,
 } from "@/lib/services/reservation-list-query";
 import { isRoomAssignmentComplete } from "@/lib/services/assignment-status";
-import { UNASSIGNED_ROOM_FILTER } from "@/lib/services/reservation-list-filter";
-import { applyReservationListFilter } from "@/lib/services/reservation-list-filter";
+import {
+  UNASSIGNED_ROOM_FILTER,
+  applyReservationListFilter,
+  sqlValuesForReservationFilter,
+} from "@/lib/services/reservation-list-filter";
 import { DEFAULTS } from "@/lib/config/forms";
 import { effectiveGuestCountForCompanion } from "@/lib/utils/guest-display";
 import { idPrefixIlikePattern, isIdLikeQuery } from "@/lib/utils/id-search";
@@ -22,6 +25,9 @@ import { todayIso } from "@/lib/utils/date-label";
 import { escapeIlike } from "@/lib/utils/sql-ilike";
 import {
   DEFAULT_LIST_PAGE_SIZE,
+  clampPage,
+  isRangeNotSatisfiableError,
+  pageRange,
   paginateItems,
   parsePageParam,
 } from "@/lib/utils/list-pagination";
@@ -397,7 +403,15 @@ function buildReservationBaseQuery(
     list.filterValue &&
     isSqlEqReservationFilterField(list.filterField)
   ) {
-    query = query.eq(list.filterField, list.filterValue);
+    const values = sqlValuesForReservationFilter(
+      list.filterField,
+      list.filterValue
+    );
+    if (values.length === 1) {
+      query = query.eq(list.filterField, values[0]!);
+    } else if (values.length > 1) {
+      query = query.in(list.filterField, values);
+    }
   }
 
   return query;
@@ -416,10 +430,8 @@ async function getReservationsUncached(filters: ReservationFilters = {}) {
 
   if (useSqlPagination && list) {
     const sort = parseListSort(list.sort, list.dir);
-    const page = list.page ?? parsePageParam(undefined);
+    const requestedPage = list.page ?? parsePageParam(undefined);
     const pageSize = list.pageSize ?? DEFAULT_LIST_PAGE_SIZE;
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
 
     let roomReservationIds: string[] | null = null;
     if (
@@ -434,15 +446,46 @@ async function getReservationsUncached(filters: ReservationFilters = {}) {
       );
     }
 
-    let query = buildReservationBaseQuery(
-      supabase,
-      filters,
-      list,
-      roomReservationIds
-    );
-    query = applyReservationListOrder(query, sort);
+    let page = requestedPage;
+    let data: DbListRow[] | null = null;
+    let error: { message: string; code?: string; details?: string } | null =
+      null;
+    let count: number | null = null;
 
-    const { data, error, count } = await query.range(from, to);
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const { from, to } = pageRange(page, pageSize);
+      let query = buildReservationBaseQuery(
+        supabase,
+        filters,
+        list,
+        roomReservationIds
+      );
+      query = applyReservationListOrder(query, sort);
+      const result = await query.range(from, to);
+      data = (result.data ?? null) as DbListRow[] | null;
+      error = result.error;
+      count = result.count;
+
+      if (!error) {
+        if (
+          count != null &&
+          count > 0 &&
+          from >= count &&
+          page > 1
+        ) {
+          page = clampPage(page, count, pageSize);
+          continue;
+        }
+        break;
+      }
+
+      if (isRangeNotSatisfiableError(error) && page > 1) {
+        page = 1;
+        continue;
+      }
+      break;
+    }
+
     if (error) {
       return {
         reservations: [] as ReservationListItem[],
@@ -451,7 +494,7 @@ async function getReservationsUncached(filters: ReservationFilters = {}) {
       };
     }
 
-    const rows = (data ?? []) as DbListRow[];
+    const rows = data ?? [];
     const pageIds = rows.map((r) => r.reservation_id);
     const assignmentsByReservation = await loadAssignmentsByReservationIds(
       supabase,

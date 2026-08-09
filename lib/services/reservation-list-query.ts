@@ -5,7 +5,7 @@ import { idPrefixIlikePattern, isIdLikeQuery } from "@/lib/utils/id-search";
 import type { ListSort } from "@/lib/utils/list-sort";
 import { escapeIlike } from "@/lib/utils/sql-ilike";
 
-/** DB 列へ直接 eq できる絞り込み（SQL ページング経路で適用） */
+/** DB 列へ直接 eq/in できる絞り込み（SQL ページング経路で適用） */
 const SQL_EQ_RESERVATION_FILTER_FIELDS = new Set([
   "channel",
   "meal",
@@ -26,19 +26,16 @@ export function needsInMemoryReservationListProcessing(
   // SQL ilike はカナ折り・電話数字正規化ができないため、キーワード検索は JS 側に統一
   if (String(list?.q ?? "").trim()) return true;
   if (!list?.filterField || !list.filterValue) return false;
-  // assignment_status は派生キャッシュ。アーカイブ後や人数不一致の取りこぼしがあるため
-  // 未割当は実部屋割＋人数一致で判定する（SQL の eq では足りない）
+  // SQL で完結する絞り込み以外はすべてメモリ側（未知フィールドの取りこぼし防止）
+  if (isSqlEqReservationFilterField(list.filterField)) return false;
   if (
     list.filterField === "roomId" &&
-    list.filterValue === UNASSIGNED_ROOM_FILTER
+    list.filterValue !== UNASSIGNED_ROOM_FILTER
   ) {
-    return true;
+    return false;
   }
-  return (
-    list.filterField === "guestTotal" ||
-    list.filterField === "companionInfo" ||
-    list.filterField === "completionEmail"
-  );
+  // assignment_status は派生キャッシュ。未割当は実部屋割＋人数一致で判定する
+  return true;
 }
 
 export function needsInMemoryRequestListProcessing(
@@ -46,7 +43,8 @@ export function needsInMemoryRequestListProcessing(
 ): boolean {
   if (String(list?.q ?? "").trim()) return true;
   if (!list?.filterField || !list.filterValue) return false;
-  return list.filterField === "replyEmail";
+  // リクエスト絞り込みは業務フラグ判定（replyEmail 等）。未知フィールドも取りこぼさない
+  return true;
 }
 
 export function applyReservationKeywordFilter<
