@@ -58,9 +58,10 @@ export function assignmentRowUnder3Sum(row: AssignmentCountRow): number {
 }
 
 /**
- * 宿泊人数と部屋割内訳が一致しているときだけ割当済（一覧「部屋割→未割当」用）。
- * 3歳未満は判定に使わない。部屋が無い／人数不足／人数超過は未割当。
- * 部屋割ボードの未割当列は「部屋なし」のみ（room-occupancy 側）で判定する。
+ * 宿泊人数と部屋割内訳が一致しているときだけ割当済。
+ * 部屋なし・人数不足・人数超過はすべて未割当（「人数未一致」ステータスは持たない）。
+ * ホーム／一覧の未割当カウントはこの結果を使う。
+ * 部屋割ボードの未割当列だけは「部屋なし」のみ（room-occupancy 側）。
  */
 export function isRoomAssignmentComplete(
   guestTotal: string | null | undefined,

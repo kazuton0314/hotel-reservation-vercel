@@ -573,7 +573,7 @@ export function applyOccAddRoomLocally(
     const targetCell = day.cells.find((c) => c.roomId === toRoomId);
     if (!targetCell) continue;
 
-    // 毎回予約人数フルで初期入力（予約詳細の部屋割と同じ。敢えて人数未一致にし振り分けを促す）
+    // 毎回予約人数フルで初期入力（予約詳細の部屋割と同じ。敢えて人数を振り分けさせる）
     const copy: OccEvent = {
       ...source,
       roomAssignmentId: pendingId,

@@ -346,7 +346,8 @@ export function isSharedRoomEvents(events: OccEvent[]): boolean {
 
 /**
  * 部屋割ボードの「未割当」列用。
- * 部屋が1つでも付いている予約は出さない（人数不一致は一覧の部屋割フィルタ側）。
+ * 部屋が1つでも付いている予約は出さない。
+ * 人数不一致は assignment_status=未割当 として一覧・ホーム集計側で拾う。
  */
 function buildUnassignedOccEventsForDay(
   reservations: DbReservation[],

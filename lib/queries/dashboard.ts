@@ -369,6 +369,7 @@ async function getDashboardSummaryUncached(): Promise<{
       .select("reservation_id", { count: "exact", head: true })
       .eq("is_archived", false)
       .eq("status", "確定"),
+    // 部屋なし＋人数不一致の両方（assignment_status は一致時のみ割当済）
     supabase
       .from("reservations")
       .select("reservation_id", { count: "exact", head: true })

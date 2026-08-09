@@ -178,13 +178,9 @@ function AssignmentStatusBadge({
   hasRooms: boolean;
   remaining: number;
 }) {
-  // キャッシュの assignment_status ではなく、画面上の部屋割から判定する
-  // （アーカイブで部屋行が隠れたまま「割当済」だけ残る不整合を防ぐ）
+  // 画面上の部屋割から判定。人数不一致も「未割当」（別ステータスは持たない）
   if (hasRooms && remaining === 0) {
     return <span className="badge badge-ok">部屋割当済</span>;
-  }
-  if (hasRooms && remaining !== 0) {
-    return <span className="badge badge-warn">人数未一致</span>;
   }
   return <span className="badge badge-warn">部屋未割当</span>;
 }
@@ -250,7 +246,7 @@ export function RoomAssignmentManager({
 
   function addRoom() {
     if (!nextRoom) return;
-    // 毎回予約人数フルで初期入力（敢えて人数未一致にし、振り分けを促す）
+    // 毎回予約人数フルで初期入力（敢えて人数を振り分けさせる）
     const defaults = guestDefaultsFromSource(guestSource);
     setRows((prev) => [
       ...prev,
