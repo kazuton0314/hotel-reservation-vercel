@@ -262,8 +262,6 @@ export async function updateReservationAction(
     String(payload.girl_student ?? "") !== String(current.girl_student ?? "") ||
     String(payload.age_3plus ?? "") !== String(current.age_3plus ?? "") ||
     String(payload.under_3 ?? "") !== String(current.under_3 ?? "");
-  const guestTotalChanged =
-    String(payload.guest_total ?? "") !== String(current.guest_total ?? "");
 
   // 人数不一致も一覧の未割当フィルタに載せるため、宿泊人数変更後に再同期
   if (!shouldClearRoomAssignmentsOnStatus(nextStatus)) {
@@ -310,28 +308,15 @@ export async function updateReservationAction(
     await syncReservationToGCal(admin, reservationId);
   });
 
+  // 書き込み済み payload を正とする（直後の再読込が遅れても UI が戻らない）
   const guests: SavedGuestFields = {
-    guestTotal:
-      (fresh?.guest_total as string | null | undefined) ??
-      (payload.guest_total as string | null),
-    adultMale:
-      (fresh?.adult_male as string | null | undefined) ??
-      (payload.adult_male as string | null),
-    adultFemale:
-      (fresh?.adult_female as string | null | undefined) ??
-      (payload.adult_female as string | null),
-    boyStudent:
-      (fresh?.boy_student as string | null | undefined) ??
-      (payload.boy_student as string | null),
-    girlStudent:
-      (fresh?.girl_student as string | null | undefined) ??
-      (payload.girl_student as string | null),
-    age3plus:
-      (fresh?.age_3plus as string | null | undefined) ??
-      (payload.age_3plus as string | null),
-    under3:
-      (fresh?.under_3 as string | null | undefined) ??
-      (payload.under_3 as string | null),
+    guestTotal: payload.guest_total as string | null,
+    adultMale: payload.adult_male as string | null,
+    adultFemale: payload.adult_female as string | null,
+    boyStudent: payload.boy_student as string | null,
+    girlStudent: payload.girl_student as string | null,
+    age3plus: payload.age_3plus as string | null,
+    under3: payload.under_3 as string | null,
   };
 
   return {

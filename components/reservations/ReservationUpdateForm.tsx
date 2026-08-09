@@ -128,6 +128,18 @@ function guestSeedFromProps(props: Props): GuestSeed {
   };
 }
 
+function guestSeedsEqual(a: GuestSeed, b: GuestSeed): boolean {
+  return (
+    String(a.guestTotal ?? "") === String(b.guestTotal ?? "") &&
+    String(a.adultMale ?? "") === String(b.adultMale ?? "") &&
+    String(a.adultFemale ?? "") === String(b.adultFemale ?? "") &&
+    String(a.boyStudent ?? "") === String(b.boyStudent ?? "") &&
+    String(a.girlStudent ?? "") === String(b.girlStudent ?? "") &&
+    String(a.age3plus ?? "") === String(b.age3plus ?? "") &&
+    String(a.under3 ?? "") === String(b.under3 ?? "")
+  );
+}
+
 export function ReservationUpdateForm(props: Props) {
   const router = useRouter();
   const [state, formAction, isPending] = useActionState(
@@ -139,26 +151,63 @@ export function ReservationUpdateForm(props: Props) {
     guestSeedFromProps(props)
   );
   const [formEpoch, setFormEpoch] = useState(0);
+  const [appliedSaveAt, setAppliedSaveAt] = useState<string | null>(null);
   const skipFirstPropsSync = useRef(true);
   const lastSavedAtRef = useRef<string | null>(null);
+  const lastSavedGuestsRef = useRef<GuestSeed | null>(null);
+
+  // 保存成功は render 内で seed に反映し、同一コミットで form を載せ替える
+  // （useEffect だけだと React 19 の select reset より後になり表示が戻る）
+  const savedGuests =
+    state.ok === true && "guests" in state && state.guests
+      ? state.guests
+      : null;
+  const savedAt =
+    state.ok === true && "updatedAt" in state && state.updatedAt
+      ? state.updatedAt
+      : null;
+  if (savedGuests && savedAt && savedAt !== appliedSaveAt) {
+    setAppliedSaveAt(savedAt);
+    setExpectedUpdatedAt(savedAt);
+    setGuestSeed(savedGuests);
+    setFormEpoch((n) => n + 1);
+    lastSavedAtRef.current = savedAt;
+    lastSavedGuestsRef.current = savedGuests;
+  }
 
   // サーバー props が追いついたら（他端末更新・再読込）フォームの初期値を同期。
-  // ただし保存直後に古いキャッシュ props が来た場合は書き戻さない。
+  // 保存直後の古いキャッシュや、updated_at だけ新しい不完全 props は書き戻さない。
   useEffect(() => {
     if (skipFirstPropsSync.current) {
       skipFirstPropsSync.current = false;
       return;
     }
     const propsUpdatedAt = props.updatedAt ?? "";
-    const savedAt = lastSavedAtRef.current;
-    if (savedAt && propsUpdatedAt && propsUpdatedAt < savedAt) {
+    const savedAtPin = lastSavedAtRef.current;
+    const savedGuestsPin = lastSavedGuestsRef.current;
+    const propsGuests = guestSeedFromProps(props);
+
+    if (savedGuestsPin) {
+      if (guestSeedsEqual(propsGuests, savedGuestsPin)) {
+        lastSavedAtRef.current = null;
+        lastSavedGuestsRef.current = null;
+      } else if (
+        savedAtPin &&
+        propsUpdatedAt &&
+        propsUpdatedAt > savedAtPin
+      ) {
+        // 他端末など、保存より新しい更新
+        lastSavedAtRef.current = null;
+        lastSavedGuestsRef.current = null;
+      } else {
+        return;
+      }
+    } else if (savedAtPin && propsUpdatedAt && propsUpdatedAt < savedAtPin) {
       return;
     }
-    if (savedAt && propsUpdatedAt && propsUpdatedAt >= savedAt) {
-      lastSavedAtRef.current = null;
-    }
+
     setExpectedUpdatedAt(props.updatedAt);
-    setGuestSeed(guestSeedFromProps(props));
+    setGuestSeed(propsGuests);
     setFormEpoch((n) => n + 1);
   }, [
     props.updatedAt,
@@ -171,28 +220,37 @@ export function ReservationUpdateForm(props: Props) {
     props.under3,
   ]);
 
-  // 保存成功時はアクションが返した人数を正として残し、古いキャッシュの書き戻しを防ぐ
   useEffect(() => {
-    if (!state || state.ok !== true) return;
-    if (!("guests" in state) || !state.guests) return;
+    if (!savedGuests || !savedAt) return;
     markLocalDataMutation();
-    lastSavedAtRef.current = state.updatedAt ?? null;
-    setExpectedUpdatedAt(state.updatedAt ?? expectedUpdatedAt);
-    setGuestSeed(state.guests);
-    setFormEpoch((n) => n + 1);
     router.refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- 保存成功の state 変化時のみ
-  }, [state]);
+  }, [savedGuests, savedAt, router]);
 
   const formKey = useMemo(
     () =>
-      `${props.reservationId}:${expectedUpdatedAt ?? ""}:${formEpoch}:${guestSeed.guestTotal ?? ""}:${guestSeed.adultMale ?? ""}`,
+      [
+        props.reservationId,
+        expectedUpdatedAt ?? "",
+        formEpoch,
+        guestSeed.guestTotal ?? "",
+        guestSeed.adultMale ?? "",
+        guestSeed.adultFemale ?? "",
+        guestSeed.boyStudent ?? "",
+        guestSeed.girlStudent ?? "",
+        guestSeed.age3plus ?? "",
+        guestSeed.under3 ?? "",
+      ].join(":"),
     [
       props.reservationId,
       expectedUpdatedAt,
       formEpoch,
       guestSeed.guestTotal,
       guestSeed.adultMale,
+      guestSeed.adultFemale,
+      guestSeed.boyStudent,
+      guestSeed.girlStudent,
+      guestSeed.age3plus,
+      guestSeed.under3,
     ]
   );
 
@@ -406,7 +464,7 @@ export function ReservationUpdateForm(props: Props) {
         <p className="detail-hint" style={{ color: "#b91c1c" }}>
           {state.message}
         </p>
-      ) : state.ok === true && !isPending && "guests" in state && state.guests ? (
+      ) : state.ok === true && !isPending && savedGuests ? (
         <p className="detail-hint" style={{ color: "#047857" }}>
           保存しました
         </p>
