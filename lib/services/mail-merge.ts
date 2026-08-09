@@ -324,15 +324,16 @@ export function setPlainCaretOffset(root: HTMLElement, plainOffset: number): voi
   const range = root.ownerDocument.createRange();
   if (found && focusNode) {
     try {
-      if (isTextNode(focusNode)) {
+      const node: Node = focusNode;
+      if (isTextNode(node)) {
         range.setStart(
-          focusNode,
-          Math.min(focusOffset, focusNode.textContent?.length ?? 0)
+          node,
+          Math.min(focusOffset, node.textContent?.length ?? 0)
         );
-      } else if (isElementNode(focusNode)) {
+      } else if (isElementNode(node)) {
         range.setStart(
-          focusNode,
-          Math.min(focusOffset, focusNode.childNodes.length)
+          node,
+          Math.min(focusOffset, node.childNodes.length)
         );
       } else {
         range.selectNodeContents(root);
