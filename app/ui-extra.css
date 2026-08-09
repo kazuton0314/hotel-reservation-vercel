@@ -554,7 +554,8 @@
 .mail-merge-editor .mail-merge-chip {
   display: inline-flex;
   align-items: center;
-  margin: 0 2px;
+  /* 外側 margin だと文字としてのスペースとズレて削除が不自然になる */
+  margin: 0;
   padding: 1px 8px;
   border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
