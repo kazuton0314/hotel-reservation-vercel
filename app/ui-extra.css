@@ -545,29 +545,6 @@
   min-height: 220px;
 }
 
-.mail-placeholder-chip,
-.mail-merge-chip {
-  display: inline-flex;
-  align-items: center;
-  margin: 0;
-  padding: 1px 8px;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
-  background: var(--accent-soft);
-  color: var(--accent);
-  font-size: 0.75rem;
-  font-weight: 700;
-  vertical-align: baseline;
-  user-select: none;
-  cursor: grab;
-  touch-action: none;
-}
-
-.mail-placeholder-chip:active,
-.mail-merge-chip:active {
-  cursor: grabbing;
-}
-
 .mail-compose-preview {
   border: 1px solid var(--border);
   border-radius: 12px;
