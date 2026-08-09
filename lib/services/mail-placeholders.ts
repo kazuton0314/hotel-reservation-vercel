@@ -17,6 +17,8 @@ export type MailEntityContext = {
   arrivalTime?: string;
   nights?: string;
   guestTotal?: string;
+  /** 大人男性5・大人女性2… 形式。本予約のみ */
+  guestBreakdown?: string;
   bbq?: string;
   studioBookingUrl?: string;
   companionFormUrl?: string;
@@ -38,6 +40,7 @@ export function buildVariableMap(ctx: MailEntityContext): Record<string, string>
     チェックアウト: ctx.checkOut ?? "",
     泊数: ctx.nights ?? "",
     人数: ctx.guestTotal ?? "",
+    人数内訳: ctx.guestBreakdown ?? "",
     BBQ利用予定: ctx.bbq ?? "",
     本予約URL: ctx.studioBookingUrl ?? "",
     同行者フォームURL: ctx.companionFormUrl ?? "",

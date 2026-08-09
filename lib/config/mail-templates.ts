@@ -67,6 +67,12 @@ export const MAIL_TEMPLATE_META: MailTemplateMeta = {
     { key: "泊数", label: "泊数", token: "{{泊数}}", categories: ["一般"] },
     { key: "人数", label: "人数", token: "{{人数}}", categories: ["一般"] },
     {
+      key: "人数内訳",
+      label: "人数内訳",
+      token: "{{人数内訳}}",
+      categories: ["本予約"],
+    },
+    {
       key: "チェックイン予定時間",
       label: "チェックイン予定時間",
       token: "{{チェックイン予定時間}}",

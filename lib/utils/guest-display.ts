@@ -83,6 +83,23 @@ export function formatGuestTotalLabel(
 }
 
 /**
+ * メール差し込み用の人数内訳。
+ * 例: 大人男性5・大人女性2・男子小学生2・女子小学生1・3歳以上1・3歳未満2
+ * 0 人の区分は省略。すべて空なら空文字。
+ */
+export function formatGuestBreakdownMail(source: GuestSource): string {
+  const parts = [
+    formatGuestBreakdownPart("大人男性", source.adult_male),
+    formatGuestBreakdownPart("大人女性", source.adult_female),
+    formatGuestBreakdownPart("男子小学生", source.boy_student),
+    formatGuestBreakdownPart("女子小学生", source.girl_student),
+    formatGuestBreakdownPart("3歳以上", source.age_3plus),
+    formatGuestBreakdownPart("3歳未満", source.under_3),
+  ].filter(Boolean);
+  return parts.join("・");
+}
+
+/**
  * 一覧・カード・カレンダー・GCal 共通の人数表示。
  * 未就学（3歳未満）は括弧内ではなく「+N」で添える。
  */
