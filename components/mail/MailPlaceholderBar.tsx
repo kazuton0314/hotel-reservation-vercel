@@ -21,6 +21,8 @@ export function MailPlaceholderBar({ entityType, mailKind, onInsert }: Props) {
             type="button"
             className="mail-placeholder-chip"
             title="件名・本文に挿入"
+            // エディタの blur / 選択消失を防ぎ、カーソル位置へ挿入できるようにする
+            onMouseDown={(e) => e.preventDefault()}
             onClick={() => onInsert(v.key)}
             draggable
             onDragStart={(e) => {

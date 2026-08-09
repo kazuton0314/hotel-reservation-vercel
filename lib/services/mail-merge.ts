@@ -225,6 +225,132 @@ function getSelectionRange(root: HTMLElement): Range | null {
   return range;
 }
 
+/** 現在キャレットのプレーンテキストオフセット（チップ挿入位置の保存用） */
+export function getPlainCaretOffset(root: HTMLElement): number {
+  const sel = root.ownerDocument.defaultView?.getSelection();
+  if (!sel || !sel.anchorNode || !root.contains(sel.anchorNode)) {
+    return serializeMergeEditor(root).length;
+  }
+  try {
+    const pre = root.ownerDocument.createRange();
+    pre.selectNodeContents(root);
+    pre.setEnd(sel.anchorNode, sel.anchorOffset);
+    const holder = root.ownerDocument.createElement("div");
+    holder.appendChild(pre.cloneContents());
+    return serializeMergeEditor(holder).length;
+  } catch {
+    return serializeMergeEditor(root).length;
+  }
+}
+
+/** プレーンテキストオフセットへキャレットを復元 */
+export function setPlainCaretOffset(root: HTMLElement, plainOffset: number): void {
+  let remaining = Math.max(0, plainOffset);
+  let focusNode: Node | null = null;
+  let focusOffset = 0;
+  let found = false;
+
+  const visitText = (node: Text): boolean => {
+    const raw = node.textContent ?? "";
+    for (let i = 0; i <= raw.length; i++) {
+      if (remaining <= 0) {
+        focusNode = node;
+        focusOffset = i;
+        return true;
+      }
+      if (i === raw.length) break;
+      if (raw[i] === "\u200B") continue;
+      remaining -= 1;
+    }
+    return false;
+  };
+
+  const walk = (node: Node): boolean => {
+    if (isTextNode(node)) return visitText(node);
+    if (!isElementNode(node)) return false;
+    if (isMergeChip(node)) {
+      const len = encodeMergeField(node.getAttribute("data-merge") ?? "").length;
+      if (remaining <= 0) {
+        focusNode = node.parentNode;
+        focusOffset = focusNode
+          ? Array.from(focusNode.childNodes).indexOf(node)
+          : 0;
+        return true;
+      }
+      if (remaining < len) {
+        remaining = 0;
+        focusNode = node.parentNode;
+        focusOffset = focusNode
+          ? Array.from(focusNode.childNodes).indexOf(node) + 1
+          : 0;
+        return true;
+      }
+      remaining -= len;
+      return false;
+    }
+    if (isBrNode(node)) {
+      if (remaining <= 0) {
+        focusNode = node.parentNode;
+        focusOffset = focusNode
+          ? Array.from(focusNode.childNodes).indexOf(node as ChildNode)
+          : 0;
+        return true;
+      }
+      remaining -= 1;
+      if (remaining <= 0) {
+        focusNode = node.parentNode;
+        focusOffset = focusNode
+          ? Array.from(focusNode.childNodes).indexOf(node as ChildNode) + 1
+          : 0;
+        return true;
+      }
+      return false;
+    }
+    for (const child of Array.from(node.childNodes)) {
+      if (walk(child)) return true;
+    }
+    return false;
+  };
+
+  for (const child of Array.from(root.childNodes)) {
+    if (walk(child)) {
+      found = true;
+      break;
+    }
+  }
+
+  const sel = root.ownerDocument.defaultView?.getSelection();
+  if (!sel) return;
+  const range = root.ownerDocument.createRange();
+  if (found && focusNode) {
+    try {
+      if (isTextNode(focusNode)) {
+        range.setStart(
+          focusNode,
+          Math.min(focusOffset, focusNode.textContent?.length ?? 0)
+        );
+      } else if (isElementNode(focusNode)) {
+        range.setStart(
+          focusNode,
+          Math.min(focusOffset, focusNode.childNodes.length)
+        );
+      } else {
+        range.selectNodeContents(root);
+        range.collapse(false);
+      }
+    } catch {
+      range.selectNodeContents(root);
+      range.collapse(false);
+    }
+  } else {
+    range.selectNodeContents(root);
+    range.collapse(false);
+  }
+  range.collapse(true);
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
 /** Enter: <br> を挿入。行末なら ZWSP を付けて次行にキャレットを置く */
 export function insertNewlineAtSelection(root: HTMLElement): boolean {
   const sel = root.ownerDocument.defaultView?.getSelection();
@@ -300,27 +426,25 @@ export function insertMergeChip(
   const after = doc.createTextNode(CARET_ANCHOR);
   const sel = doc.defaultView?.getSelection();
 
-  let target = range ?? null;
-  if (!target && sel && sel.rangeCount > 0) {
-    target = sel.getRangeAt(0);
+  let target = range ?? getSelectionRange(root);
+
+  // 選択がエディタ外／先頭固定になっているときは末尾へ（先頭誤挿入を防ぐ）
+  if (!target) {
+    target = doc.createRange();
+    target.selectNodeContents(root);
+    target.collapse(false);
   }
 
-  if (!target || !root.contains(target.commonAncestorContainer)) {
-    root.appendChild(before);
-    root.appendChild(chip);
-    root.appendChild(after);
-  } else {
-    target.deleteContents();
-    const frag = doc.createDocumentFragment();
-    frag.appendChild(before);
-    frag.appendChild(chip);
-    frag.appendChild(after);
-    target.insertNode(frag);
-  }
+  target.deleteContents();
+  const frag = doc.createDocumentFragment();
+  frag.appendChild(before);
+  frag.appendChild(chip);
+  frag.appendChild(after);
+  target.insertNode(frag);
 
   if (sel) {
     const r = doc.createRange();
-    r.setStart(after, 1);
+    r.setStart(after, after.textContent?.length ?? 1);
     r.collapse(true);
     sel.removeAllRanges();
     sel.addRange(r);

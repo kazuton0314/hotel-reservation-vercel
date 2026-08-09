@@ -12,6 +12,7 @@ import {
   type KeyboardEvent,
 } from "react";
 import {
+  getPlainCaretOffset,
   insertMergeChip,
   insertNewlineAtSelection,
   insertPlainTextAtSelection,
@@ -20,6 +21,7 @@ import {
   placeCaretAtPoint,
   removeAdjacentMergeChip,
   serializeMergeEditor,
+  setPlainCaretOffset,
 } from "@/lib/services/mail-merge";
 
 export type MailMergeEditorHandle = {
@@ -41,11 +43,8 @@ type Props = {
 /**
  * 差し込みチップ（ピル）付きエディタ。
  *
- * 方針:
- * - 見た目のチップ（contenteditable=false の span）は維持
- * - フォーカス中は props で innerHTML を上書きしない（入力不能の主因だった）
- * - 通常入力はブラウザに任せ、値だけ serialize して親へ返す
- * - Enter / 貼付け / チップ挿入だけ DOM を直接操作する
+ * - フォーカス中は props で innerHTML を上書きしない
+ * - 差し込みバークリックで blur しても、保存したキャレット位置へ挿入する
  */
 export const MailMergeEditor = forwardRef<MailMergeEditorHandle, Props>(
   function MailMergeEditor(
@@ -65,8 +64,17 @@ export const MailMergeEditor = forwardRef<MailMergeEditorHandle, Props>(
     const focusedRef = useRef(false);
     const composingRef = useRef(false);
     const lastEmittedRef = useRef(normalizeMergeText(value));
+    const savedCaretRef = useRef<number>(0);
     const movingChipRef = useRef<HTMLElement | null>(null);
     const [empty, setEmpty] = useState(!normalizeMergeText(value).trim());
+
+    const rememberCaret = () => {
+      const el = rootRef.current;
+      if (!el) return;
+      const sel = el.ownerDocument.defaultView?.getSelection();
+      if (!sel?.anchorNode || !el.contains(sel.anchorNode)) return;
+      savedCaretRef.current = getPlainCaretOffset(el);
+    };
 
     const emitFromDom = () => {
       const el = rootRef.current;
@@ -78,7 +86,6 @@ export const MailMergeEditor = forwardRef<MailMergeEditorHandle, Props>(
       return serialized;
     };
 
-    // 非フォーカス時のみ外部 value を DOM へ反映
     useEffect(() => {
       const el = rootRef.current;
       if (!el) return;
@@ -103,13 +110,41 @@ export const MailMergeEditor = forwardRef<MailMergeEditorHandle, Props>(
       el.innerHTML = mergeTextToHtml(normalized);
     }, [value]);
 
+    // 編集中のキャレット位置を常に記憶（差し込みバー押下で blur しても復元できる）
+    useEffect(() => {
+      const onSelectionChange = () => {
+        if (!focusedRef.current) return;
+        rememberCaret();
+      };
+      document.addEventListener("selectionchange", onSelectionChange);
+      return () => {
+        document.removeEventListener("selectionchange", onSelectionChange);
+      };
+    }, []);
+
     useImperativeHandle(ref, () => ({
       insertKey(key: string) {
         const el = rootRef.current;
         if (!el) return lastEmittedRef.current;
+
+        const sel = el.ownerDocument.defaultView?.getSelection();
+        const selectionInEditor =
+          !!sel?.anchorNode && el.contains(sel.anchorNode);
+
         el.focus();
         focusedRef.current = true;
+
+        if (selectionInEditor) {
+          // mousedown preventDefault 済みなら選択が残っている
+        } else {
+          // blur 済み: 保存済みオフセットへ復元（未保存なら末尾）
+          const max = serializeMergeEditor(el).length;
+          const caret = Math.max(0, Math.min(savedCaretRef.current, max));
+          setPlainCaretOffset(el, caret);
+        }
+
         insertMergeChip(el, key);
+        rememberCaret();
         return emitFromDom();
       },
       focus() {
@@ -119,6 +154,7 @@ export const MailMergeEditor = forwardRef<MailMergeEditorHandle, Props>(
 
     const handleInput = () => {
       if (composingRef.current) return;
+      rememberCaret();
       emitFromDom();
     };
 
@@ -126,8 +162,9 @@ export const MailMergeEditor = forwardRef<MailMergeEditorHandle, Props>(
       composingRef.current = true;
     };
 
-    const handleCompositionEnd = (_e: CompositionEvent<HTMLDivElement>) => {
+    const handleCompositionEnd = () => {
       composingRef.current = false;
+      rememberCaret();
       emitFromDom();
     };
 
@@ -139,6 +176,7 @@ export const MailMergeEditor = forwardRef<MailMergeEditorHandle, Props>(
         e.preventDefault();
         if (!multiline) return;
         insertNewlineAtSelection(el);
+        rememberCaret();
         emitFromDom();
         return;
       }
@@ -146,6 +184,7 @@ export const MailMergeEditor = forwardRef<MailMergeEditorHandle, Props>(
       if (e.key === "Backspace") {
         if (removeAdjacentMergeChip(el, "backward")) {
           e.preventDefault();
+          rememberCaret();
           emitFromDom();
         }
         return;
@@ -154,6 +193,7 @@ export const MailMergeEditor = forwardRef<MailMergeEditorHandle, Props>(
       if (e.key === "Delete") {
         if (removeAdjacentMergeChip(el, "forward")) {
           e.preventDefault();
+          rememberCaret();
           emitFromDom();
         }
       }
@@ -161,14 +201,15 @@ export const MailMergeEditor = forwardRef<MailMergeEditorHandle, Props>(
 
     const handleFocus = () => {
       focusedRef.current = true;
+      rememberCaret();
       onFocus?.();
     };
 
     const handleBlur = () => {
+      rememberCaret();
       focusedRef.current = false;
       if (composingRef.current) return;
       const serialized = emitFromDom();
-      // ぼかし後に正規化（Chrome の div 巻き込みを解消）。フォーカスは無いので安全。
       const el = rootRef.current;
       if (el) {
         el.innerHTML = mergeTextToHtml(serialized);
@@ -185,6 +226,7 @@ export const MailMergeEditor = forwardRef<MailMergeEditorHandle, Props>(
       } else {
         insertPlainTextAtSelection(el, text);
       }
+      rememberCaret();
       emitFromDom();
     };
 
@@ -230,6 +272,7 @@ export const MailMergeEditor = forwardRef<MailMergeEditorHandle, Props>(
         movingChipRef.current = null;
       }
       insertMergeChip(el, key, range);
+      rememberCaret();
       emitFromDom();
     };
 
@@ -254,6 +297,8 @@ export const MailMergeEditor = forwardRef<MailMergeEditorHandle, Props>(
           spellCheck
           onInput={handleInput}
           onKeyDown={handleKeyDown}
+          onKeyUp={rememberCaret}
+          onMouseUp={rememberCaret}
           onCompositionStart={handleCompositionStart}
           onCompositionEnd={handleCompositionEnd}
           onFocus={handleFocus}
