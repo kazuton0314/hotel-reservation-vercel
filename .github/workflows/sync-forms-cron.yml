@@ -1,0 +1,43 @@
+# スプシ取り込みを定期実行（Vercel Hobby の日次 Cron を補完）
+#
+# 必要 Secrets（GitHub → Settings → Secrets and variables → Actions）:
+#   CRON_URL     例: https://your-app.vercel.app/api/cron/sync-forms
+#   CRON_SECRET  Vercel の CRON_SECRET と同じ値
+#
+# 既定は 5 分間隔。変更するなら schedule の cron を編集。
+
+name: Sync forms (external cron)
+
+on:
+  schedule:
+    # 毎時 0,5,10,...,55 分（UTC）。GitHub 側の都合で数分遅れることがある
+    - cron: "*/5 * * * *"
+  workflow_dispatch: # 手動実行用（Actions 画面の Run workflow）
+
+concurrency:
+  group: sync-forms-cron
+  cancel-in-progress: false
+
+jobs:
+  sync-forms:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call /api/cron/sync-forms
+        env:
+          CRON_URL: ${{ secrets.CRON_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CRON_URL:-}" ] || [ -z "${CRON_SECRET:-}" ]; then
+            echo "CRON_URL / CRON_SECRET が未設定です。GitHub Secrets を確認してください。"
+            exit 1
+          fi
+          code=$(curl -sS -o /tmp/cron-body.json -w "%{http_code}" \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            -H "Accept: application/json" \
+            "${CRON_URL}")
+          echo "HTTP ${code}"
+          cat /tmp/cron-body.json || true
+          echo
+          test "${code}" = "200"
