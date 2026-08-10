@@ -97,12 +97,15 @@ export const GUEST_COUNT_OPTIONS = Array.from({ length: 50 }, (_, i) =>
   String(i + 1)
 ) as readonly string[];
 
-/** 一覧フィルタ用（GAS LIST_FILTER_FIELDS 相当） */
-export const LIST_FILTER_CHANNEL_OPTIONS = CHANNEL_OPTIONS;
+/** 一覧フィルタ用（入力マスタ＋アーカイブに残る既知値） */
+export const LIST_FILTER_CHANNEL_OPTIONS = [
+  ...CHANNEL_OPTIONS,
+  "過去データ",
+] as const;
 
-export const LIST_FILTER_MEAL_OPTIONS = MEAL_OPTIONS.filter((v) => v !== "未確認");
+export const LIST_FILTER_MEAL_OPTIONS = MEAL_OPTIONS;
 
-export const LIST_FILTER_BBQ_OPTIONS = BBQ_OPTIONS;
+export const LIST_FILTER_BBQ_OPTIONS = [...BBQ_OPTIONS, "未確認"] as const;
 
 export const LIST_FILTER_PAYMENT_OPTIONS = PAYMENT_STATUS_OPTIONS;
 

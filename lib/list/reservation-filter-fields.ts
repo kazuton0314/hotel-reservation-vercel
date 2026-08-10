@@ -1,9 +1,9 @@
 import type { ListFilterFieldDef } from "@/components/list/ReservationListFilterBar";
 import {
-  BBQ_OPTIONS,
-  CHANNEL_OPTIONS,
-  MEAL_OPTIONS,
-  PAYMENT_STATUS_OPTIONS,
+  LIST_FILTER_BBQ_OPTIONS,
+  LIST_FILTER_CHANNEL_OPTIONS,
+  LIST_FILTER_MEAL_OPTIONS,
+  LIST_FILTER_PAYMENT_OPTIONS,
 } from "@/lib/config/field-options";
 import { CONTACT_LABELS } from "@/lib/config/contact-confirm-labels";
 import {
@@ -26,7 +26,7 @@ export function buildReservationListFilterFields(
     {
       key: "channel",
       label: "予約経路",
-      options: eqFieldOptions(CHANNEL_OPTIONS),
+      options: eqFieldOptions(LIST_FILTER_CHANNEL_OPTIONS),
     },
     {
       key: "roomId",
@@ -44,17 +44,17 @@ export function buildReservationListFilterFields(
     {
       key: "payment_status",
       label: "支払い",
-      options: eqFieldOptions(PAYMENT_STATUS_OPTIONS),
+      options: eqFieldOptions(LIST_FILTER_PAYMENT_OPTIONS),
     },
     {
       key: "meal",
       label: "食事",
-      options: eqFieldOptions(MEAL_OPTIONS),
+      options: eqFieldOptions(LIST_FILTER_MEAL_OPTIONS),
     },
     {
       key: "bbq",
       label: "BBQ",
-      options: eqFieldOptions(BBQ_OPTIONS),
+      options: eqFieldOptions(LIST_FILTER_BBQ_OPTIONS),
     },
     {
       key: "companionInfo",
