@@ -30,9 +30,13 @@ import {
   mapStudioFormRow,
 } from "@/lib/import/reservation-mapper";
 import type { ReservationInsert } from "@/lib/import/reservation-mapper";
-import { deleteGCalEventIfAny, syncReservationToGCal } from "@/lib/services/gcal-sync";
+import { syncReservationToGCal } from "@/lib/services/gcal-sync";
 import { fetchSheetRows } from "@/lib/sheets/client";
 import type { SheetRow } from "@/lib/sheets/client";
+
+/** 仮予約上書き時に残す運用系フィールド（フォーム値で潰さない） */
+const PROVISIONAL_PRESERVE_SELECT =
+  "gcal_event_id, internal_memo, guest_memo, assignment_status, companion_form_answered, completion_email_sent, completion_email_sent_at, day11_email_sent, day11_email_sent_at, day3_email_sent, day3_email_sent_at, customer_id, payment_method, payment_status";
 
 export type ImportResult = {
   imported: number;
@@ -347,17 +351,43 @@ export async function importStudioFormRows(
         import_row_id: String(row.sheetRow),
       };
 
-      // 仮予約ヒット時も、本予約フォーム由来は必ず STUDIO-MT を新規採番する。
-      // （予約IDとフォーム番号を1対1で運用するため）
+      // GAS 仕様: 仮予約マッチ → 同一 ID のまま STUDIO データで上書きし確定へ
+      // マッチなし → STUDIO-MT* を新規採番
       const matchedProvisional = findMatchingProvisionalReservation(
         activeReservations,
         record
       );
       if (matchedProvisional) {
+        const { data: provisionalRow } = await supabase
+          .from("reservations")
+          .select(PROVISIONAL_PRESERVE_SELECT)
+          .eq("reservation_id", matchedProvisional.reservation_id)
+          .maybeSingle();
         record = {
           ...record,
+          reservation_id: matchedProvisional.reservation_id,
           access_key: matchedProvisional.access_key || record.access_key,
           request_id: matchedProvisional.request_id || null,
+          gcal_event_id: provisionalRow?.gcal_event_id ?? null,
+          internal_memo: provisionalRow?.internal_memo ?? null,
+          guest_memo: provisionalRow?.guest_memo ?? null,
+          assignment_status:
+            provisionalRow?.assignment_status ?? record.assignment_status,
+          companion_form_answered:
+            provisionalRow?.companion_form_answered ?? false,
+          completion_email_sent:
+            provisionalRow?.completion_email_sent ?? false,
+          completion_email_sent_at:
+            provisionalRow?.completion_email_sent_at ?? null,
+          day11_email_sent: provisionalRow?.day11_email_sent ?? false,
+          day11_email_sent_at: provisionalRow?.day11_email_sent_at ?? null,
+          day3_email_sent: provisionalRow?.day3_email_sent ?? false,
+          day3_email_sent_at: provisionalRow?.day3_email_sent_at ?? null,
+          customer_id: provisionalRow?.customer_id ?? null,
+          payment_method:
+            provisionalRow?.payment_method ?? record.payment_method,
+          payment_status:
+            provisionalRow?.payment_status ?? record.payment_status,
         };
       }
 
@@ -370,8 +400,10 @@ export async function importStudioFormRows(
         };
       }
 
-      const reservationId = await nextStudioReservationId(supabase);
-      record = { ...record, reservation_id: reservationId };
+      if (record.reservation_id === draftId) {
+        const reservationId = await nextStudioReservationId(supabase);
+        record = { ...record, reservation_id: reservationId };
+      }
 
       const { error: upsertError } = await supabase.from("reservations").upsert(
         {
@@ -385,44 +417,9 @@ export async function importStudioFormRows(
 
       pendingGCalIds.push(record.reservation_id);
 
-      // 一致した仮予約は残さずキャンセル（本予約は STUDIO-MT 側が正）
-      if (matchedProvisional) {
-        const { data: provisionalRow } = await supabase
-          .from("reservations")
-          .select("gcal_event_id, internal_memo")
-          .eq("reservation_id", matchedProvisional.reservation_id)
-          .maybeSingle();
-        const memoPrefix = `本予約 ${record.reservation_id} 取込により自動キャンセル`;
-        const prevMemo = String(provisionalRow?.internal_memo ?? "").trim();
-        const { error: cancelError } = await supabase
-          .from("reservations")
-          .update({
-            status: "キャンセル",
-            internal_memo: prevMemo
-              ? `${prevMemo}\n${memoPrefix}`
-              : memoPrefix,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("reservation_id", matchedProvisional.reservation_id)
-          .eq("status", "仮予約");
-        if (cancelError) throw cancelError;
-        try {
-          await deleteGCalEventIfAny(provisionalRow?.gcal_event_id ?? null);
-        } catch {
-          // 仮予約側カレンダー削除失敗は本予約取込を止めない
-        }
-        const idx = activeReservations.findIndex(
-          (r) => r.reservation_id === matchedProvisional.reservation_id
-        );
-        if (idx >= 0) {
-          activeReservations[idx] = {
-            ...activeReservations[idx]!,
-            status: "キャンセル",
-          };
-        }
-      }
-
-      if (matchedRequest) {
+      const requestIdToLink =
+        matchedRequest?.request_id ?? record.request_id ?? null;
+      if (requestIdToLink) {
         const { error: requestUpdateError } = await supabase
           .from("reservation_requests")
           .update({
@@ -430,18 +427,18 @@ export async function importStudioFormRows(
             linked_reservation_id: record.reservation_id,
             updated_at: new Date().toISOString(),
           })
-          .eq("request_id", matchedRequest.request_id);
+          .eq("request_id", requestIdToLink);
         if (requestUpdateError) throw requestUpdateError;
       }
 
       await logStudioFormImport(supabase, row.sheetRow, record.reservation_id);
 
-      activeReservations.push({
+      const cacheEntry = {
         reservation_id: record.reservation_id,
         import_row_id: record.import_row_id,
         import_source: record.import_source,
         access_key: record.access_key,
-        status: "確定",
+        status: "確定" as const,
         check_in: record.check_in,
         check_out: record.check_out,
         last_name: record.last_name,
@@ -450,22 +447,23 @@ export async function importStudioFormRows(
         phone: record.phone,
         request_id: record.request_id,
         is_archived: false,
-      });
-      allReservations.push({
-        reservation_id: record.reservation_id,
-        import_row_id: record.import_row_id,
-        import_source: record.import_source,
-        access_key: record.access_key,
-        status: "確定",
-        check_in: record.check_in,
-        check_out: record.check_out,
-        last_name: record.last_name,
-        first_name: record.first_name,
-        email: record.email,
-        phone: record.phone,
-        request_id: record.request_id,
-        is_archived: false,
-      });
+      };
+      const activeIdx = activeReservations.findIndex(
+        (r) => r.reservation_id === record.reservation_id
+      );
+      if (activeIdx >= 0) {
+        activeReservations[activeIdx] = cacheEntry;
+      } else {
+        activeReservations.push(cacheEntry);
+      }
+      const allIdx = allReservations.findIndex(
+        (r) => r.reservation_id === record.reservation_id
+      );
+      if (allIdx >= 0) {
+        allReservations[allIdx] = cacheEntry;
+      } else {
+        allReservations.push(cacheEntry);
+      }
       importLog.set(row.sheetRow, record.reservation_id);
       imported++;
     } catch (e) {
