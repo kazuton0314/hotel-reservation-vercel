@@ -30,7 +30,7 @@ import {
   mapStudioFormRow,
 } from "@/lib/import/reservation-mapper";
 import type { ReservationInsert } from "@/lib/import/reservation-mapper";
-import { syncReservationToGCal } from "@/lib/services/gcal-sync";
+import { deleteGCalEventIfAny, syncReservationToGCal } from "@/lib/services/gcal-sync";
 import { fetchSheetRows } from "@/lib/sheets/client";
 import type { SheetRow } from "@/lib/sheets/client";
 
@@ -384,6 +384,43 @@ export async function importStudioFormRows(
       if (upsertError) throw upsertError;
 
       pendingGCalIds.push(record.reservation_id);
+
+      // 一致した仮予約は残さずキャンセル（本予約は STUDIO-MT 側が正）
+      if (matchedProvisional) {
+        const { data: provisionalRow } = await supabase
+          .from("reservations")
+          .select("gcal_event_id, internal_memo")
+          .eq("reservation_id", matchedProvisional.reservation_id)
+          .maybeSingle();
+        const memoPrefix = `本予約 ${record.reservation_id} 取込により自動キャンセル`;
+        const prevMemo = String(provisionalRow?.internal_memo ?? "").trim();
+        const { error: cancelError } = await supabase
+          .from("reservations")
+          .update({
+            status: "キャンセル",
+            internal_memo: prevMemo
+              ? `${prevMemo}\n${memoPrefix}`
+              : memoPrefix,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("reservation_id", matchedProvisional.reservation_id)
+          .eq("status", "仮予約");
+        if (cancelError) throw cancelError;
+        try {
+          await deleteGCalEventIfAny(provisionalRow?.gcal_event_id ?? null);
+        } catch {
+          // 仮予約側カレンダー削除失敗は本予約取込を止めない
+        }
+        const idx = activeReservations.findIndex(
+          (r) => r.reservation_id === matchedProvisional.reservation_id
+        );
+        if (idx >= 0) {
+          activeReservations[idx] = {
+            ...activeReservations[idx]!,
+            status: "キャンセル",
+          };
+        }
+      }
 
       if (matchedRequest) {
         const { error: requestUpdateError } = await supabase
