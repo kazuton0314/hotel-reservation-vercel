@@ -351,8 +351,8 @@ export async function importStudioFormRows(
         import_row_id: String(row.sheetRow),
       };
 
-      // GAS 仕様: 仮予約マッチ → 同一 ID のまま STUDIO データで上書きし確定へ
-      // マッチなし → STUDIO-MT* を新規採番
+      // 仮予約マッチ時は MT を新規採番して確定化し、旧仮予約 ID から置き換える
+      // （最終的に STUDIO-MT* を正とし、仮予約 ID を残さない）
       const matchedProvisional = findMatchingProvisionalReservation(
         activeReservations,
         record
@@ -365,7 +365,6 @@ export async function importStudioFormRows(
           .maybeSingle();
         record = {
           ...record,
-          reservation_id: matchedProvisional.reservation_id,
           access_key: matchedProvisional.access_key || record.access_key,
           request_id: matchedProvisional.request_id || null,
           gcal_event_id: provisionalRow?.gcal_event_id ?? null,
@@ -400,10 +399,8 @@ export async function importStudioFormRows(
         };
       }
 
-      if (record.reservation_id === draftId) {
-        const reservationId = await nextStudioReservationId(supabase);
-        record = { ...record, reservation_id: reservationId };
-      }
+      const reservationId = await nextStudioReservationId(supabase);
+      record = { ...record, reservation_id: reservationId };
 
       const { error: upsertError } = await supabase.from("reservations").upsert(
         {
@@ -416,6 +413,40 @@ export async function importStudioFormRows(
       if (upsertError) throw upsertError;
 
       pendingGCalIds.push(record.reservation_id);
+
+      if (matchedProvisional) {
+        const provisionalId = matchedProvisional.reservation_id;
+        const replacementId = record.reservation_id;
+        const nowIso = new Date().toISOString();
+        const { error: roomRelinkError } = await supabase
+          .from("room_assignments")
+          .update({ reservation_id: replacementId })
+          .eq("reservation_id", provisionalId);
+        if (roomRelinkError) throw roomRelinkError;
+        const { error: companionRelinkError } = await supabase
+          .from("companions")
+          .update({ reservation_id: replacementId })
+          .eq("reservation_id", provisionalId);
+        if (companionRelinkError) throw companionRelinkError;
+        const { error: requestRelinkError } = await supabase
+          .from("reservation_requests")
+          .update({
+            linked_reservation_id: replacementId,
+            updated_at: nowIso,
+          })
+          .eq("linked_reservation_id", provisionalId);
+        if (requestRelinkError) throw requestRelinkError;
+        const { error: formLogRelinkError } = await supabase
+          .from("form_import_log")
+          .update({ reservation_id: replacementId })
+          .eq("reservation_id", provisionalId);
+        if (formLogRelinkError) throw formLogRelinkError;
+        const { error: deleteProvisionalError } = await supabase
+          .from("reservations")
+          .delete()
+          .eq("reservation_id", provisionalId);
+        if (deleteProvisionalError) throw deleteProvisionalError;
+      }
 
       const requestIdToLink =
         matchedRequest?.request_id ?? record.request_id ?? null;
@@ -448,8 +479,12 @@ export async function importStudioFormRows(
         request_id: record.request_id,
         is_archived: false,
       };
+      const provisionalIdToReplace = matchedProvisional?.reservation_id ?? null;
       const activeIdx = activeReservations.findIndex(
-        (r) => r.reservation_id === record.reservation_id
+        (r) =>
+          r.reservation_id === record.reservation_id ||
+          (provisionalIdToReplace != null &&
+            r.reservation_id === provisionalIdToReplace)
       );
       if (activeIdx >= 0) {
         activeReservations[activeIdx] = cacheEntry;
@@ -457,7 +492,10 @@ export async function importStudioFormRows(
         activeReservations.push(cacheEntry);
       }
       const allIdx = allReservations.findIndex(
-        (r) => r.reservation_id === record.reservation_id
+        (r) =>
+          r.reservation_id === record.reservation_id ||
+          (provisionalIdToReplace != null &&
+            r.reservation_id === provisionalIdToReplace)
       );
       if (allIdx >= 0) {
         allReservations[allIdx] = cacheEntry;
