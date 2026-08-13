@@ -19,7 +19,7 @@ const SEARCH_FIELDS: {
   label: string;
   placeholder: string;
 }[] = [
-  { key: "name", label: "代表者名前", placeholder: "代表者名・ふりがな" },
+  { key: "name", label: "代表者名前", placeholder: "予約者名・ふりがな" },
   {
     key: "companionName",
     label: "同行者名前",
@@ -83,7 +83,9 @@ export function CustomersView({
 
   return (
     <>
-      <p className="form-hint">複数入力可。いずれか1つでも一致すれば表示（OR検索）</p>
+      <p className="form-hint">
+        複数入力可。いずれか1つでも一致すれば表示（OR検索）。代表者名前は予約の予約者名、同行者名前は同行者リストが対象です。
+      </p>
       <div className="customers-search-form">
         {SEARCH_FIELDS.map((f) => (
           <div key={f.key} className="form-group customers-field">

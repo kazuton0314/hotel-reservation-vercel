@@ -179,6 +179,35 @@ async function addReservationSearchHits(
   }
 }
 
+async function addReservationGuestNameSearchHits(
+  supabase: Awaited<ReturnType<typeof createReadClient>>,
+  items: Map<string, CustomerListItem>,
+  guestName: string
+) {
+  const q = escapeIlike(guestName);
+  const { data: byName } = await supabase
+    .from("reservations")
+    .select(RESERVATION_PROFILE_SELECT)
+    .or(
+      [
+        `representative_name.ilike.%${q}%`,
+        `name_kana.ilike.%${q}%`,
+        `last_name.ilike.%${q}%`,
+        `first_name.ilike.%${q}%`,
+        `last_name_kana.ilike.%${q}%`,
+        `first_name_kana.ilike.%${q}%`,
+      ].join(",")
+    )
+    .order("check_in", { ascending: false })
+    .limit(50);
+
+  await addReservationSearchHits(
+    supabase,
+    items,
+    (byName ?? []) as ReservationProfileRow[]
+  );
+}
+
 async function addCompanionNameSearchHits(
   supabase: Awaited<ReturnType<typeof createReadClient>>,
   items: Map<string, CustomerListItem>,
@@ -227,11 +256,6 @@ async function searchCustomersUncached(criteria: CustomerSearchCriteria) {
   }
   if (criteria.email) {
     orParts.push(`email.ilike.%${escapeIlike(criteria.email)}%`);
-  }
-  if (criteria.name) {
-    const q = escapeIlike(criteria.name);
-    orParts.push(`representative_name.ilike.%${q}%`);
-    orParts.push(`name_kana.ilike.%${q}%`);
   }
   if (criteria.phone) {
     const digits = criteria.phone.replace(/[^\d]/g, "");
@@ -284,19 +308,7 @@ async function searchCustomersUncached(criteria: CustomerSearchCriteria) {
   }
 
   if (criteria.name) {
-    const q = escapeIlike(criteria.name);
-    const { data: byName } = await supabase
-      .from("reservations")
-      .select(RESERVATION_PROFILE_SELECT)
-      .or(`representative_name.ilike.%${q}%,name_kana.ilike.%${q}%`)
-      .order("check_in", { ascending: false })
-      .limit(40);
-
-    await addReservationSearchHits(
-      supabase,
-      items,
-      (byName ?? []) as ReservationProfileRow[]
-    );
+    await addReservationGuestNameSearchHits(supabase, items, criteria.name);
   }
 
   if (criteria.companionName) {
