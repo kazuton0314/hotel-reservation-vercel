@@ -44,6 +44,22 @@ export function formatBbqBadgeLabel(bbq: string | null | undefined): string | nu
   return null;
 }
 
+function normalizeSomenValue(somen: string | null | undefined): string {
+  const v = String(somen ?? "").trim();
+  if (v === "必要") return "要";
+  if (v === "不必要" || v === "なし") return "不要";
+  return v;
+}
+
+/** 稼働表・当日ボード用。要のときだけ BBQ要 と同じピルで出す */
+export function formatSomenBadgeLabel(
+  somen: string | null | undefined
+): string | null {
+  const v = normalizeSomenValue(somen);
+  if (v === "要") return "そうめん要";
+  return null;
+}
+
 /** 受付チャネルが Airbnb のときだけバッジ用ラベルを返す */
 export function formatChannelBadgeLabel(
   channel: string | null | undefined

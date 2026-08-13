@@ -132,6 +132,7 @@ function buildTodayRoomsFromDayData(
         age3plus: guests.age3plus ?? null,
         under3: guests.under3 ?? null,
         bbq: guests.bbq ?? null,
+        somen: guests.somen ?? null,
         channel: guests.channel ?? null,
       });
     }

@@ -1,3 +1,8 @@
+import {
+  formatBbqBadgeLabel,
+  formatSomenBadgeLabel,
+} from "@/lib/utils/occ-display";
+
 const SNIPPET_MAX_CHARS = 28;
 
 function truncateText(value: string, maxChars: number): string {
@@ -11,6 +16,7 @@ type Fact = {
   value: string;
   title?: string;
   accent?: "ops-memo";
+  badgeClass?: "meta-bbq" | "meta-somen";
 };
 
 /** 一覧・ホームカード共通: 人数・部屋・到着・問合せ・メモを同一行に並べて縦伸びを抑える */
@@ -60,8 +66,22 @@ export function ListCardStayDetails({
   push("部屋", rooms);
   push("到着", arrivalTime);
   push("食事", meal);
-  push("BBQ", bbq);
-  push("そうめん", somen);
+  const bbqBadge = formatBbqBadgeLabel(bbq);
+  if (bbqBadge) {
+    facts.push({ label: "BBQ", value: bbqBadge, badgeClass: "meta-bbq" });
+  } else {
+    push("BBQ", bbq);
+  }
+  const somenBadge = formatSomenBadgeLabel(somen);
+  if (somenBadge) {
+    facts.push({
+      label: "そうめん",
+      value: somenBadge,
+      badgeClass: "meta-somen",
+    });
+  } else {
+    push("そうめん", somen);
+  }
   push("車", vehicleCount);
   push("問合せ", inquiry, { truncate: true });
   push("運用メモ", internalMemo, { truncate: true, accent: "ops-memo" });
@@ -83,8 +103,14 @@ export function ListCardStayDetails({
             title={f.title}
           >
             {i > 0 ? <span className="card-stay-sep" aria-hidden>·</span> : null}
-            <span className="card-stay-label">{f.label}</span>
-            {f.value}
+            {f.badgeClass ? (
+              <span className={`meta-badge ${f.badgeClass}`}>{f.value}</span>
+            ) : (
+              <>
+                <span className="card-stay-label">{f.label}</span>
+                {f.value}
+              </>
+            )}
           </span>
         ))}
       </p>
