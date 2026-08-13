@@ -35,6 +35,7 @@ import {
 } from "@/lib/config/field-options";
 import { markLocalDataMutation } from "@/lib/utils/local-mutation";
 import { submitFormAction } from "@/lib/utils/submit-form-action";
+import { useSaveResultToast } from "@/lib/hooks/use-save-result-toast";
 
 type Props = {
   reservationId: string;
@@ -185,6 +186,7 @@ export function ReservationUpdateForm(props: Props) {
     updateReservationAction,
     initialState
   );
+  useSaveResultToast(isPending, state);
   const [formSeed, setFormSeed] = useState<FormSeed>(() =>
     formSeedFromProps(props)
   );
@@ -474,13 +476,12 @@ export function ReservationUpdateForm(props: Props) {
         <p className="detail-hint" style={{ color: "#b91c1c" }}>
           {state.message}
         </p>
-      ) : state.ok === true && !isPending && savedGuests ? (
-        <p className="detail-hint" style={{ color: "#047857" }}>
-          保存しました
-        </p>
       ) : null}
 
       <div className="form-actions-sticky">
+        {state.ok === true && !isPending && savedGuests ? (
+          <p className="detail-hint save-result-ok">保存しました</p>
+        ) : null}
         <Button type="submit" disabled={isPending}>
           {isPending ? "保存中..." : "保存"}
         </Button>

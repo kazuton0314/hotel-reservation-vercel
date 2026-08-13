@@ -303,6 +303,10 @@ body.subview {
   margin-top: 10px;
   border-top: 1px solid var(--border);
 }
+.form-actions-sticky .save-result-ok {
+  color: #047857;
+  margin: 0 0 8px;
+}
 .form-actions-sticky .btn {
   width: 100%;
 }

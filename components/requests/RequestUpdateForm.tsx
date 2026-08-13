@@ -7,6 +7,7 @@ import { Select, Textarea } from "@/components/ui/input";
 import { REQUEST_STATUS_EDIT_OPTIONS } from "@/lib/config/field-options";
 import { displayRequestStatus, isApprovedRequestStatus } from "@/lib/domain/request-status";
 import { submitFormAction } from "@/lib/utils/submit-form-action";
+import { useSaveResultToast } from "@/lib/hooks/use-save-result-toast";
 
 type Props = {
   requestId: string;
@@ -22,6 +23,7 @@ export function RequestUpdateForm(props: Props) {
     updateRequestAction,
     initialState
   );
+  const justSaved = useSaveResultToast(isPending, state);
 
   const displayStatus = displayRequestStatus(props.status);
   // 承認済かつリンクありのときだけステータス変更をロック
@@ -108,13 +110,12 @@ export function RequestUpdateForm(props: Props) {
         <p className="detail-hint" style={{ color: "#b91c1c" }}>
           {state.message}
         </p>
-      ) : state.ok === true && !isPending ? (
-        <p className="detail-hint" style={{ color: "#047857" }}>
-          保存しました
-        </p>
       ) : null}
 
       <div className="form-actions-sticky">
+        {justSaved ? (
+          <p className="detail-hint save-result-ok">保存しました</p>
+        ) : null}
         <Button type="submit" disabled={isPending}>
           {isPending ? "保存中..." : "保存"}
         </Button>
