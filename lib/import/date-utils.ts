@@ -136,6 +136,16 @@ export function parseDateValue(value: unknown): Date | null {
   return null;
 }
 
+/** DATE / timestamptz / YYYY-MM-DD を YYYY-MM-DD に正規化 */
+export function isoDateOnly(value: unknown): string {
+  const s = String(value ?? "").trim();
+  if (!s) return "";
+  const iso = s.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (iso) return iso[1];
+  const parsed = parseDateValue(s);
+  return parsed ? formatDateIso(parsed) : "";
+}
+
 export function joinName(lastName: string, firstName: string): string {
   return [lastName, firstName].filter(Boolean).join(" ").trim();
 }

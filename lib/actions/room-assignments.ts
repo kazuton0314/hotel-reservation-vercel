@@ -491,8 +491,18 @@ export async function batchRoomAssignmentChangesAction(
 
   const affected = new Set<string>();
   let applied = 0;
+  const idsLeavingInBatch = new Set(
+    changes.flatMap((c) => {
+      if (c.type === "move" || c.type === "unassign") return [c.roomAssignmentId];
+      return [];
+    })
+  );
+  const orderedChanges = [...changes].sort((a, b) => {
+    const rank = { move: 0, update: 1, unassign: 2, assign: 3 } as const;
+    return rank[a.type] - rank[b.type];
+  });
 
-  for (const ch of changes) {
+  for (const ch of orderedChanges) {
     if (ch.type === "move") {
       const { data: existing, error: existingError } = await supabase
         .from("room_assignments")
@@ -558,7 +568,8 @@ export async function batchRoomAssignmentChangesAction(
 
       const reservationArchived = Boolean(reservation.is_archived);
 
-      // アーカイブ行も含めて同一キーを探す（二重カード防止）
+      // アーカイブ行も含めて同一キーを探す（二重カード防止）。
+      // 同じバッチで別部屋へ移す／解除する行は「空き枠」なので再利用しない。
       const { data: duplicateRows } = await supabase
         .from("room_assignments")
         .select("room_assignment_id")
@@ -567,8 +578,11 @@ export async function batchRoomAssignmentChangesAction(
         .eq("stay_start", p.startDate)
         .eq("stay_end", p.endDate)
         .order("updated_at", { ascending: false })
-        .limit(1);
-      const duplicate = duplicateRows?.[0] ?? null;
+        .limit(5);
+      const duplicate =
+        duplicateRows?.find(
+          (row) => !idsLeavingInBatch.has(String(row.room_assignment_id))
+        ) ?? null;
 
       const nowIso = new Date().toISOString();
       if (duplicate) {

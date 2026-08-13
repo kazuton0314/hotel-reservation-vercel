@@ -21,6 +21,7 @@ import {
   buildAddress,
   calculateNights,
   formatDateIso,
+  isoDateOnly,
   joinName,
   parseDateValue,
 } from "@/lib/import/date-utils";
@@ -237,13 +238,9 @@ export async function updateReservationAction(
     await clearRoomAssignmentsForReservation(supabase, reservationId);
   }
 
-  const nextCheckIn = String(payload.check_in ?? current.check_in ?? "");
-  const nextCheckOut = String(payload.check_out ?? current.check_out ?? "");
-  const datesChanged =
-    nextCheckIn !== String(current.check_in ?? "") ||
-    nextCheckOut !== String(current.check_out ?? "");
+  const nextCheckIn = isoDateOnly(payload.check_in ?? current.check_in);
+  const nextCheckOut = isoDateOnly(payload.check_out ?? current.check_out);
   if (
-    datesChanged &&
     nextCheckIn &&
     nextCheckOut &&
     !shouldClearRoomAssignmentsOnStatus(nextStatus)

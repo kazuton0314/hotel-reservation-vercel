@@ -1,5 +1,6 @@
 import { unstable_cache } from "next/cache";
 import { CACHE_TAGS } from "@/lib/cache/tags";
+import { fetchAssignmentsForReservationIds } from "@/lib/queries/room-assignment-lookup";
 import { createReadClient } from "@/lib/supabase/read";
 import { stripTime } from "@/lib/import/date-utils";
 import {
@@ -14,6 +15,7 @@ import {
 } from "@/lib/services/calendar";
 import {
   guestDisplayFieldsFromRoomAssignment,
+  occupancyStayBounds,
   sortByCheckoutThenCheckin,
 } from "@/lib/services/room-occupancy";
 import { businessToday, parseReservationDate, todayIso } from "@/lib/utils/date-label";
@@ -52,23 +54,18 @@ async function fetchCalendarData(from: string, to: string) {
     .lte("check_in", to)
     .gte("check_out", from);
 
-  let assignmentsQuery = supabase
-    .from("room_assignments")
-    .select(
-      "room_assignment_id, reservation_id, room_id, room_name, stay_start, stay_end, assigned_guest_count, male_count, female_count, boy_student_count, girl_student_count, age_3plus_count, under_3_count"
-    )
-    .lte("stay_start", to)
-    .gte("stay_end", from);
-
   if (!withArchived) {
     reservationsQuery = reservationsQuery.eq("is_archived", false);
-    assignmentsQuery = assignmentsQuery.eq("is_archived", false);
   }
 
-  const [
-    { data: reservations, error: resError },
-    { data: assignments, error: assignError },
-  ] = await Promise.all([reservationsQuery, assignmentsQuery]);
+  const { data: reservations, error: resError } = await reservationsQuery;
+  const { data: assignments, error: assignError } =
+    await fetchAssignmentsForReservationIds<CalendarAssignment>(
+      supabase,
+      (reservations ?? []).map((r) => String(r.reservation_id ?? "")),
+      "room_assignment_id, reservation_id, room_id, room_name, stay_start, stay_end, assigned_guest_count, male_count, female_count, boy_student_count, girl_student_count, age_3plus_count, under_3_count",
+      withArchived
+    );
 
   const assignmentsByReservation = new Map<string, CalendarAssignment[]>();
   for (const a of (assignments ?? []) as CalendarAssignment[]) {
@@ -80,7 +77,7 @@ async function fetchCalendarData(from: string, to: string) {
   return {
     reservations: (reservations ?? []) as CalendarReservation[],
     assignmentsByReservation,
-    error: resError?.message ?? assignError?.message ?? null,
+    error: resError?.message ?? assignError ?? null,
   };
 }
 
@@ -110,14 +107,15 @@ function buildTodayRoomsFromDayData(
     for (const a of assignmentsByRoom.get(room.room_id) ?? []) {
       const res = reservationsById.get(a.reservation_id);
       if (res && (res.status === "キャンセル" || res.status === "不可")) continue;
-      const start = parseReservationDate(a.stay_start);
-      const end = parseReservationDate(a.stay_end);
+      const bounds = occupancyStayBounds(a, res);
+      const start = parseReservationDate(bounds.start);
+      const end = parseReservationDate(bounds.end);
       if (!start || !end) continue;
       const startMs = stripTime(start).getTime();
       const endMs = stripTime(end).getTime();
       const isStay = startMs <= dayMs && dayMs < endMs;
-      const isCheckin = a.stay_start === iso;
-      const isCheckout = a.stay_end === iso;
+      const isCheckin = bounds.start === iso;
+      const isCheckout = bounds.end === iso;
       if (!isStay && !isCheckin && !isCheckout) continue;
       const guests = guestDisplayFieldsFromRoomAssignment(a, res);
       events.push({
@@ -166,21 +164,13 @@ async function fetchDayCalendarSnapshot(iso: string) {
     .lte("check_in", iso)
     .gte("check_out", iso);
 
-  let assignmentsQuery = supabase
-    .from("room_assignments")
-    .select(DAY_ASSIGNMENT_SELECT)
-    .lte("stay_start", iso)
-    .gte("stay_end", iso);
-
   if (!withArchived) {
     reservationsQuery = reservationsQuery.eq("is_archived", false);
-    assignmentsQuery = assignmentsQuery.eq("is_archived", false);
   }
 
   const [
     { data: rooms, error: roomsError },
     { data: reservations, error: resError },
-    { data: assignments, error: assignError },
   ] = await Promise.all([
     supabase
       .from("rooms")
@@ -188,11 +178,16 @@ async function fetchDayCalendarSnapshot(iso: string) {
       .eq("is_active", true)
       .order("sort_order", { ascending: true }),
     reservationsQuery,
-    assignmentsQuery,
   ]);
 
   const reservationRows = (reservations ?? []) as CalendarReservation[];
-  const assignmentRows = (assignments ?? []) as CalendarAssignment[];
+  const { data: assignmentRows, error: assignError } =
+    await fetchAssignmentsForReservationIds<CalendarAssignment>(
+      supabase,
+      reservationRows.map((r) => r.reservation_id),
+      DAY_ASSIGNMENT_SELECT,
+      withArchived
+    );
 
   const assignmentsByReservation = new Map<string, CalendarAssignment[]>();
   for (const a of assignmentRows) {
@@ -216,7 +211,7 @@ async function fetchDayCalendarSnapshot(iso: string) {
       reservationsById
     ),
     error:
-      roomsError?.message ?? resError?.message ?? assignError?.message ?? null,
+      roomsError?.message ?? resError?.message ?? assignError ?? null,
   };
 }
 

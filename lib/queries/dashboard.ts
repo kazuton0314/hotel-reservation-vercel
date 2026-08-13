@@ -2,6 +2,7 @@ import { unstable_cache } from "next/cache";
 import { CACHE_TAGS } from "@/lib/cache/tags";
 import { createReadClient } from "@/lib/supabase/read";
 import { stripTime } from "@/lib/import/date-utils";
+import { fetchAssignmentsForReservationIds } from "@/lib/queries/room-assignment-lookup";
 import {
   computeDashboardCounts,
   groupAssignmentsByReservation,
@@ -11,6 +12,7 @@ import {
 import { reservationNeedsCompanionInfo } from "@/lib/services/mail-pending";
 import {
   guestDisplayFieldsFromRoomAssignment,
+  occupancyStayBounds,
   sortByCheckoutThenCheckin,
 } from "@/lib/services/room-occupancy";
 import {
@@ -218,7 +220,7 @@ function occNightFields(
 ): { nightNumber?: number; nightsTotal?: number } {
   const ci = parseReservationDate(r.check_in);
   if (!ci) return {};
-  const checkOutIso = r.check_out ?? "";
+  const checkOutIso = String(r.check_out ?? "").slice(0, 10);
   if (iso && checkOutIso && iso === checkOutIso) return {};
   const ciMs = stripTime(ci).getTime();
   let nightNumber = Math.max(1, Math.round((dayMs - ciMs) / 86400000) + 1);
@@ -258,15 +260,16 @@ function buildTodayRoomsBoard(
       const res = reservationsById.get(a.reservation_id);
       if (res && (res.status === "キャンセル" || res.status === "不可")) continue;
 
-      const start = parseReservationDate(a.stay_start);
-      const end = parseReservationDate(a.stay_end);
+      const bounds = occupancyStayBounds(a, res);
+      const start = parseReservationDate(bounds.start);
+      const end = parseReservationDate(bounds.end);
       if (!start || !end) continue;
 
       const startMs = stripTime(start).getTime();
       const endMs = stripTime(end).getTime();
       const isStay = startMs <= dayMs && dayMs < endMs;
-      const isCheckin = a.stay_start === iso;
-      const isCheckout = a.stay_end === iso;
+      const isCheckin = bounds.start === iso;
+      const isCheckout = bounds.end === iso;
       if (!isStay && !isCheckin && !isCheckout) continue;
 
       const night = res ? occNightFields(res, dayMs, iso) : {};
@@ -326,7 +329,6 @@ async function getDashboardSummaryUncached(): Promise<{
   const [
     { data: todayReservations, error: resError },
     { data: counterRows, error: counterError },
-    { data: assignments, error: assignError },
     { data: allActiveAssignments, error: allAssignError },
     { data: rooms, error: roomsError },
     { count: requestCountRaw, error: reqError },
@@ -345,14 +347,6 @@ async function getDashboardSummaryUncached(): Promise<{
       .select(TASK_COUNTER_SELECT)
       .eq("is_archived", false)
       .gte("check_out", iso),
-    supabase
-      .from("room_assignments")
-      .select(
-        "room_assignment_id, reservation_id, room_id, room_name, stay_start, stay_end, assigned_guest_count, male_count, female_count, boy_student_count, girl_student_count, age_3plus_count, under_3_count, is_archived"
-      )
-      .eq("is_archived", false)
-      .lte("stay_start", iso)
-      .gte("stay_end", iso),
     // 部屋未割当は一覧と同じ実割当判定のため、アクティブ割当を全件取る
     supabase
       .from("room_assignments")
@@ -381,14 +375,22 @@ async function getDashboardSummaryUncached(): Promise<{
 
   if (resError) return { dashboard: null, error: resError.message };
   if (counterError) return { dashboard: null, error: counterError.message };
-  if (assignError) return { dashboard: null, error: assignError.message };
   if (allAssignError) return { dashboard: null, error: allAssignError.message };
   if (roomsError) return { dashboard: null, error: roomsError.message };
   if (reqError) return { dashboard: null, error: reqError.message };
 
   const all = (todayReservations ?? []) as DbReservation[];
+  const { data: assignments, error: assignError } =
+    await fetchAssignmentsForReservationIds<DbAssignment>(
+      supabase,
+      all.map((r) => r.reservation_id),
+      "room_assignment_id, reservation_id, room_id, room_name, stay_start, stay_end, assigned_guest_count, male_count, female_count, boy_student_count, girl_student_count, age_3plus_count, under_3_count, is_archived",
+      false
+    );
+  if (assignError) return { dashboard: null, error: assignError };
+
   const taskRows = (counterRows ?? []) as DbReservation[];
-  const dayAssignments = (assignments ?? []) as DbAssignment[];
+  const dayAssignments = assignments;
   const assignmentsByReservation = new Map<string, DbAssignment[]>();
   for (const a of dayAssignments) {
     const list = assignmentsByReservation.get(a.reservation_id) ?? [];

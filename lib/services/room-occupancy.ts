@@ -1,4 +1,4 @@
-import { calculateNights, stripTime } from "@/lib/import/date-utils";
+import { calculateNights, isoDateOnly, stripTime } from "@/lib/import/date-utils";
 import {
   parseReservationDate,
   todayIso,
@@ -132,6 +132,21 @@ function formatDateIso(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
+/**
+ * 部屋割ボード・当日ボードの表示期間。
+ * 割当 stay が予約 CI/CO からずれていても、画面上は予約日に合わせる。
+ */
+export function occupancyStayBounds(
+  assignment: { stay_start: string; stay_end: string },
+  reservation?: { check_in?: string | null; check_out?: string | null } | null
+): { start: string; end: string } {
+  const start =
+    isoDateOnly(reservation?.check_in) || isoDateOnly(assignment.stay_start);
+  const end =
+    isoDateOnly(reservation?.check_out) || isoDateOnly(assignment.stay_end);
+  return { start, end };
+}
+
 function parseGuestCount(value: string | null | undefined): number {
   if (!value) return 0;
   const m = String(value).match(/\d+/);
@@ -146,7 +161,7 @@ function occNightFieldsForDay(
   if (!res?.check_in) return {};
   const ci = parseReservationDate(res.check_in);
   if (!ci) return {};
-  const checkOutIso = res.check_out ?? "";
+  const checkOutIso = isoDateOnly(res.check_out);
   if (iso && checkOutIso && iso === checkOutIso) return {};
   const ciMs = stripTime(ci).getTime();
   let nightNumber = Math.max(1, Math.round((dayMs - ciMs) / 86400000) + 1);
@@ -367,8 +382,8 @@ function buildUnassignedOccEventsForDay(
     const checkInMs = checkIn ? stripTime(checkIn).getTime() : 0;
     const checkOutMs = checkOut ? stripTime(checkOut).getTime() : 0;
     const isStay = checkInMs <= dayMs && dayMs < checkOutMs;
-    const isCheckin = r.check_in === iso;
-    const isCheckout = r.check_out === iso;
+    const isCheckin = isoDateOnly(r.check_in) === iso;
+    const isCheckout = isoDateOnly(r.check_out) === iso;
     if (!isStay && !isCheckin && !isCheckout) continue;
 
     events.push({
@@ -379,8 +394,8 @@ function buildUnassignedOccEventsForDay(
       isStay,
       isCheckin,
       isCheckout,
-      startDateStr: r.check_in ?? "",
-      endDateStr: r.check_out ?? "",
+      startDateStr: isoDateOnly(r.check_in),
+      endDateStr: isoDateOnly(r.check_out),
       isUnassigned: true,
       ...occGuestFieldsFromReservation(r),
       ...occNightFieldsForDay(r, dayMs, iso),
@@ -407,8 +422,9 @@ function computeRoomMonthGuestTotals(
   for (const a of assignments) {
     const res = reservationsById.get(a.reservation_id);
     if (res && (res.status === "キャンセル" || res.status === "不可")) continue;
-    const start = parseReservationDate(a.stay_start);
-    const end = parseReservationDate(a.stay_end);
+    const bounds = occupancyStayBounds(a, res);
+    const start = parseReservationDate(bounds.start);
+    const end = parseReservationDate(bounds.end);
     const startMs = start ? stripTime(start).getTime() : 0;
     const endMs = end ? stripTime(end).getTime() : 0;
     if (endMs <= monthStartMs || startMs > monthEndMs) continue;
@@ -508,13 +524,14 @@ export function buildRoomOccupancyMonthView(
           continue;
         }
 
-        const start = parseReservationDate(a.stay_start);
-        const end = parseReservationDate(a.stay_end);
+        const bounds = occupancyStayBounds(a, res);
+        const start = parseReservationDate(bounds.start);
+        const end = parseReservationDate(bounds.end);
         const startMs = start ? stripTime(start).getTime() : 0;
         const endMs = end ? stripTime(end).getTime() : 0;
         const isStay = startMs <= dayMs && dayMs < endMs;
-        const isCheckin = a.stay_start === iso;
-        const isCheckout = a.stay_end === iso;
+        const isCheckin = bounds.start === iso;
+        const isCheckout = bounds.end === iso;
         if (!isStay && !isCheckin && !isCheckout) continue;
 
         if (isStay) nightsByRoom[room.room_id]++;
@@ -528,8 +545,8 @@ export function buildRoomOccupancyMonthView(
           isStay,
           isCheckin,
           isCheckout,
-          startDateStr: a.stay_start,
-          endDateStr: a.stay_end,
+          startDateStr: bounds.start,
+          endDateStr: bounds.end,
           ...occGuestFieldsFromAssignment(a, res),
           ...occNightFieldsForDay(res, dayMs, iso),
         });

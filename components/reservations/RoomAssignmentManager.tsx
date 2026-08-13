@@ -16,6 +16,7 @@ import {
   formatGuestCompact,
   parseGuestCountFromText,
 } from "@/lib/utils/guest-display";
+import { isoDateOnly } from "@/lib/import/date-utils";
 import { showErrorToast, showSuccessToast } from "@/lib/utils/toast";
 
 type RoomOption = { room_id: string; room_name: string; sort_order?: number };
@@ -347,11 +348,14 @@ export function RoomAssignmentManager({
         prev.girl !== row.girl ||
         prev.age3 !== row.age3 ||
         prev.under3 !== row.under3;
+      const prevStay = assignments.find(
+        (a) => a.room_assignment_id === row.roomAssignmentId
+      );
       const datesChanged =
-        checkIn !== (assignments.find((a) => a.room_assignment_id === row.roomAssignmentId)?.stay_start ?? checkIn) ||
-        checkOut !==
-          (assignments.find((a) => a.room_assignment_id === row.roomAssignmentId)
-            ?.stay_end ?? checkOut);
+        isoDateOnly(checkIn) !==
+          isoDateOnly(prevStay?.stay_start ?? checkIn) ||
+        isoDateOnly(checkOut) !==
+          isoDateOnly(prevStay?.stay_end ?? checkOut);
 
       if (guestsChanged || datesChanged || roomChanged) {
         changes.push({

@@ -1,11 +1,15 @@
 import { unstable_cache } from "next/cache";
 import { CACHE_TAGS } from "@/lib/cache/tags";
+import { fetchAssignmentsForReservationIds } from "@/lib/queries/room-assignment-lookup";
 import { createReadClient } from "@/lib/supabase/read";
 import {
   buildRoomOccupancyMonthView,
   type RoomOccupancyMonthView,
 } from "@/lib/services/room-occupancy";
 import { includeArchivedForDateRange } from "@/lib/utils/list-scope";
+
+const ASSIGNMENT_SELECT =
+  "room_assignment_id, reservation_id, room_id, stay_start, stay_end, assigned_guest_count, male_count, female_count, boy_student_count, girl_student_count, age_3plus_count, under_3_count, updated_at";
 
 function monthBounds(year: number, month: number) {
   const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
@@ -41,23 +45,13 @@ async function getRoomOccupancyMonthViewUncached(
     .lte("check_in", monthEnd)
     .gte("check_out", monthStart);
 
-  let assignmentsQuery = supabase
-    .from("room_assignments")
-    .select(
-      "room_assignment_id, reservation_id, room_id, stay_start, stay_end, assigned_guest_count, male_count, female_count, boy_student_count, girl_student_count, age_3plus_count, under_3_count, updated_at"
-    )
-    .lte("stay_start", monthEnd)
-    .gte("stay_end", monthStart);
-
   if (!withArchived) {
     reservationsQuery = reservationsQuery.eq("is_archived", false);
-    assignmentsQuery = assignmentsQuery.eq("is_archived", false);
   }
 
   const [
     { data: rooms, error: roomsError },
     { data: reservations, error: resError },
-    { data: assignments, error: assignError },
   ] = await Promise.all([
     supabase
       .from("rooms")
@@ -65,12 +59,33 @@ async function getRoomOccupancyMonthViewUncached(
       .eq("is_active", true)
       .order("sort_order", { ascending: true }),
     reservationsQuery,
-    assignmentsQuery,
   ]);
 
   if (roomsError) return { data: null, error: roomsError.message };
   if (resError) return { data: null, error: resError.message };
-  if (assignError) return { data: null, error: assignError.message };
+
+  const { data: assignments, error: assignError } =
+    await fetchAssignmentsForReservationIds<{
+      room_assignment_id: string;
+      reservation_id: string;
+      room_id: string | null;
+      stay_start: string;
+      stay_end: string;
+      assigned_guest_count: number | null;
+      male_count: number | null;
+      female_count: number | null;
+      boy_student_count: number | null;
+      girl_student_count: number | null;
+      age_3plus_count: number | null;
+      under_3_count: number | null;
+      updated_at: string | null;
+    }>(
+      supabase,
+      (reservations ?? []).map((r) => String(r.reservation_id ?? "")),
+      ASSIGNMENT_SELECT,
+      withArchived
+    );
+  if (assignError) return { data: null, error: assignError };
 
   const data = buildRoomOccupancyMonthView(
     year,

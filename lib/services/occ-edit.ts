@@ -159,6 +159,13 @@ function collectOccBaseAssignmentsForReservation(
   return list;
 }
 
+function isReusePendingAssignmentId(
+  assignmentId: string,
+  reservationId: string
+): boolean {
+  return assignmentId === `pending:${reservationId}`;
+}
+
 export function computeOccEditChanges(
   base: RoomOccupancyMonthView | null,
   draft: RoomOccupancyMonthView | null
@@ -166,14 +173,19 @@ export function computeOccEditChanges(
   if (!base || !draft) return [];
   const b = collectOccPlacementIndex(base);
   const d = collectOccPlacementIndex(draft);
-  const changes: OccBoardChange[] = [];
+  const assigns: OccBoardChange[] = [];
+  const moves: OccBoardChange[] = [];
+  const unassigns: OccBoardChange[] = [];
 
   for (const aid of Object.keys(d)) {
     if (!aid.startsWith("pending:")) continue;
     const pl = d[aid];
     const rid = pl.reservationId;
     const baseForRid = Object.keys(b).filter((k) => b[k].reservationId === rid);
+    // pending:rid は「元の1部屋を同じ部屋へ戻した」再利用。
+    // ＋で追加した pending:rid:add: は別カードなのでスキップしない。
     if (
+      isReusePendingAssignmentId(aid, rid) &&
       baseForRid.length === 1 &&
       b[baseForRid[0]].roomId === pl.roomId
     ) {
@@ -189,7 +201,7 @@ export function computeOccEditChanges(
     const mainCount =
       maleCount + femaleCount + boyStudent + girlStudent + age3plus;
     const child = boyStudent + girlStudent + age3plus + under3;
-    changes.push({
+    assigns.push({
       type: "assign",
       reservationId: rid,
       payload: {
@@ -214,7 +226,7 @@ export function computeOccEditChanges(
     const cur = d[aid];
     const old = b[aid];
     if (!old || cur.roomId === old.roomId) continue;
-    changes.push({
+    moves.push({
       type: "move",
       roomAssignmentId: aid,
       toRoomId: cur.roomId,
@@ -228,9 +240,9 @@ export function computeOccEditChanges(
     if (d[aid]) continue;
     const rid = b[aid].reservationId;
     const pendingKey = `pending:${rid}`;
-    if (d[pendingKey]) {
+    if (d[pendingKey] && isReusePendingAssignmentId(pendingKey, rid)) {
       if (d[pendingKey].roomId !== b[aid].roomId) {
-        changes.push({
+        moves.push({
           type: "move",
           roomAssignmentId: aid,
           toRoomId: d[pendingKey].roomId,
@@ -240,7 +252,7 @@ export function computeOccEditChanges(
       }
       continue;
     }
-    changes.push({
+    unassigns.push({
       type: "unassign",
       roomAssignmentId: aid,
       reservationId: rid,
@@ -248,7 +260,9 @@ export function computeOccEditChanges(
     });
   }
 
-  return changes;
+  // 移動・解除を先に確定してから新規割当する。
+  // 同じ部屋へ戻す追加を、移動前の行と同一キー扱いで潰さない。
+  return [...moves, ...unassigns, ...assigns];
 }
 
 export function countOccRoomAssignmentsForReservation(
