@@ -17,6 +17,7 @@ SQL Editor で **番号順** に実行してください。
 | 11 | `011_looker_analysis_views.sql` | Looker 分析ビュー |
 | 12 | `012_guest_memo.sql` | 宿泊者メモ列 |
 | 13 | `013_somen_rental.sql` | 流しそうめんレンタル列 |
+| 14 | `014_looker_reservation_summary_fix.sql` | 分析サマリの人数修正・内訳/選択項目追加 |
 
 ## 何度も実行して大丈夫？
 
