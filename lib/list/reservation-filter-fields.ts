@@ -4,6 +4,7 @@ import {
   LIST_FILTER_CHANNEL_OPTIONS,
   LIST_FILTER_MEAL_OPTIONS,
   LIST_FILTER_PAYMENT_OPTIONS,
+  LIST_FILTER_SOMEN_OPTIONS,
 } from "@/lib/config/field-options";
 import { CONTACT_LABELS } from "@/lib/config/contact-confirm-labels";
 import {
@@ -55,6 +56,11 @@ export function buildReservationListFilterFields(
       key: "bbq",
       label: "BBQ",
       options: eqFieldOptions(LIST_FILTER_BBQ_OPTIONS),
+    },
+    {
+      key: "somen",
+      label: "流しそうめん",
+      options: eqFieldOptions(LIST_FILTER_SOMEN_OPTIONS),
     },
     {
       key: "companionInfo",

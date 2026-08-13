@@ -85,6 +85,12 @@ export const MAIL_TEMPLATE_META: MailTemplateMeta = {
       categories: ["本予約"],
     },
     {
+      key: "流しそうめんレンタル",
+      label: "流しそうめんレンタル",
+      token: "{{流しそうめんレンタル}}",
+      categories: ["本予約"],
+    },
+    {
       key: "同行者フォームURL",
       label: "同行者リンク",
       token: "{{同行者フォームURL}}",

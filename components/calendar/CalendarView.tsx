@@ -60,6 +60,7 @@ function toDashboardItem(card: DayCalendarView["checkinCards"][0]): DashboardLis
     under3: card.under3,
     meal: card.meal,
     bbq: card.bbq,
+    somen: card.somen,
     inquiry: card.inquiry,
     internalMemo: card.internalMemo,
     guestMemo: card.guestMemo,

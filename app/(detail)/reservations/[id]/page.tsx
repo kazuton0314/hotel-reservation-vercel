@@ -180,6 +180,7 @@ async function DetailContent({
         <FormSectionLabel>食事・交通</FormSectionLabel>
         <Kv label="食事" value={asString(r.meal)} />
         <Kv label="BBQレンタル" value={asString(r.bbq)} />
+        <Kv label="流しそうめんレンタル" value={asString(r.somen)} />
         <Kv label="交通手段" value={asString(r.transport)} />
         <Kv label="車両台数" value={asString(r.vehicle_count)} />
 
@@ -275,6 +276,7 @@ async function DetailContent({
           vehicleCount={asString(r.vehicle_count)}
           meal={asString(r.meal)}
           bbq={asString(r.bbq)}
+          somen={asString(r.somen)}
           inquiry={asString(r.inquiry)}
           travelPurpose={asString(r.travel_purpose)}
           travelPurposeOther={asString(r.travel_purpose_other)}

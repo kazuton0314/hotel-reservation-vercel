@@ -70,6 +70,7 @@ export function ReservationListRow({ item }: { item: ReservationListItem }) {
         arrivalTime={item.arrival_time}
         meal={item.meal}
         bbq={item.bbq}
+        somen={item.somen}
         vehicleCount={item.vehicle_count}
         inquiry={item.inquiry}
         internalMemo={item.internal_memo}

@@ -53,6 +53,7 @@ export type ReservationListItem = {
   channel: string | null;
   meal: string | null;
   bbq: string | null;
+  somen: string | null;
   payment_status: string | null;
   referral: string | null;
   travel_purpose: string | null;
@@ -157,7 +158,7 @@ type AssignmentListRow = {
 };
 
 const LIST_SELECT =
-  "reservation_id, representative_name, last_name, first_name, name_kana, last_name_kana, first_name_kana, group_name, phone, status, check_in, check_out, guest_total, assignment_status, channel, meal, bbq, payment_status, referral, travel_purpose, internal_memo, guest_memo, inquiry, arrival_time, vehicle_count, is_archived, completion_email_sent, day11_email_sent, day3_email_sent, companion_form_answered, email, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3, created_at, sheet_created_at, updated_at";
+  "reservation_id, representative_name, last_name, first_name, name_kana, last_name_kana, first_name_kana, group_name, phone, status, check_in, check_out, guest_total, assignment_status, channel, meal, bbq, somen, payment_status, referral, travel_purpose, internal_memo, guest_memo, inquiry, arrival_time, vehicle_count, is_archived, completion_email_sent, day11_email_sent, day3_email_sent, companion_form_answered, email, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3, created_at, sheet_created_at, updated_at";
 
 type DbListRow = {
   reservation_id: string;
@@ -177,6 +178,7 @@ type DbListRow = {
   channel: string | null;
   meal: string | null;
   bbq: string | null;
+  somen: string | null;
   payment_status: string | null;
   referral: string | null;
   travel_purpose: string | null;
@@ -247,6 +249,7 @@ function mapReservationListItem(
     channel: row.channel,
     meal: row.meal,
     bbq: row.bbq,
+    somen: row.somen,
     payment_status: row.payment_status,
     referral: row.referral,
     travel_purpose: row.travel_purpose,

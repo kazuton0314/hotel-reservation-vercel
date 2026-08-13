@@ -29,6 +29,7 @@ import {
   PHONE_AVAILABLE_OPTIONS,
   REFERRAL_OPTIONS,
   RESERVATION_STATUS_OPTIONS,
+  SOMEN_OPTIONS,
   TRANSPORT_OPTIONS,
   TRAVEL_PURPOSE_OPTIONS,
 } from "@/lib/config/field-options";
@@ -67,6 +68,7 @@ type Props = {
   vehicleCount: string | null;
   meal: string | null;
   bbq: string | null;
+  somen: string | null;
   inquiry: string | null;
   travelPurpose: string | null;
   travelPurposeOther: string | null;
@@ -102,6 +104,7 @@ type FormSeed = {
   vehicleCount: string | null;
   meal: string | null;
   bbq: string | null;
+  somen: string | null;
   inquiry: string | null;
   travelPurpose: string | null;
   travelPurposeOther: string | null;
@@ -164,6 +167,7 @@ function formSeedFromProps(props: Props): FormSeed {
     vehicleCount: props.vehicleCount,
     meal: props.meal,
     bbq: props.bbq,
+    somen: props.somen,
     inquiry: props.inquiry,
     travelPurpose: props.travelPurpose,
     travelPurposeOther: props.travelPurposeOther,
@@ -395,6 +399,12 @@ export function ReservationUpdateForm(props: Props) {
         name="bbq"
         options={BBQ_OPTIONS}
         defaultValue={formSeed.bbq}
+      />
+      <FormSelectField
+        label="流しそうめんレンタル"
+        name="somen"
+        options={SOMEN_OPTIONS}
+        defaultValue={formSeed.somen}
       />
       <FormSelectField
         id="f-pay"

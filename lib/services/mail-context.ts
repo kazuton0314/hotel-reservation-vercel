@@ -116,7 +116,7 @@ export async function buildMailEntityContext(
     const { data } = await supabase
       .from("reservations")
       .select(
-        "reservation_id, access_key, representative_name, last_name, first_name, name_kana, last_name_kana, first_name_kana, email, phone, check_in, check_out, nights, guest_total, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3, arrival_time, bbq"
+        "reservation_id, access_key, representative_name, last_name, first_name, name_kana, last_name_kana, first_name_kana, email, phone, check_in, check_out, nights, guest_total, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3, arrival_time, bbq, somen"
       )
       .eq("reservation_id", entityId)
       .maybeSingle();
@@ -150,6 +150,7 @@ export async function buildMailEntityContext(
         under_3: data.under_3,
       }),
       bbq: formatBbqDisplayLabel(data.bbq),
+      somen: String(data.somen ?? "").trim(),
       companionFormUrl: buildCompanionFormUrl(accessKey, appBase),
     };
   }

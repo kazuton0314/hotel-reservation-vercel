@@ -69,6 +69,7 @@ export function ReservationDashboardCard({
         arrivalTime={item.arrivalTime}
         meal={item.meal}
         bbq={item.bbq}
+        somen={item.somen}
         vehicleCount={item.vehicleCount}
         inquiry={item.inquiry}
         internalMemo={item.internalMemo}
