@@ -238,11 +238,21 @@ function WeekView({
                 key={`${ev.reservationId}-${ev.type}`}
                 href={`/reservations/${encodeURIComponent(ev.reservationId)}`}
                 prefetch
-                className={`card-row event-card ${ev.type === "checkin" ? "event-in" : "event-out"}${ev.status === "仮予約" ? " event-provisional" : ""}`}
+                className={`card-row event-card ${
+                  ev.type === "checkin"
+                    ? "event-in"
+                    : ev.type === "checkout"
+                      ? "event-out"
+                      : "event-stay"
+                }${ev.status === "仮予約" ? " event-provisional" : ""}`}
               >
                 <span className="event-time">
                   {ev.typeLabel}
-                  {ev.time ? ` ${ev.time}` : ""}
+                  {ev.time
+                    ? ` ${ev.time}`
+                    : ev.nightNumber
+                      ? ` ${ev.nightNumber}泊目`
+                      : ""}
                 </span>{" "}
                 {ev.representativeName} {ev.guestCompact}
               </Link>

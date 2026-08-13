@@ -971,6 +971,10 @@ body.cal-month-active .cal-view-tabs {
   background: #ffedd5;
   border-left: 3px solid #ea580c;
 }
+.event-stay {
+  background: #ecfdf5;
+  border-left: 3px solid #059669;
+}
 .event-provisional {
   border-style: dashed;
 }

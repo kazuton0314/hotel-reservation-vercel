@@ -58,11 +58,12 @@ export type CalendarEvent = {
   representativeName: string;
   guestCompact: string;
   status: string;
-  type: "checkin" | "checkout";
+  type: "checkin" | "checkout" | "stay";
   typeLabel: string;
   time: string;
   date: string;
   rooms: string;
+  nightNumber?: number;
 };
 
 export type CalendarDayCard = {
@@ -217,6 +218,32 @@ function dayPartyLabels(reservations: CalendarReservation[], iso: string) {
   };
 }
 
+function stayNightNumber(r: CalendarReservation, iso: string): number {
+  const ci = parseReservationDate(r.check_in);
+  const day = parseReservationDate(iso);
+  if (!ci || !day) return 1;
+  let nightNumber = Math.max(
+    1,
+    Math.round((stripTime(day).getTime() - stripTime(ci).getTime()) / 86400000) + 1
+  );
+  const total =
+    r.nights ||
+    (r.check_in && r.check_out
+      ? daysBetweenCalendarDates(
+          parseReservationDate(r.check_in)!,
+          parseReservationDate(r.check_out)!
+        )
+      : 0);
+  if (total > 0) nightNumber = Math.min(nightNumber, total);
+  return nightNumber;
+}
+
+const WEEK_EVENT_TYPE_RANK: Record<CalendarEvent["type"], number> = {
+  checkin: 0,
+  stay: 1,
+  checkout: 2,
+};
+
 export function buildCalendarEventsForRange(
   reservations: CalendarReservation[],
   assignmentsByReservation: Map<string, CalendarAssignment[]>,
@@ -259,6 +286,25 @@ export function buildCalendarEventsForRange(
         time: r.arrival_time || "",
       });
     }
+
+    const stayDay = new Date(stripTime(ci));
+    stayDay.setDate(stayDay.getDate() + 1);
+    const coMs = stripTime(co).getTime();
+    while (stayDay.getTime() < coMs) {
+      const iso = formatDateIso(stayDay);
+      if (iso >= dateFrom && iso <= dateTo) {
+        events.push({
+          ...base,
+          date: iso,
+          type: "stay",
+          typeLabel: "滞在中",
+          time: "",
+          nightNumber: stayNightNumber(r, iso),
+        });
+      }
+      stayDay.setDate(stayDay.getDate() + 1);
+    }
+
     if (coIso >= dateFrom && coIso <= dateTo) {
       events.push({
         ...base,
@@ -272,10 +318,15 @@ export function buildCalendarEventsForRange(
 
   events.sort((a, b) => {
     if (a.date !== b.date) return a.date < b.date ? -1 : 1;
-    const ta = a.time || (a.type === "checkout" ? "99:99" : "00:00");
-    const tb = b.time || (b.type === "checkout" ? "99:99" : "00:00");
-    if (ta !== tb) return ta < tb ? -1 : 1;
-    return a.type === "checkin" ? -1 : 1;
+    const ra = WEEK_EVENT_TYPE_RANK[a.type];
+    const rb = WEEK_EVENT_TYPE_RANK[b.type];
+    if (ra !== rb) return ra - rb;
+    if (a.type === "checkin") {
+      const ta = a.time || "00:00";
+      const tb = b.time || "00:00";
+      if (ta !== tb) return ta < tb ? -1 : 1;
+    }
+    return a.representativeName.localeCompare(b.representativeName, "ja");
   });
 
   return events;
@@ -409,7 +460,6 @@ export function buildDayCalendarView(
 ): DayCalendarView {
   const d = parseReservationDate(date) || businessToday();
   const iso = formatDateIso(d);
-  const dayMs = stripTime(d).getTime();
 
   const checkinCards = reservations
     .filter((r) => isActiveReservation(r) && r.check_in === iso)
@@ -437,26 +487,7 @@ export function buildDayCalendarView(
 
   const staying = reservations
     .filter((r) => isStayingOn(r, iso))
-    .map((r) => {
-      const ci = parseReservationDate(r.check_in);
-      let nightNumber = 1;
-      if (ci) {
-        nightNumber = Math.max(
-          1,
-          Math.round((dayMs - stripTime(ci).getTime()) / 86400000) + 1
-        );
-        const total =
-          r.nights ||
-          (r.check_in && r.check_out
-            ? daysBetweenCalendarDates(
-                parseReservationDate(r.check_in)!,
-                parseReservationDate(r.check_out)!
-              )
-            : 0);
-        if (total > 0) nightNumber = Math.min(nightNumber, total);
-      }
-      return toDayCard(r, assignmentsByReservation, nightNumber);
-    })
+    .map((r) => toDayCard(r, assignmentsByReservation, stayNightNumber(r, iso)))
     .sort((a, b) => {
       const at = a.arrivalTime?.trim() ?? "";
       const bt = b.arrivalTime?.trim() ?? "";
