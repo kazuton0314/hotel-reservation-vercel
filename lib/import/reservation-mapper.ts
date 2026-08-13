@@ -108,6 +108,33 @@ function g(
   return "";
 }
 
+const SOMEN_HEADER_KEYS = [
+  "流しそうめんレンタル",
+  "流しそうめんのレンタル",
+  "流しそうめん",
+] as const;
+
+export function normalizeSomenValue(value: unknown): string | null {
+  const s = asTextField(value);
+  if (!s) return null;
+  if (s === "要" || s === "必要") return "要";
+  if (s === "不要" || s === "不必要" || s === "なし") return "不要";
+  return s;
+}
+
+/** STUDIO 回答行から流しそうめんレンタルを読む（ヘッダー名の揺れ・部分一致も拾う） */
+export function readStudioSomen(
+  headers: string[],
+  values: unknown[]
+): string | null {
+  const idx = headerIndex(headers);
+  const exact = normalizeSomenValue(g(values, idx, ...SOMEN_HEADER_KEYS));
+  if (exact) return exact;
+  const fuzzy = headers.findIndex((h) => String(h ?? "").includes("そうめん"));
+  if (fuzzy >= 0) return normalizeSomenValue(values[fuzzy]);
+  return null;
+}
+
 function toIsoDate(value: unknown): string | null {
   const d = parseDateValue(value);
   return d ? formatDateIso(d) : null;
@@ -170,8 +197,8 @@ export function mapLedgerCsvRow(
     meal: asTextField(record["食事"]) || null,
     bbq: asTextField(record["BBQレンタル"]) || null,
     somen:
-      asTextField(record["流しそうめんレンタル"]) ||
-      asTextField(record["流しそうめんのレンタル"]) ||
+      normalizeSomenValue(record["流しそうめんレンタル"]) ||
+      normalizeSomenValue(record["流しそうめんのレンタル"]) ||
       null,
     inquiry: asTextField(record["お問い合わせ内容"]) || null,
     travel_purpose: asTextField(record["旅行の目的"]) || null,
@@ -311,10 +338,7 @@ export function mapStudioFormRow(
     vehicle_count: asTextField(g(v, idx, "車両台数")) || null,
     meal: asTextField(g(v, idx, "食事")) || null,
     bbq: asTextField(g(v, idx, "BBQレンタル")) || null,
-    somen:
-      asTextField(
-        g(v, idx, "流しそうめんレンタル", "流しそうめんのレンタル", "流しそうめん")
-      ) || null,
+    somen: readStudioSomen(headers, v),
     inquiry: asTextField(g(v, idx, "お問い合わせ内容")) || null,
     travel_purpose: asTextField(g(v, idx, "旅行の目的")) || null,
     travel_purpose_other: asTextField(g(v, idx, "旅行の目的-その他")) || null,

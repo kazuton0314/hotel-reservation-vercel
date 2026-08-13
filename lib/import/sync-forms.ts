@@ -4,6 +4,7 @@ import {
   findDuplicateRequest,
   findRequestByImportRowId,
   findReservationByImportRowId,
+  isPastImportSource,
   loadAllRequestsForImport,
   loadAllReservationsForImport,
   logRequestFormImport,
@@ -28,6 +29,7 @@ import {
 import {
   isStudioRowImportable,
   mapStudioFormRow,
+  readStudioSomen,
 } from "@/lib/import/reservation-mapper";
 import type { ReservationInsert } from "@/lib/import/reservation-mapper";
 import { syncReservationToGCal } from "@/lib/services/gcal-sync";
@@ -293,6 +295,55 @@ export async function importRequestForms(
   return importRequestFormRows(supabase, headers, rows);
 }
 
+/**
+ * 取込済み行は再upsertしない方針のまま、空の流しそうめんだけシートから埋める。
+ * 列追加後に取り込まれた予約（青木和佐など）が null のまま残るのを防ぐ。
+ */
+export async function fillEmptyStudioSomenFromSheet(
+  supabase: SupabaseClient,
+  headers: string[],
+  rows: SheetRow[],
+  importLog: ImportLogMap,
+  allReservations: ReservationImportRecord[]
+): Promise<string[]> {
+  const wanted = new Map<string, string>();
+  for (const row of rows) {
+    const somen = readStudioSomen(headers, row.values);
+    if (!somen) continue;
+    const loggedId = importLog.get(row.sheetRow);
+    const byRow = findReservationByImportRowId(allReservations, row.sheetRow);
+    const reservationId = String(loggedId || byRow?.reservation_id || "").trim();
+    if (!reservationId || reservationId.startsWith("PAST-")) continue;
+    if (isPastImportSource(byRow?.import_source)) continue;
+    wanted.set(reservationId, somen);
+  }
+  if (!wanted.size) return [];
+
+  const ids = [...wanted.keys()];
+  const { data: existing, error } = await supabase
+    .from("reservations")
+    .select("reservation_id, somen")
+    .in("reservation_id", ids);
+  if (error) return [];
+
+  const emptyIds = new Set(
+    (existing ?? [])
+      .filter((row) => !String(row.somen ?? "").trim())
+      .map((row) => String(row.reservation_id))
+  );
+  const filled: string[] = [];
+  const nowIso = new Date().toISOString();
+  for (const [reservationId, somen] of wanted) {
+    if (!emptyIds.has(reservationId)) continue;
+    const { error: updateError } = await supabase
+      .from("reservations")
+      .update({ somen, updated_at: nowIso })
+      .eq("reservation_id", reservationId);
+    if (!updateError) filled.push(reservationId);
+  }
+  return filled;
+}
+
 export async function importStudioFormRows(
   supabase: SupabaseClient,
   headers: string[],
@@ -506,6 +557,19 @@ export async function importStudioFormRows(
       imported++;
     } catch (e) {
       errors.push(`行${row.sheetRow}: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
+  const somenFilledIds = await fillEmptyStudioSomenFromSheet(
+    supabase,
+    headers,
+    rows,
+    importLog,
+    allReservations
+  );
+  for (const reservationId of somenFilledIds) {
+    if (!pendingGCalIds.includes(reservationId)) {
+      pendingGCalIds.push(reservationId);
     }
   }
 
