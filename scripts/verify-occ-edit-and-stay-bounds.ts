@@ -213,6 +213,7 @@ const occupancy = buildRoomOccupancyMonthView(
       age_3plus: "0",
       under_3: "0",
       bbq: "",
+      somen: "",
       channel: "",
       assignment_status: "割当済",
     },
