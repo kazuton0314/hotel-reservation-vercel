@@ -158,11 +158,11 @@ function MonthView({
                 {day.checkinLabel ? (
                   <span className="cal-badge cal-badge-in">{day.checkinLabel}</span>
                 ) : null}
-                {day.checkoutLabel ? (
-                  <span className="cal-badge cal-badge-out">{day.checkoutLabel}</span>
-                ) : null}
                 {day.stayingLabel ? (
                   <span className="cal-badge cal-badge-stay">{day.stayingLabel}</span>
+                ) : null}
+                {day.checkoutLabel ? (
+                  <span className="cal-badge cal-badge-out">{day.checkoutLabel}</span>
                 ) : null}
               </div>
             </Button>
@@ -228,7 +228,7 @@ function WeekView({
                 {day.dateLabel}（{day.weekday}）
               </p>
               <p className="mini">
-                {[day.checkinLabel, day.checkoutLabel, day.stayingLabel]
+                {[day.checkinLabel, day.stayingLabel, day.checkoutLabel]
                   .filter(Boolean)
                   .join(" ") || "予定なし"}
               </p>

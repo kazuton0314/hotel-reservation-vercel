@@ -17,9 +17,16 @@ export function classifyOverlapStay(
 
 export const OVERLAP_STAY_KIND_LABEL: Record<OverlapStayKind, string> = {
   checkin: "チェックイン",
-  checkout: "チェックアウト",
   stay: "滞在中",
+  checkout: "チェックアウト",
 };
+
+/** ホーム／予定日／同期間他組と同じ: チェックイン → 滞在中 → チェックアウト */
+export const OVERLAP_STAY_KIND_ORDER = [
+  "checkin",
+  "stay",
+  "checkout",
+] as const satisfies readonly OverlapStayKind[];
 
 export function groupOverlapStays(
   stays: OverlapStayItem[],
@@ -27,19 +34,19 @@ export function groupOverlapStays(
 ): { kind: OverlapStayKind; label: string; stays: OverlapStayItem[] }[] {
   const groups: Record<OverlapStayKind, OverlapStayItem[]> = {
     checkin: [],
-    checkout: [],
     stay: [],
+    checkout: [],
   };
 
   for (const stay of stays) {
     groups[classifyOverlapStay(stay, anchorCheckIn)].push(stay);
   }
 
-  return (["checkin", "checkout", "stay"] as const)
-    .filter((kind) => groups[kind].length > 0)
-    .map((kind) => ({
+  return OVERLAP_STAY_KIND_ORDER.filter((kind) => groups[kind].length > 0).map(
+    (kind) => ({
       kind,
       label: OVERLAP_STAY_KIND_LABEL[kind],
       stays: groups[kind],
-    }));
+    })
+  );
 }
