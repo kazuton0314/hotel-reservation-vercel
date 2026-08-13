@@ -302,18 +302,6 @@ function DayView({ data, anchor }: { data: DayCalendarView; anchor: string }) {
         <div className="empty">なし</div>
       )}
 
-      <div className="section-title">チェックアウト</div>
-      {data.checkoutCards.length ? (
-        data.checkoutCards.map((card) => (
-          <ReservationDashboardCard
-            key={card.reservationId}
-            item={toDashboardItem(card)}
-          />
-        ))
-      ) : (
-        <div className="empty">なし</div>
-      )}
-
       <div className="section-title">滞在中</div>
       {data.staying.length ? (
         data.staying.map((card) => (
@@ -321,6 +309,18 @@ function DayView({ data, anchor }: { data: DayCalendarView; anchor: string }) {
             key={`${card.reservationId}-stay`}
             item={toDashboardItem(card)}
             nightNumber={card.nightNumber}
+          />
+        ))
+      ) : (
+        <div className="empty">なし</div>
+      )}
+
+      <div className="section-title">チェックアウト</div>
+      {data.checkoutCards.length ? (
+        data.checkoutCards.map((card) => (
+          <ReservationDashboardCard
+            key={card.reservationId}
+            item={toDashboardItem(card)}
           />
         ))
       ) : (

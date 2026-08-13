@@ -133,16 +133,6 @@ export function DashboardView({ dashboard: d }: Props) {
         )}
       </DashboardSection>
 
-      <DashboardSection title={`チェックアウト ${d.todayCheckoutCount}組`}>
-        {d.todayCheckouts.length === 0 ? (
-          <DashboardEmpty />
-        ) : (
-          d.todayCheckouts.map((item) => (
-            <ReservationDashboardCard key={item.reservationId} item={item} />
-          ))
-        )}
-      </DashboardSection>
-
       <DashboardSection title={`滞在中 ${d.stayingCount}組`}>
         {d.staying.length === 0 ? (
           <DashboardEmpty />
@@ -153,6 +143,16 @@ export function DashboardView({ dashboard: d }: Props) {
               item={item}
               nightNumber={item.nightNumber}
             />
+          ))
+        )}
+      </DashboardSection>
+
+      <DashboardSection title={`チェックアウト ${d.todayCheckoutCount}組`}>
+        {d.todayCheckouts.length === 0 ? (
+          <DashboardEmpty />
+        ) : (
+          d.todayCheckouts.map((item) => (
+            <ReservationDashboardCard key={item.reservationId} item={item} />
           ))
         )}
       </DashboardSection>
