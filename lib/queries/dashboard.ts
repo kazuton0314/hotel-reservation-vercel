@@ -43,6 +43,7 @@ type DbReservation = {
   arrival_time: string | null;
   meal: string | null;
   bbq: string | null;
+  somen: string | null;
   channel: string | null;
   inquiry: string | null;
   internal_memo: string | null;
@@ -97,6 +98,7 @@ export type DashboardListItem = {
   under3: string | null;
   meal: string | null;
   bbq: string | null;
+  somen: string | null;
   inquiry: string | null;
   internalMemo: string | null;
   guestMemo: string | null;
@@ -189,6 +191,7 @@ function toListItem(
     under3: r.under_3,
     meal: r.meal,
     bbq: r.bbq,
+    somen: r.somen,
     inquiry: r.inquiry,
     internalMemo: r.internal_memo,
     guestMemo: r.guest_memo,
@@ -332,7 +335,7 @@ async function getDashboardSummaryUncached(): Promise<{
     supabase
       .from("reservations")
       .select(
-        "reservation_id, representative_name, status, check_in, check_out, nights, guest_total, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3, arrival_time, meal, bbq, channel, inquiry, internal_memo, guest_memo, vehicle_count, assignment_status, companion_form_answered, email, completion_email_sent, day11_email_sent, day3_email_sent, created_at, sheet_created_at, is_archived"
+        "reservation_id, representative_name, status, check_in, check_out, nights, guest_total, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3, arrival_time, meal, bbq, somen, channel, inquiry, internal_memo, guest_memo, vehicle_count, assignment_status, companion_form_answered, email, completion_email_sent, day11_email_sent, day3_email_sent, created_at, sheet_created_at, is_archived"
       )
       .eq("is_archived", false)
       .or(todayOrClause),

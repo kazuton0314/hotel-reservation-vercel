@@ -88,6 +88,8 @@ export const MEAL_OPTIONS = [
 
 export const BBQ_OPTIONS = ["要", "不要", "持参する"] as const;
 
+export const SOMEN_OPTIONS = ["要", "不要"] as const;
+
 export const PAYMENT_STATUS_OPTIONS = ["未払い", "完了"] as const;
 
 export const MANUAL_RESERVATION_STATUS_OPTIONS = ["仮予約", "確定"] as const;
@@ -106,6 +108,8 @@ export const LIST_FILTER_CHANNEL_OPTIONS = [
 export const LIST_FILTER_MEAL_OPTIONS = MEAL_OPTIONS;
 
 export const LIST_FILTER_BBQ_OPTIONS = [...BBQ_OPTIONS, "未確認"] as const;
+
+export const LIST_FILTER_SOMEN_OPTIONS = SOMEN_OPTIONS;
 
 export const LIST_FILTER_PAYMENT_OPTIONS = PAYMENT_STATUS_OPTIONS;
 

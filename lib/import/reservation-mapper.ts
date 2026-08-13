@@ -63,6 +63,7 @@ export type ReservationInsert = {
   vehicle_count: string | null;
   meal: string | null;
   bbq: string | null;
+  somen: string | null;
   inquiry: string | null;
   travel_purpose: string | null;
   travel_purpose_other: string | null;
@@ -168,6 +169,10 @@ export function mapLedgerCsvRow(
     vehicle_count: asTextField(record["車両台数"]) || null,
     meal: asTextField(record["食事"]) || null,
     bbq: asTextField(record["BBQレンタル"]) || null,
+    somen:
+      asTextField(record["流しそうめんレンタル"]) ||
+      asTextField(record["流しそうめんのレンタル"]) ||
+      null,
     inquiry: asTextField(record["お問い合わせ内容"]) || null,
     travel_purpose: asTextField(record["旅行の目的"]) || null,
     travel_purpose_other: asTextField(record["旅行の目的_その他"]) || null,
@@ -306,6 +311,10 @@ export function mapStudioFormRow(
     vehicle_count: asTextField(g(v, idx, "車両台数")) || null,
     meal: asTextField(g(v, idx, "食事")) || null,
     bbq: asTextField(g(v, idx, "BBQレンタル")) || null,
+    somen:
+      asTextField(
+        g(v, idx, "流しそうめんレンタル", "流しそうめんのレンタル", "流しそうめん")
+      ) || null,
     inquiry: asTextField(g(v, idx, "お問い合わせ内容")) || null,
     travel_purpose: asTextField(g(v, idx, "旅行の目的")) || null,
     travel_purpose_other: asTextField(g(v, idx, "旅行の目的-その他")) || null,

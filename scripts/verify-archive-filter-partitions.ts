@@ -30,7 +30,7 @@ async function main() {
     .select("room_id, room_name")
     .eq("is_active", true);
   const { data: allRes } = await sb.from("reservations").select(
-    "reservation_id, representative_name, status, check_in, check_out, guest_total, assignment_status, channel, meal, bbq, payment_status, companion_form_answered, completion_email_sent, day11_email_sent, day3_email_sent, email, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3, created_at, sheet_created_at, is_archived"
+    "reservation_id, representative_name, status, check_in, check_out, guest_total, assignment_status, channel, meal, bbq, somen, payment_status, companion_form_answered, completion_email_sent, day11_email_sent, day3_email_sent, email, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3, created_at, sheet_created_at, is_archived"
   );
 
   // 一覧アーカイブと同じ: is_archived OR check_out < today

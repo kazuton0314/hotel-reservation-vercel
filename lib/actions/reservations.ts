@@ -181,6 +181,7 @@ export async function updateReservationAction(
     ),
     meal: String(formData.get("meal") ?? current.meal ?? ""),
     bbq: String(formData.get("bbq") ?? current.bbq ?? ""),
+    somen: String(formData.get("somen") ?? current.somen ?? ""),
     inquiry: String(formData.get("inquiry") ?? current.inquiry ?? ""),
     travel_purpose: joinMultiSelectValues(
       formData.getAll("travel_purpose").map((v) => String(v))
@@ -549,6 +550,7 @@ export async function createManualReservationAction(
     vehicle_count: String(formData.get("vehicle_count") ?? "").trim() || null,
     meal: String(formData.get("meal") ?? "").trim() || null,
     bbq: String(formData.get("bbq") ?? "").trim() || null,
+    somen: String(formData.get("somen") ?? "").trim() || null,
     inquiry: String(formData.get("inquiry") ?? "").trim() || null,
     travel_purpose:
       joinMultiSelectValues(

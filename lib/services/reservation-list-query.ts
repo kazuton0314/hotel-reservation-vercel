@@ -14,6 +14,7 @@ const SQL_EQ_RESERVATION_FILTER_FIELDS = new Set([
   "channel",
   "meal",
   "bbq",
+  "somen",
   "payment_status",
 ]);
 

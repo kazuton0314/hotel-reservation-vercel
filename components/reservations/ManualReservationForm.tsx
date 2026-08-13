@@ -19,6 +19,7 @@ import {
   MEAL_OPTIONS,
   PHONE_AVAILABLE_OPTIONS,
   REFERRAL_OPTIONS,
+  SOMEN_OPTIONS,
   TRANSPORT_OPTIONS,
   TRAVEL_PURPOSE_OPTIONS,
 } from "@/lib/config/field-options";
@@ -156,6 +157,11 @@ export function ManualReservationForm() {
             label="バーベキュー道具のレンタル"
             name="bbq"
             options={BBQ_OPTIONS}
+          />
+          <FormSelectField
+            label="流しそうめんレンタル"
+            name="somen"
+            options={SOMEN_OPTIONS}
           />
           <FormSelectField
             label="交通手段"

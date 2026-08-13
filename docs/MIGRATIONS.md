@@ -13,6 +13,10 @@ SQL Editor で **番号順** に実行してください。
 | 7 | `007_mail_logs.sql` | メール送信ログ |
 | 8 | `008_mail_logs_provider_status.sql` | Resend 配信ステータス列 |
 | 9 | `009_import_job_runs.sql` | script ジョブ履歴 |
+| 10 | `010_perf_range_indexes.sql` | 検索・期間インデックス |
+| 11 | `011_looker_analysis_views.sql` | Looker 分析ビュー |
+| 12 | `012_guest_memo.sql` | 宿泊者メモ列 |
+| 13 | `013_somen_rental.sql` | 流しそうめんレンタル列 |
 
 ## 何度も実行して大丈夫？
 

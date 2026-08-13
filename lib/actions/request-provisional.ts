@@ -48,6 +48,7 @@ export async function buildProvisionalFromRequest(
     vehicle_count: null,
     meal: null,
     bbq: null,
+    somen: null,
     inquiry: current.inquiry || null,
     travel_purpose: null,
     travel_purpose_other: null,

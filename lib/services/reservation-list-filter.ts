@@ -160,6 +160,7 @@ export function applyReservationListFilter(
     field === "channel" ||
     field === "meal" ||
     field === "bbq" ||
+    field === "somen" ||
     field === "payment_status"
   ) {
     return items.filter((r) => matchesSqlEqFilterField(r, field, value));

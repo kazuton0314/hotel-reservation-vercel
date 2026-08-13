@@ -29,6 +29,7 @@ export type CalendarReservation = {
   arrival_time: string | null;
   meal: string | null;
   bbq: string | null;
+  somen: string | null;
   channel: string | null;
   inquiry: string | null;
   internal_memo: string | null;
@@ -82,6 +83,7 @@ export type CalendarDayCard = {
   assignedRooms: string;
   meal: string | null;
   bbq: string | null;
+  somen: string | null;
   inquiry: string | null;
   internalMemo: string | null;
   guestMemo: string | null;
@@ -314,6 +316,7 @@ function toDayCard(
     ),
     meal: r.meal,
     bbq: r.bbq,
+    somen: r.somen,
     inquiry: r.inquiry,
     internalMemo: r.internal_memo,
     guestMemo: r.guest_memo,

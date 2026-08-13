@@ -18,6 +18,7 @@ type ReservationRow = {
   arrival_time: string | null;
   meal: string | null;
   bbq: string | null;
+  somen: string | null;
   transport: string | null;
   vehicle_count: string | null;
   group_name: string | null;
@@ -30,7 +31,7 @@ type ReservationRow = {
 };
 
 const RESERVATION_SELECT =
-  "reservation_id, representative_name, status, check_in, check_out, guest_total, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3, arrival_time, meal, bbq, transport, vehicle_count, group_name, channel, inquiry, internal_memo, guest_memo, gcal_event_id, is_archived";
+  "reservation_id, representative_name, status, check_in, check_out, guest_total, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3, arrival_time, meal, bbq, somen, transport, vehicle_count, group_name, channel, inquiry, internal_memo, guest_memo, gcal_event_id, is_archived";
 
 function getCalendarId(): string | null {
   const id = process.env.GOOGLE_CALENDAR_ID?.trim();
@@ -107,6 +108,7 @@ function buildGCalEventDescription(
   if (row.arrival_time) lines.push(`到着: ${row.arrival_time}`);
   if (row.meal) lines.push(`食事: ${row.meal}`);
   if (row.bbq) lines.push(`BBQ: ${row.bbq}`);
+  if (row.somen) lines.push(`流しそうめん: ${row.somen}`);
   if (row.transport || row.vehicle_count) {
     const parts: string[] = [];
     const transport = String(row.transport ?? "").trim();
