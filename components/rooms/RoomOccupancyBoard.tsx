@@ -28,12 +28,10 @@ import {
 } from "@/lib/services/room-occupancy";
 import {
   eventClassName,
-  formatBbqBadgeLabel,
-  formatChannelBadgeLabel,
   formatOccGuestMeta,
   formatOccNightLabel,
-  formatSomenBadgeLabel,
 } from "@/lib/utils/occ-display";
+import { OccStayBadges } from "@/components/rooms/OccStayBadges";
 import { useOccBoardDrag } from "@/components/rooms/useOccBoardDrag";
 import { NavDatePicker } from "@/components/calendar/NavDatePicker";
 import { Button } from "@/components/ui/button";
@@ -94,9 +92,6 @@ function OccEventBlock({
 }) {
   const nightLbl = formatOccNightLabel(ev);
   const meta = formatOccGuestMeta(ev);
-  const bbqLabel = formatBbqBadgeLabel(ev.bbq);
-  const somenLabel = formatSomenBadgeLabel(ev.somen);
-  const channelLabel = formatChannelBadgeLabel(ev.channel);
   const canRemoveRoom =
     editMode &&
     !ev.isUnassigned &&
@@ -162,15 +157,7 @@ function OccEventBlock({
       {nightLbl ? <span className="occ-nights">{nightLbl}</span> : null}
       <span className="occ-meta">
         {meta}
-        {bbqLabel ? (
-          <span className="meta-badge meta-bbq">{bbqLabel}</span>
-        ) : null}
-        {somenLabel ? (
-          <span className="meta-badge meta-somen">{somenLabel}</span>
-        ) : null}
-        {channelLabel ? (
-          <span className="meta-badge meta-airbnb">{channelLabel}</span>
-        ) : null}
+        <OccStayBadges bbq={ev.bbq} somen={ev.somen} channel={ev.channel} />
       </span>
     </div>
   );

@@ -1,11 +1,7 @@
 import Link from "next/link";
 import type { TodayRoomBoardItem } from "@/lib/queries/dashboard";
-import {
-  formatBbqBadgeLabel,
-  formatChannelBadgeLabel,
-  formatOccGuestMeta,
-  formatSomenBadgeLabel,
-} from "@/lib/utils/occ-display";
+import { OccStayBadges, hasOccStayBadges } from "@/components/rooms/OccStayBadges";
+import { formatOccGuestMeta } from "@/lib/utils/occ-display";
 
 function EventTags({
   isCheckin,
@@ -66,15 +62,8 @@ export function TodayRoomsBoard({ rooms }: { rooms: TodayRoomBoardItem[] }) {
                 const meta = formatOccGuestMeta(ev);
                 // OUTのみは当日の運用バッジ不要（IN／滞在中だけ表示）
                 const isOutOnly = ev.isCheckout && !ev.isCheckin;
-                const bbqLabel = isOutOnly
-                  ? null
-                  : formatBbqBadgeLabel(ev.bbq);
-                const somenLabel = isOutOnly
-                  ? null
-                  : formatSomenBadgeLabel(ev.somen);
-                const channelLabel = isOutOnly
-                  ? null
-                  : formatChannelBadgeLabel(ev.channel);
+                const badges = !isOutOnly && hasOccStayBadges(ev);
+                const showMeta = Boolean(meta && meta !== "—");
                 return (
                   <div
                     key={`${room.roomId}-${ev.reservationId}-${ev.isCheckin}-${ev.isCheckout}`}
@@ -94,37 +83,15 @@ export function TodayRoomsBoard({ rooms }: { rooms: TodayRoomBoardItem[] }) {
                     {nightLbl ? (
                       <span className="today-room-nights">{nightLbl}</span>
                     ) : null}
-                    {meta && meta !== "—" ? (
+                    {showMeta || badges ? (
                       <span className="today-room-meta">
-                        {meta}
-                        {bbqLabel ? (
-                          <span className="meta-badge meta-bbq">{bbqLabel}</span>
-                        ) : null}
-                        {somenLabel ? (
-                          <span className="meta-badge meta-somen">
-                            {somenLabel}
-                          </span>
-                        ) : null}
-                        {channelLabel ? (
-                          <span className="meta-badge meta-airbnb">
-                            {channelLabel}
-                          </span>
-                        ) : null}
-                      </span>
-                    ) : bbqLabel || somenLabel || channelLabel ? (
-                      <span className="today-room-meta">
-                        {bbqLabel ? (
-                          <span className="meta-badge meta-bbq">{bbqLabel}</span>
-                        ) : null}
-                        {somenLabel ? (
-                          <span className="meta-badge meta-somen">
-                            {somenLabel}
-                          </span>
-                        ) : null}
-                        {channelLabel ? (
-                          <span className="meta-badge meta-airbnb">
-                            {channelLabel}
-                          </span>
+                        {showMeta ? meta : null}
+                        {badges ? (
+                          <OccStayBadges
+                            bbq={ev.bbq}
+                            somen={ev.somen}
+                            channel={ev.channel}
+                          />
                         ) : null}
                       </span>
                     ) : null}

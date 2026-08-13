@@ -212,8 +212,8 @@ const occupancy = buildRoomOccupancyMonthView(
       girl_student: "0",
       age_3plus: "0",
       under_3: "0",
-      bbq: "",
-      somen: "",
+      bbq: "要",
+      somen: "要",
       channel: "",
       assignment_status: "割当済",
     },
@@ -250,5 +250,12 @@ assert.deepEqual(
   ["2026-08-20", "2026-08-21", "2026-08-22"],
   `部屋割カードは予約のCI/COに合わせる: ${datesWithCard.join(",")}`
 );
+
+const checkinEv = occupancy.days
+  .find((day) => day.date === "2026-08-20")
+  ?.cells.find((cell) => cell.roomId === LOW)
+  ?.events.find((ev) => ev.reservationId === RID);
+assert.equal(checkinEv?.bbq, "要");
+assert.equal(checkinEv?.somen, "要");
 
 console.log("verify-occ-edit-and-stay-bounds: ok");

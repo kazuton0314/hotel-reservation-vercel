@@ -1680,17 +1680,18 @@ html[data-theme="dark"] .setup-room-trigger {
   font-weight: 700;
   font-size: 0.62rem;
 }
-.occ-meta .meta-bbq,
-.occ-meta .meta-somen,
-.occ-meta .meta-airbnb,
-.today-room-meta .meta-bbq,
-.today-room-meta .meta-somen,
-.today-room-meta .meta-airbnb {
+.occ-stay-badges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
   margin-left: 2px;
   vertical-align: middle;
 }
-.card-stay-facts .meta-badge {
-  vertical-align: middle;
+.occ-meta .occ-stay-badges {
+  display: flex;
+  margin-left: 0;
+  margin-top: 1px;
 }
 .occ-day-row td {
   border-bottom: 1px solid var(--border);
