@@ -56,7 +56,9 @@ as $$
   end
 $$;
 
-create or replace view public.reservation_summary_view as
+drop view if exists public.reservation_summary_view;
+
+create view public.reservation_summary_view as
 with base as (
   select
     r.reservation_id,
@@ -120,13 +122,11 @@ counted as (
 )
 select
   c.reservation_id as reservation_id,
-  c.status as reservation_status,
   public.analysis_choice_label(c.channel) as reservation_channel,
+  c.status as reservation_status,
   c.check_in as check_in_date,
   c.check_out as check_out_date,
   c.nights as nights,
-  c.is_archived as is_archived,
-  case when c.guest_count is null then '未設定' else '確定' end as guest_count_status,
   c.guest_count as guest_count_total,
   case
     when c.guest_count is null then '未設定'
@@ -147,30 +147,32 @@ select
     when 6 then '土'
     else null
   end as check_in_weekday,
+  c.bbq as bbq_usage,
+  c.somen as somen_rental,
+  public.analysis_choice_label(c.meal) as meal_plan,
+  public.analysis_definite_int(c.vehicle_count) as vehicle_count,
+  public.analysis_choice_label(c.assignment_status) as room_assignment_status,
+  c.companion_form_answered as companion_input_completed,
+  public.analysis_choice_label(c.payment_status) as payment_status,
+  c.created_at as created_at,
+  c.cancelled_at as cancelled_at,
+  c.is_archived as is_archived,
+  case when c.guest_count is null then '未設定' else '確定' end as guest_count_status,
   c.adult_male_count as adult_male_count,
   c.adult_female_count as adult_female_count,
   c.boy_student_count as boy_student_count,
   c.girl_student_count as girl_student_count,
   c.age_3plus_count as age_3plus_count,
   c.under_3_count as under_3_count,
-  c.bbq as bbq_usage,
   public.analysis_choice_label(c.bbq) as bbq_status,
   case public.analysis_choice_label(c.bbq)
     when '要' then 1
     when '未設定' then null
     else 0
   end as bbq_rental_flag,
-  c.somen as somen_rental,
   public.analysis_choice_label(c.somen) as somen_status,
-  public.analysis_choice_label(c.meal) as meal_plan,
   public.analysis_choice_label(c.travel_purpose) as travel_purpose,
-  public.analysis_choice_label(c.referral) as referral,
-  public.analysis_definite_int(c.vehicle_count) as vehicle_count,
-  public.analysis_choice_label(c.assignment_status) as room_assignment_status,
-  c.companion_form_answered as companion_input_completed,
-  public.analysis_choice_label(c.payment_status) as payment_status,
-  c.created_at as created_at,
-  c.cancelled_at as cancelled_at
+  public.analysis_choice_label(c.referral) as referral
 from counted c;
 
 comment on view public.reservation_summary_view is
