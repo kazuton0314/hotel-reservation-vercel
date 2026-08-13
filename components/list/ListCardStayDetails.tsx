@@ -13,7 +13,7 @@ type Fact = {
   accent?: "ops-memo";
 };
 
-/** 一覧・ホームカード共通: 人数・部屋・到着・問合せ・メモを同一行に並べて縦伸びを抑える */
+/** 一覧・ホームの予約カード共通。人数・部屋などはテキスト行。BBQ要ピルは部屋割ボード専用で、ここでは出さない */
 export function ListCardStayDetails({
   guests,
   rooms,

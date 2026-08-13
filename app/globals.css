@@ -1659,8 +1659,9 @@ html[data-theme="dark"] .setup-room-trigger {
   border-color: #fde047;
   border-style: dashed;
 }
-.meta-badge.meta-bbq,
-.meta-badge.meta-somen {
+/* BBQ要 / そうめん要 / Airbnb ピルは部屋割ボードとホーム部屋割だけ */
+.occ-stay-badges .meta-badge.meta-bbq,
+.occ-stay-badges .meta-badge.meta-somen {
   display: inline-block;
   background: #ffedd5;
   color: #c2410c;
@@ -1670,7 +1671,7 @@ html[data-theme="dark"] .setup-room-trigger {
   font-weight: 700;
   font-size: 0.62rem;
 }
-.meta-badge.meta-airbnb {
+.occ-stay-badges .meta-badge.meta-airbnb {
   display: inline-block;
   background: #ffe4e6;
   color: #be123c;
@@ -2723,14 +2724,14 @@ html[data-theme="dark"] .task-chip-blocked {
   border-color: var(--border);
 }
 
-html[data-theme="dark"] .meta-badge.meta-bbq,
-html[data-theme="dark"] .meta-badge.meta-somen {
+html[data-theme="dark"] .occ-stay-badges .meta-badge.meta-bbq,
+html[data-theme="dark"] .occ-stay-badges .meta-badge.meta-somen {
   background: #4a2c14;
   color: #fdba74;
   border-color: #9a3412;
 }
 
-html[data-theme="dark"] .meta-badge.meta-airbnb {
+html[data-theme="dark"] .occ-stay-badges .meta-badge.meta-airbnb {
   background: #4c0519;
   color: #fda4af;
   border-color: #9f1239;
