@@ -32,6 +32,7 @@ import {
   formatChannelBadgeLabel,
   formatOccGuestMeta,
   formatOccNightLabel,
+  formatSomenBadgeLabel,
 } from "@/lib/utils/occ-display";
 import { useOccBoardDrag } from "@/components/rooms/useOccBoardDrag";
 import { NavDatePicker } from "@/components/calendar/NavDatePicker";
@@ -94,6 +95,7 @@ function OccEventBlock({
   const nightLbl = formatOccNightLabel(ev);
   const meta = formatOccGuestMeta(ev);
   const bbqLabel = formatBbqBadgeLabel(ev.bbq);
+  const somenLabel = formatSomenBadgeLabel(ev.somen);
   const channelLabel = formatChannelBadgeLabel(ev.channel);
   const canRemoveRoom =
     editMode &&
@@ -162,6 +164,9 @@ function OccEventBlock({
         {meta}
         {bbqLabel ? (
           <span className="meta-badge meta-bbq">{bbqLabel}</span>
+        ) : null}
+        {somenLabel ? (
+          <span className="meta-badge meta-somen">{somenLabel}</span>
         ) : null}
         {channelLabel ? (
           <span className="meta-badge meta-airbnb">{channelLabel}</span>

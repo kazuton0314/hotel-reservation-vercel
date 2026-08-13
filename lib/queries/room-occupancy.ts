@@ -40,7 +40,7 @@ async function getRoomOccupancyMonthViewUncached(
   let reservationsQuery = supabase
     .from("reservations")
     .select(
-      "reservation_id, representative_name, status, check_in, check_out, nights, guest_total, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3, bbq, channel, assignment_status"
+      "reservation_id, representative_name, status, check_in, check_out, nights, guest_total, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3, bbq, somen, channel, assignment_status"
     )
     .lte("check_in", monthEnd)
     .gte("check_out", monthStart);

@@ -1659,7 +1659,8 @@ html[data-theme="dark"] .setup-room-trigger {
   border-color: #fde047;
   border-style: dashed;
 }
-.meta-badge.meta-bbq {
+.meta-badge.meta-bbq,
+.meta-badge.meta-somen {
   display: inline-block;
   background: #ffedd5;
   color: #c2410c;
@@ -1680,10 +1681,15 @@ html[data-theme="dark"] .setup-room-trigger {
   font-size: 0.62rem;
 }
 .occ-meta .meta-bbq,
+.occ-meta .meta-somen,
 .occ-meta .meta-airbnb,
 .today-room-meta .meta-bbq,
+.today-room-meta .meta-somen,
 .today-room-meta .meta-airbnb {
   margin-left: 2px;
+  vertical-align: middle;
+}
+.card-stay-facts .meta-badge {
   vertical-align: middle;
 }
 .occ-day-row td {
@@ -2716,7 +2722,8 @@ html[data-theme="dark"] .task-chip-blocked {
   border-color: var(--border);
 }
 
-html[data-theme="dark"] .meta-badge.meta-bbq {
+html[data-theme="dark"] .meta-badge.meta-bbq,
+html[data-theme="dark"] .meta-badge.meta-somen {
   background: #4a2c14;
   color: #fdba74;
   border-color: #9a3412;

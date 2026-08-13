@@ -4,6 +4,7 @@ import {
   formatBbqBadgeLabel,
   formatChannelBadgeLabel,
   formatOccGuestMeta,
+  formatSomenBadgeLabel,
 } from "@/lib/utils/occ-display";
 
 function EventTags({
@@ -68,6 +69,9 @@ export function TodayRoomsBoard({ rooms }: { rooms: TodayRoomBoardItem[] }) {
                 const bbqLabel = isOutOnly
                   ? null
                   : formatBbqBadgeLabel(ev.bbq);
+                const somenLabel = isOutOnly
+                  ? null
+                  : formatSomenBadgeLabel(ev.somen);
                 const channelLabel = isOutOnly
                   ? null
                   : formatChannelBadgeLabel(ev.channel);
@@ -96,16 +100,26 @@ export function TodayRoomsBoard({ rooms }: { rooms: TodayRoomBoardItem[] }) {
                         {bbqLabel ? (
                           <span className="meta-badge meta-bbq">{bbqLabel}</span>
                         ) : null}
+                        {somenLabel ? (
+                          <span className="meta-badge meta-somen">
+                            {somenLabel}
+                          </span>
+                        ) : null}
                         {channelLabel ? (
                           <span className="meta-badge meta-airbnb">
                             {channelLabel}
                           </span>
                         ) : null}
                       </span>
-                    ) : bbqLabel || channelLabel ? (
+                    ) : bbqLabel || somenLabel || channelLabel ? (
                       <span className="today-room-meta">
                         {bbqLabel ? (
                           <span className="meta-badge meta-bbq">{bbqLabel}</span>
+                        ) : null}
+                        {somenLabel ? (
+                          <span className="meta-badge meta-somen">
+                            {somenLabel}
+                          </span>
                         ) : null}
                         {channelLabel ? (
                           <span className="meta-badge meta-airbnb">

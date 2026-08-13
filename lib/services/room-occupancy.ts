@@ -27,6 +27,7 @@ export type OccGuestFields = {
   reservationAge3plus?: string | null;
   reservationUnder3?: string | null;
   bbq?: string | null;
+  somen?: string | null;
   channel?: string | null;
 };
 
@@ -105,6 +106,7 @@ type DbReservation = {
   age_3plus: string | null;
   under_3: string | null;
   bbq: string | null;
+  somen: string | null;
   channel: string | null;
   assignment_status: string | null;
 };
@@ -197,6 +199,7 @@ export type ReservationGuestSource = {
   age_3plus?: string | null;
   under_3?: string | null;
   bbq?: string | null;
+  somen?: string | null;
   channel?: string | null;
 };
 
@@ -242,6 +245,7 @@ function occGuestFieldsFromReservation(
     under3: res?.under_3 ?? null,
     ...reservationGuestSnapshot(res),
     bbq: res?.bbq ?? null,
+    somen: res?.somen ?? null,
     channel: res?.channel ?? null,
   };
 }
@@ -301,6 +305,7 @@ export function guestDisplayFieldsFromRoomAssignment(
         : null,
     ...reservationGuestSnapshot(res),
     bbq: res?.bbq ?? null,
+    somen: res?.somen ?? null,
     channel: res?.channel ?? null,
   };
 }
