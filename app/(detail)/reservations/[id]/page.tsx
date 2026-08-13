@@ -88,6 +88,7 @@ async function DetailContent({
               ? "← ホームに戻る"
               : "← 戻る"
         }
+        replaceBackHref={from === "customers"}
         crumbs={[
           { label: "ホーム", href: "/" },
           ...(from === "customers"
@@ -96,9 +97,10 @@ async function DetailContent({
                   label: "顧客索引",
                   href: "/customers",
                   section: "customers" as const,
+                  replace: true,
                 },
                 ...(customer
-                  ? [{ label: "顧客詳細", href: backHref }]
+                  ? [{ label: "顧客詳細", href: backHref, replace: true }]
                   : []),
               ]
             : from === "home"

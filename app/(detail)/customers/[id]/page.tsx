@@ -36,6 +36,8 @@ async function CustomerDetailContent({ openId }: { openId: string }) {
       <RealtimeRefresh tables={["customers", "reservations"]} notify />
       <DetailNav
         backSection="customers"
+        preferHistoryBack={false}
+        replaceBackHref
         crumbs={[
           { label: "ホーム", href: "/" },
           { label: "顧客索引", href: "/customers", section: "customers" },

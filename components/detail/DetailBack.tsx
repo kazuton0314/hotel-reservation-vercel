@@ -11,12 +11,15 @@ type Props = {
    * 直接 URL を開いた場合など履歴が弱いときは href へフォールバック。
    */
   preferHistoryBack?: boolean;
+  /** href へ進むとき push ではなく replace（履歴の上に詳細を重ねない） */
+  replace?: boolean;
 };
 
 export function DetailBack({
   href,
   label = "← 戻る",
   preferHistoryBack = false,
+  replace = false,
 }: Props) {
   const router = useRouter();
 
@@ -27,21 +30,26 @@ export function DetailBack({
         variant="secondary"
         size="sm"
         onClick={() => {
+          const goHref = () => {
+            if (!href) {
+              router.back();
+              return;
+            }
+            if (replace) router.replace(href);
+            else router.push(href);
+          };
+
           if (preferHistoryBack) {
             // App Router のクライアント遷移では document.referrer が更新されないため、
             // 通常は back()。履歴が無い直開きだけ記憶 URL（href）へ。
             if (typeof window !== "undefined" && window.history.length <= 1 && href) {
-              router.push(href);
+              goHref();
               return;
             }
             router.back();
             return;
           }
-          if (href) {
-            router.push(href);
-            return;
-          }
-          router.back();
+          goHref();
         }}
       >
         {label}

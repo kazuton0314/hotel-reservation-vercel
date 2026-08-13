@@ -14,6 +14,8 @@ export type DetailCrumb = {
   href?: string;
   /** 指定時は詳細→パンくずでも一覧の検索条件付き URL を優先 */
   section?: NavSection;
+  /** true のとき履歴を積み増さず現在ページを置き換える */
+  replace?: boolean;
 };
 
 type Props = {
@@ -22,6 +24,13 @@ type Props = {
   /** backHref 未指定時、このセクションの記憶 URL へ戻る（履歴が無い場合の保険） */
   backSection?: NavSection;
   backLabel?: string;
+  /**
+   * 未指定時は backHref が無いときだけ history.back()。
+   * 顧客詳細など「一覧へ戻る」先が決まっている画面は false にする。
+   */
+  preferHistoryBack?: boolean;
+  /** 戻る先 URL へ進むとき履歴を置き換える */
+  replaceBackHref?: boolean;
 };
 
 function CrumbLink({ crumb }: { crumb: DetailCrumb }) {
@@ -31,7 +40,7 @@ function CrumbLink({ crumb }: { crumb: DetailCrumb }) {
     : fallback;
 
   return (
-    <Link href={href} className="breadcrumb-link">
+    <Link href={href} replace={crumb.replace} className="breadcrumb-link">
       {crumb.label}
     </Link>
   );
@@ -42,6 +51,8 @@ export function DetailNav({
   backHref,
   backSection,
   backLabel,
+  preferHistoryBack,
+  replaceBackHref = false,
 }: Props) {
   const router = useRouter();
   const resolvedBackHref = backHref
@@ -49,13 +60,15 @@ export function DetailNav({
     : backSection
       ? getSectionRememberedHref(backSection)
       : undefined;
+  const useHistoryBack = preferHistoryBack ?? !backHref;
 
   return (
     <nav className="detail-nav" aria-label="パンくず">
       <DetailBack
         href={resolvedBackHref}
         label={backLabel}
-        preferHistoryBack={!backHref}
+        preferHistoryBack={useHistoryBack}
+        replace={replaceBackHref}
       />
       <ol className="breadcrumb">
         {crumbs.map((crumb, index) => {
