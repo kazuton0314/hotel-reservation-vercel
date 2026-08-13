@@ -9,14 +9,22 @@ import type {
   CustomerListItem,
   CustomerSearchCriteria,
 } from "@/lib/queries/customers";
-import { buildCustomerSearchHref } from "@/lib/utils/customer-history-link";
+import {
+  CUSTOMER_SEARCH_CRITERIA_KEYS,
+  buildCustomerSearchHref,
+} from "@/lib/utils/customer-history-link";
 
 const SEARCH_FIELDS: {
   key: keyof CustomerSearchCriteria;
   label: string;
   placeholder: string;
 }[] = [
-  { key: "name", label: "名前", placeholder: "代表者名・ふりがな" },
+  { key: "name", label: "代表者名前", placeholder: "代表者名・ふりがな" },
+  {
+    key: "companionName",
+    label: "同行者名前",
+    placeholder: "同行者名・ふりがな",
+  },
   { key: "email", label: "メール", placeholder: "example@mail.com" },
   { key: "phone", label: "電話番号", placeholder: "09012345678" },
   { key: "reservationId", label: "予約ID", placeholder: "STUDIO-MT149" },
@@ -32,19 +40,11 @@ type Props = {
 function criteriaFromSearchParams(
   searchParams: URLSearchParams
 ): CustomerSearchCriteria {
-  const read = (key: keyof CustomerSearchCriteria): string =>
-    (searchParams.get(key) ?? "").trim();
   const criteria: CustomerSearchCriteria = {};
-  const name = read("name");
-  const email = read("email");
-  const phone = read("phone");
-  const reservationId = read("reservationId");
-  const customerId = read("customerId");
-  if (name) criteria.name = name;
-  if (email) criteria.email = email;
-  if (phone) criteria.phone = phone;
-  if (reservationId) criteria.reservationId = reservationId;
-  if (customerId) criteria.customerId = customerId;
+  for (const key of CUSTOMER_SEARCH_CRITERIA_KEYS) {
+    const value = (searchParams.get(key) ?? "").trim();
+    if (value) criteria[key] = value;
+  }
   return criteria;
 }
 

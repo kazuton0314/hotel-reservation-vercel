@@ -16,6 +16,7 @@ import {
 
 export type CustomerSearchCriteria = {
   name?: string;
+  companionName?: string;
   email?: string;
   phone?: string;
   reservationId?: string;
@@ -178,6 +179,40 @@ async function addReservationSearchHits(
   }
 }
 
+async function addCompanionNameSearchHits(
+  supabase: Awaited<ReturnType<typeof createReadClient>>,
+  items: Map<string, CustomerListItem>,
+  companionName: string
+) {
+  const q = escapeIlike(companionName);
+  const { data: companions, error } = await supabase
+    .from("companions")
+    .select("reservation_id")
+    .or(`name.ilike.%${q}%,name_kana.ilike.%${q}%`)
+    .limit(80);
+
+  if (error) return;
+
+  const ids = Array.from(
+    new Set(
+      (companions ?? [])
+        .map((c) => String(c.reservation_id ?? "").trim())
+        .filter(Boolean)
+    )
+  );
+  if (!ids.length) return;
+
+  const { data: reservations } = await supabase
+    .from("reservations")
+    .select(RESERVATION_PROFILE_SELECT)
+    .in("reservation_id", ids);
+  await addReservationSearchHits(
+    supabase,
+    items,
+    (reservations ?? []) as ReservationProfileRow[]
+  );
+}
+
 async function searchCustomersUncached(criteria: CustomerSearchCriteria) {
   const supabase = await createReadClient();
   const orParts: string[] = [];
@@ -262,27 +297,14 @@ async function searchCustomersUncached(criteria: CustomerSearchCriteria) {
       items,
       (byName ?? []) as ReservationProfileRow[]
     );
+  }
 
-    const { data: companions } = await supabase
-      .from("companions")
-      .select("reservation_id")
-      .or(
-        `name.ilike.%${q}%,name_kana.ilike.%${escapeIlike(criteria.name)}%`
-      );
-    const ids = Array.from(
-      new Set((companions ?? []).map((c) => String(c.reservation_id)))
+  if (criteria.companionName) {
+    await addCompanionNameSearchHits(
+      supabase,
+      items,
+      criteria.companionName
     );
-    if (ids.length) {
-      const { data: reservations } = await supabase
-        .from("reservations")
-        .select(RESERVATION_PROFILE_SELECT)
-        .in("reservation_id", ids);
-      await addReservationSearchHits(
-        supabase,
-        items,
-        (reservations ?? []) as ReservationProfileRow[]
-      );
-    }
   }
 
   const customers = Array.from(items.values())
@@ -446,7 +468,14 @@ export function parseCustomerPrefill(
   };
 
   const criteria: CustomerSearchCriteria = {};
-  const fields = ["name", "email", "phone", "reservationId", "customerId"] as const;
+  const fields = [
+    "name",
+    "companionName",
+    "email",
+    "phone",
+    "reservationId",
+    "customerId",
+  ] as const;
   for (const f of fields) {
     const v = pick(f).trim();
     if (v) criteria[f] = v;

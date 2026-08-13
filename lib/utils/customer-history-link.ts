@@ -1,19 +1,20 @@
 import type { CustomerSearchCriteria } from "@/lib/queries/customers";
 
-const CUSTOMER_SEARCH_PARAM_KEYS = [
+export const CUSTOMER_SEARCH_CRITERIA_KEYS = [
   "name",
+  "companionName",
   "email",
   "phone",
   "reservationId",
   "customerId",
-] as const;
+] as const satisfies readonly (keyof CustomerSearchCriteria)[];
 
 /** 顧客索引の検索条件を URL クエリへ（詳細→戻る／下ナビ復元用） */
 export function buildCustomerSearchHref(
   criteria: CustomerSearchCriteria
 ): string {
   const params = new URLSearchParams();
-  for (const key of CUSTOMER_SEARCH_PARAM_KEYS) {
+  for (const key of CUSTOMER_SEARCH_CRITERIA_KEYS) {
     const value = String(criteria[key] ?? "").trim();
     if (value) params.set(key, value);
   }
