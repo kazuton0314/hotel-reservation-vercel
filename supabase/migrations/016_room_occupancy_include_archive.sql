@@ -1,7 +1,5 @@
--- 部屋ごとの稼働率分析（Looker Studio 向け）
--- 滞在夜 = チェックイン日〜チェックアウト前日（CO日は泊数に含めない）
--- 予約の CI/CO を優先し、なければ部屋割 stay_start/stay_end を使う（稼働表と同じ考え方）
--- アーカイブ済み（過去予約・部屋割）も稼働率に含める。キャンセルのみ除外。
+-- 015 修正: アーカイブ済み（過去予約・部屋割）も稼働率に含める。キャンセルのみ除外。
+-- 015 実行済みの環境向けパッチ（015 未実行なら 015 の内容と同等）
 
 create or replace view public.room_daily_occupancy_view as
 with assignment_spans as (
@@ -43,6 +41,8 @@ cross join lateral generate_series(
 comment on view public.room_daily_occupancy_view is
   'Looker向け 部屋×日の稼働（1泊=1行。CO日は含めない。アーカイブ含む・キャンセル除外）';
 
+-- room_monthly_occupancy_view は room_daily_occupancy_view を参照するため再作成不要だが、
+-- 015 未実行環境との整合のため明示的に再定義
 create or replace view public.room_monthly_occupancy_view as
 with occupied as (
   select
@@ -103,7 +103,7 @@ left join occupied o
 order by g.year_month, g.room_name;
 
 comment on view public.room_monthly_occupancy_view is
-  'Looker向け 部屋×月の稼働率（occupied_nights / 当月日数 × 100）';
+  'Looker向け 部屋×月の稼働率（occupied_nights / 当月日数 × 100。アーカイブ含む・キャンセル除外）';
 
 grant select on public.room_daily_occupancy_view to anon, authenticated, service_role;
 grant select on public.room_monthly_occupancy_view to anon, authenticated, service_role;
