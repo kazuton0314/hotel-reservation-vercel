@@ -18,6 +18,7 @@ SQL Editor で **番号順** に実行してください。
 | 12 | `012_guest_memo.sql` | 宿泊者メモ列 |
 | 13 | `013_somen_rental.sql` | 流しそうめんレンタル列 |
 | 14 | `014_looker_reservation_summary_fix.sql` | 分析サマリの人数修正・内訳/選択項目追加 |
+| 15 | `015_room_occupancy_analysis_views.sql` | 部屋ごとの日次・月次稼働率 |
 
 ## 何度も実行して大丈夫？
 
