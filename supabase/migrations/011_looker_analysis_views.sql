@@ -94,7 +94,6 @@ with base as (
   from public.reservation_requests rr
   left join public.reservations r
     on r.request_id = rr.request_id
-   and r.is_archived = false
 )
 select
   b.request_id as request_id,
@@ -141,14 +140,14 @@ select
   r.channel as reservation_channel,
   r.status as reservation_status
 from public.room_assignments ra
-left join public.reservations r
+inner join public.reservations r
   on r.reservation_id = ra.reservation_id
 left join public.rooms rm
   on rm.room_id = ra.room_id
-where ra.is_archived = false;
+where r.status <> 'キャンセル';
 
 comment on view public.room_usage_view is
-  'Looker向け 部屋利用サマリ';
+  'Looker向け 部屋利用サマリ（アーカイブ含む・キャンセル除外）';
 
 
 create or replace view public.daily_operation_view as
@@ -178,8 +177,7 @@ active_reservations as (
   from public.reservations r
   left join public.reservation_requests rr
     on rr.request_id = r.request_id
-  where r.is_archived = false
-    and r.status <> 'キャンセル'
+  where r.status <> 'キャンセル'
 )
 select
   d.op_date as operation_date,
@@ -200,7 +198,7 @@ group by d.op_date
 order by d.op_date;
 
 comment on view public.daily_operation_view is
-  'Looker向け 日別運用サマリ';
+  'Looker向け 日別運用サマリ（アーカイブ含む・キャンセル除外）';
 
 
 create or replace view public.task_summary_view as
