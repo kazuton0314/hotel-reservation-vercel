@@ -19,6 +19,9 @@ SQL Editor で **番号順** に実行してください。
 | 13 | `013_somen_rental.sql` | 流しそうめんレンタル列 |
 | 14 | `014_looker_reservation_summary_fix.sql` | 分析サマリの人数修正・内訳/選択項目追加 |
 | 15 | `015_room_occupancy_analysis_views.sql` | 部屋ごとの日次・月次稼働率 |
+| 16 | `016_room_occupancy_include_archive.sql` | 稼働率にアーカイブを含める（015実行済み向け） |
+| 17 | `017_looker_views_include_archive.sql` | 部屋利用・日別運用にアーカイブを含める |
+| 18 | `018_reservation_nightly_stay_views.sql` | 連泊を泊数分カウントする月次宿泊実績（料金区分別） |
 
 ## 何度も実行して大丈夫？
 
