@@ -34,6 +34,7 @@ import {
 } from "@/lib/utils/list-pagination";
 import { filterListBySearch } from "@/lib/utils/list-search";
 import { parseListSort, sortListItems } from "@/lib/utils/list-sort";
+import { loadRequestInquiriesByIds, loadRequestInquiryById } from "@/lib/queries/request-inquiry-lookup";
 
 export type ReservationListItem = {
   reservation_id: string;
@@ -60,6 +61,8 @@ export type ReservationListItem = {
   internal_memo: string | null;
   guest_memo: string | null;
   inquiry: string | null;
+  request_id: string | null;
+  request_inquiry: string | null;
   arrival_time: string | null;
   vehicle_count: string | null;
   is_archived: boolean;
@@ -158,10 +161,11 @@ type AssignmentListRow = {
 };
 
 const LIST_SELECT =
-  "reservation_id, representative_name, last_name, first_name, name_kana, last_name_kana, first_name_kana, group_name, phone, status, check_in, check_out, guest_total, assignment_status, channel, meal, bbq, somen, payment_status, referral, travel_purpose, internal_memo, guest_memo, inquiry, arrival_time, vehicle_count, is_archived, completion_email_sent, day11_email_sent, day3_email_sent, companion_form_answered, email, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3, created_at, sheet_created_at, updated_at";
+  "reservation_id, request_id, representative_name, last_name, first_name, name_kana, last_name_kana, first_name_kana, group_name, phone, status, check_in, check_out, guest_total, assignment_status, channel, meal, bbq, somen, payment_status, referral, travel_purpose, internal_memo, guest_memo, inquiry, arrival_time, vehicle_count, is_archived, completion_email_sent, day11_email_sent, day3_email_sent, companion_form_answered, email, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3, created_at, sheet_created_at, updated_at";
 
 type DbListRow = {
   reservation_id: string;
+  request_id: string | null;
   representative_name: string | null;
   last_name: string | null;
   first_name: string | null;
@@ -215,6 +219,7 @@ function mapReservationListItem(
   row: DbListRow,
   assignmentsByReservation: Map<string, AssignmentListRow[]>,
   refDate: Date,
+  requestInquiries: Map<string, string>,
   options?: { deriveAssignmentStatus?: boolean }
 ): ReservationListItem {
   const assignments = assignmentsByReservation.get(row.reservation_id) ?? [];
@@ -256,6 +261,10 @@ function mapReservationListItem(
     internal_memo: row.internal_memo,
     guest_memo: row.guest_memo,
     inquiry: row.inquiry,
+    request_id: row.request_id,
+    request_inquiry: row.request_id
+      ? (requestInquiries.get(row.request_id) ?? null)
+      : null,
     arrival_time: row.arrival_time,
     vehicle_count: row.vehicle_count,
     is_archived: row.is_archived,
@@ -337,6 +346,16 @@ async function loadAssignmentsByReservationIds(
     }
   }
   return assignmentsByReservation;
+}
+
+async function loadRequestInquiriesForRows(
+  supabase: Awaited<ReturnType<typeof createReadClient>>,
+  rows: DbListRow[]
+) {
+  const requestIds = rows
+    .map((row) => row.request_id)
+    .filter((id): id is string => Boolean(String(id ?? "").trim()));
+  return loadRequestInquiriesByIds(supabase, requestIds);
 }
 
 function buildReservationBaseQuery(
@@ -508,8 +527,9 @@ async function getReservationsUncached(filters: ReservationFilters = {}) {
       pageIds,
       includeArchivedAssignments
     );
+    const requestInquiries = await loadRequestInquiriesForRows(supabase, rows);
     const reservations = rows.map((row) =>
-      mapReservationListItem(row, assignmentsByReservation, refDate, {
+      mapReservationListItem(row, assignmentsByReservation, refDate, requestInquiries, {
         deriveAssignmentStatus: true,
       })
     );
@@ -578,8 +598,10 @@ async function getReservationsUncached(filters: ReservationFilters = {}) {
     );
   }
 
+  const requestInquiries = await loadRequestInquiriesForRows(supabase, rows);
+
   const reservations = rows.map((row) =>
-    mapReservationListItem(row, assignmentsByReservation, refDate, {
+    mapReservationListItem(row, assignmentsByReservation, refDate, requestInquiries, {
       deriveAssignmentStatus: needsAllAssignments,
     })
   );
@@ -615,7 +637,7 @@ async function getReservationsUncached(filters: ReservationFilters = {}) {
     const hydrated = pagedResult.items.map((item) => {
       const row = rowById.get(item.reservation_id);
       if (!row) return item;
-      return mapReservationListItem(row, pageAssignments, refDate, {
+      return mapReservationListItem(row, pageAssignments, refDate, requestInquiries, {
         deriveAssignmentStatus: true,
       });
     });
@@ -643,7 +665,22 @@ export async function getReservationById(id: string) {
         .eq("reservation_id", id)
         .maybeSingle();
 
-      return { reservation: data, error: error?.message ?? null };
+      if (error) {
+        return { reservation: null, error: error.message };
+      }
+      if (!data) {
+        return { reservation: null, error: null };
+      }
+
+      const requestInquiry = await loadRequestInquiryById(
+        supabase,
+        data.request_id as string | null
+      );
+
+      return {
+        reservation: { ...data, request_inquiry: requestInquiry },
+        error: null,
+      };
     },
     ["reservation-by-id", id],
     {
