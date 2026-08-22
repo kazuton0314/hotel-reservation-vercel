@@ -23,6 +23,7 @@ export function ListCardStayDetails({
   somen,
   vehicleCount,
   inquiry,
+  requestInquiry,
   internalMemo,
   guestMemo,
 }: {
@@ -34,6 +35,7 @@ export function ListCardStayDetails({
   somen?: string | null;
   vehicleCount?: string | null;
   inquiry?: string | null;
+  requestInquiry?: string | null;
   /** 運用メモ（特別な事情・配慮）。赤文字で同一行に表示 */
   internalMemo?: string | null;
   /** 宿泊者メモ（当日知りえた情報） */
@@ -64,6 +66,7 @@ export function ListCardStayDetails({
   push("そうめん", somen);
   push("車", vehicleCount);
   push("問合せ", inquiry, { truncate: true });
+  push("リクエスト問合せ", requestInquiry, { truncate: true });
   push("運用メモ", internalMemo, { truncate: true, accent: "ops-memo" });
   push("宿泊者メモ", guestMemo, { truncate: true });
 

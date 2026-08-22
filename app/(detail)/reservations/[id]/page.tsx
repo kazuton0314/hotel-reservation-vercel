@@ -186,11 +186,20 @@ async function DetailContent({
         <Kv label="交通手段" value={asString(r.transport)} />
         <Kv label="車両台数" value={asString(r.vehicle_count)} />
 
-        {asString(r.request_id) || asString(r.inquiry) ? (
+        {asString(r.request_id) ||
+        asString(r.inquiry) ||
+        asString(r.request_inquiry) ? (
           <>
             <FormSectionLabel>問い合わせ</FormSectionLabel>
             {asString(r.request_id) ? (
               <Kv label="リクエストID" value={asString(r.request_id)} />
+            ) : null}
+            {asString(r.request_inquiry) ? (
+              <Kv
+                label="リクエスト問合せ"
+                value={asString(r.request_inquiry)}
+                multiline
+              />
             ) : null}
             {asString(r.inquiry) ? (
               <Kv label="お問い合わせ内容" value={asString(r.inquiry)} multiline />
