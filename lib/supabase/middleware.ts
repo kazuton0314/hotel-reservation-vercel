@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { isJwtSessionError } from "@/lib/auth/session-errors";
 import { resolvePostLoginPath } from "@/lib/auth/post-login-path";
 
 const PUBLIC_PATHS = ["/login", "/auth/callback", "/companions"];
@@ -40,10 +41,25 @@ export async function updateSession(request: NextRequest) {
 
   const {
     data: { user },
+    error: authError,
   } = await supabase.auth.getUser();
 
   const pathname = request.nextUrl.pathname;
   const skipAuth = process.env.SKIP_AUTH === "true";
+
+  if (
+    !skipAuth &&
+    authError &&
+    isJwtSessionError(authError.message) &&
+    !isPublicPath(pathname)
+  ) {
+    await supabase.auth.signOut();
+    const loginUrl = request.nextUrl.clone();
+    loginUrl.pathname = "/login";
+    loginUrl.searchParams.set("reason", "session_invalid");
+    loginUrl.searchParams.set("next", pathname);
+    return NextResponse.redirect(loginUrl);
+  }
 
   if (!skipAuth && !user && !isPublicPath(pathname)) {
     const loginUrl = request.nextUrl.clone();

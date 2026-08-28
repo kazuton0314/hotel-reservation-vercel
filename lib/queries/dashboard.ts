@@ -1,4 +1,5 @@
 import { unstable_cache } from "next/cache";
+import { jwtSessionErrorMessage } from "@/lib/auth/session-errors";
 import { CACHE_TAGS } from "@/lib/cache/tags";
 import { createReadClient } from "@/lib/supabase/read";
 import { stripTime } from "@/lib/import/date-utils";
@@ -375,11 +376,11 @@ async function getDashboardSummaryUncached(): Promise<{
       .limit(1),
   ]);
 
-  if (resError) return { dashboard: null, error: resError.message };
-  if (counterError) return { dashboard: null, error: counterError.message };
-  if (allAssignError) return { dashboard: null, error: allAssignError.message };
-  if (roomsError) return { dashboard: null, error: roomsError.message };
-  if (reqError) return { dashboard: null, error: reqError.message };
+  if (resError) return { dashboard: null, error: jwtSessionErrorMessage(resError.message) };
+  if (counterError) return { dashboard: null, error: jwtSessionErrorMessage(counterError.message) };
+  if (allAssignError) return { dashboard: null, error: jwtSessionErrorMessage(allAssignError.message) };
+  if (roomsError) return { dashboard: null, error: jwtSessionErrorMessage(roomsError.message) };
+  if (reqError) return { dashboard: null, error: jwtSessionErrorMessage(reqError.message) };
 
   const all = (todayReservations ?? []) as DbReservation[];
   const { data: assignments, error: assignError } =
@@ -389,7 +390,7 @@ async function getDashboardSummaryUncached(): Promise<{
       "room_assignment_id, reservation_id, room_id, room_name, stay_start, stay_end, assigned_guest_count, male_count, female_count, boy_student_count, girl_student_count, age_3plus_count, under_3_count, is_archived",
       false
     );
-  if (assignError) return { dashboard: null, error: assignError };
+  if (assignError) return { dashboard: null, error: jwtSessionErrorMessage(assignError) };
 
   const taskRows = (counterRows ?? []) as DbReservation[];
   const dayAssignments = assignments;

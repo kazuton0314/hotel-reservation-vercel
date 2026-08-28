@@ -1,5 +1,6 @@
 import { FORM_SOURCES } from "@/lib/config/forms";
 import { getMailSendConfigStatus } from "@/lib/services/mail-send";
+import { resolveSupabaseServiceRoleKey } from "@/lib/supabase/read";
 
 export type SetupCheckId =
   | "supabase_url"
@@ -50,8 +51,8 @@ export function getSetupChecks(): SetupCheck[] {
     {
       id: "supabase_service_role",
       label: "Supabase Service Role Key",
-      ok: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()),
-      detail: process.env.SUPABASE_SERVICE_ROLE_KEY
+      ok: Boolean(resolveSupabaseServiceRoleKey()),
+      detail: resolveSupabaseServiceRoleKey()
         ? "設定済み（CSV取込・sync:forms に必要）"
         : "未設定",
       userAction: "Supabase → Settings → API → service_role",

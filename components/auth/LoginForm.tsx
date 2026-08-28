@@ -5,12 +5,23 @@ import { signInAction } from "@/lib/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-export function LoginForm({ nextPath }: { nextPath: string }) {
+export function LoginForm({
+  nextPath,
+  sessionNotice,
+}: {
+  nextPath: string;
+  sessionNotice?: string | null;
+}) {
   const [state, formAction, pending] = useActionState(signInAction, null);
 
   return (
     <form action={formAction} className="detail-block">
       <h3>スタッフログイン</h3>
+      {sessionNotice ? (
+        <p className="detail-hint" style={{ color: "#b45309", marginBottom: 12 }}>
+          {sessionNotice}
+        </p>
+      ) : null}
       <input type="hidden" name="next" value={nextPath} />
       <div className="form-group">
         <label htmlFor="login-email">メールアドレス</label>

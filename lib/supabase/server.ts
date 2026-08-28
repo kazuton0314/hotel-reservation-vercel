@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
+import { resolveSupabaseServiceRoleKey } from "@/lib/supabase/read";
 
 export async function createClient() {
   const cookieStore = await cookies();
@@ -30,7 +31,7 @@ export async function createClient() {
 /** 同期・CSV インポート用（service role） */
 export function createAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const key = resolveSupabaseServiceRoleKey();
   if (!url || !key) {
     throw new Error("SUPABASE_SERVICE_ROLE_KEY が未設定です");
   }
@@ -41,10 +42,7 @@ export function createAdminClient() {
 
 /** スタッフ操作（Server Actions）。SKIP_AUTH 開発時は service role にフォールバック */
 export async function createStaffClient() {
-  if (
-    process.env.SKIP_AUTH === "true" &&
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  ) {
+  if (process.env.SKIP_AUTH === "true" && resolveSupabaseServiceRoleKey()) {
     return createAdminClient();
   }
   return createClient();
