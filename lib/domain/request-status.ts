@@ -46,21 +46,30 @@ export function displayRequestStatus(
   return normalizeRequestStatus(status) ?? String(status ?? "").trim();
 }
 
+/** 自動リンク対象（旧 isRequestOpenForLink） */
+export function isRequestOpenForLink(status: string | null | undefined): boolean {
+  const n = normalizeRequestStatus(status);
+  return n === "リクエスト" || n === "承認済";
+}
+
 /**
- * 未リンク照合の対象か。
- * ステータスがリクエスト/承認済で、linked が無いもの。
+ * 本予約取込・事後リンクの自動紐づけ候補か。
+ * 却下除外、かつ linked_reservation_id 未設定（一度紐づいた RQ は再マッチしない）。
+ */
+export function isRequestAvailableForAutoLink(
+  status: string | null | undefined,
+  linkedReservationId: string | null | undefined
+): boolean {
+  if (String(linkedReservationId ?? "").trim()) return false;
+  return isRequestOpenForLink(status);
+}
+
+/**
+ * 未リンク照合の対象か（isRequestAvailableForAutoLink と同義）。
  */
 export function isRequestNeedingLink(
   status: string | null | undefined,
   linkedReservationId: string | null | undefined
 ): boolean {
-  if (linkedReservationId) return false;
-  const n = normalizeRequestStatus(status);
-  return n === "リクエスト" || n === "承認済";
-}
-
-/** 自動リンク対象（旧 isRequestOpenForLink） */
-export function isRequestOpenForLink(status: string | null | undefined): boolean {
-  const n = normalizeRequestStatus(status);
-  return n === "リクエスト" || n === "承認済";
+  return isRequestAvailableForAutoLink(status, linkedReservationId);
 }

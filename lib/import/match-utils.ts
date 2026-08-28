@@ -154,6 +154,7 @@ export function bookingEntryMatchesForLink(
 }
 
 export {
+  isRequestAvailableForAutoLink,
   isRequestNeedingLink,
   isRequestOpenForLink,
 } from "@/lib/domain/request-status";

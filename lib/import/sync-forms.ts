@@ -17,7 +17,7 @@ import {
 } from "@/lib/import/id-generation";
 import {
   bookingEntryMatchesForLink,
-  isRequestOpenForLink,
+  isRequestAvailableForAutoLink,
 } from "@/lib/import/match-utils";
 import { linkExistingRequestsAndReservations } from "@/lib/import/post-link";
 import {
@@ -140,7 +140,9 @@ function findMatchingRequestForStudio(
   record: ReservationInsert
 ) {
   return requests.find((req) => {
-    if (!isRequestOpenForLink(req.status)) return false;
+    if (!isRequestAvailableForAutoLink(req.status, req.linked_reservation_id)) {
+      return false;
+    }
     return bookingEntryMatchesForLink(req, record);
   });
 }
