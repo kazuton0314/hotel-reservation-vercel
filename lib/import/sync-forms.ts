@@ -1,7 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { FORM_SOURCES } from "@/lib/config/forms";
 import {
-  findDuplicateRequest,
   findRequestByImportRowId,
   findReservationByImportRowId,
   isPastImportSource,
@@ -242,13 +241,8 @@ export async function importRequestFormRows(
         validateBookingHorizon: false,
       });
 
-      const duplicate = findDuplicateRequest(requests, incoming);
-      if (duplicate) {
-        await logRequestFormImport(supabase, row.sheetRow, duplicate.request_id);
-        skippedAlreadyInDb++;
-        continue;
-      }
-
+      // スプシ行ごとに独立した RQ を採番する（同一人物・同一内容の再送も別 RQ）。
+      // 再取込判定は form_import_log / import_row_id のみで行う。
       const requestId = await nextStudioRequestId(supabase);
       const record: RequestInsert = {
         ...incoming,

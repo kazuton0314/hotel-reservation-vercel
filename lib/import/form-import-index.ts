@@ -133,8 +133,9 @@ export function findOwnedRequestByImportRow(
 export { sameImportIdentity };
 
 /**
- * 取込時の「同一リクエスト」判定。
- * アーカイブ除外・宿泊日は年月日の完全一致のみ（年ズレ救済はリンク照合に限定）。
+ * 取込時の「同一リクエスト」判定（内容ベース）。
+ * 注意: 取込スキップには使わない。スプシ行 (import_row_id) ごとに別 RQ を発行する。
+ * リンク照合など別用途向け。
  */
 export function findDuplicateRequest(
   requests: RequestImportRecord[],

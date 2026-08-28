@@ -23,7 +23,9 @@
     "recover:bad-studio-imports": "tsx scripts/recover-bad-studio-imports.ts",
     "recover:bad-studio-imports:execute": "tsx scripts/recover-bad-studio-imports.ts --execute",
     "recover:bad-request-imports": "tsx scripts/recover-bad-request-imports.ts",
-    "recover:bad-request-imports:execute": "tsx scripts/recover-bad-request-imports.ts --execute"
+    "recover:bad-request-imports:execute": "tsx scripts/recover-bad-request-imports.ts --execute",
+    "recover:rq-numbering-shift": "tsx scripts/recover-rq-numbering-shift.ts",
+    "recover:rq-numbering-shift:execute": "tsx scripts/recover-rq-numbering-shift.ts --execute"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.17",
