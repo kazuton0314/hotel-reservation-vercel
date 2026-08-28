@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useRouter } from "next/navigation";
 import { DateField } from "@/components/form/DateField";
 import { FormCheckboxGroup } from "@/components/form/FormCheckboxGroup";
 import { FormSelectField } from "@/components/form/FormSelectField";
@@ -182,6 +183,7 @@ function formSeedFromProps(props: Props): FormSeed {
 }
 
 export function ReservationUpdateForm(props: Props) {
+  const router = useRouter();
   const [state, rawFormAction, isPending] = useActionState(
     updateReservationAction,
     initialState
@@ -216,8 +218,7 @@ export function ReservationUpdateForm(props: Props) {
     setFormSeed((prev) => ({ ...prev, updatedAt: savedAt }));
   }
 
-  // props 同期: 保存ピン中は人数が一致するまで絶対に書き戻さない。
-  // updatedAt が新しいだけでは受け入れない（GCal 等で timestamp だけ進むため）。
+  // props 同期: 保存ピン中は人数だけローカル優先。updated_at は常にサーバーへ追従。
   useEffect(() => {
     if (skipFirstPropsSync.current) {
       skipFirstPropsSync.current = false;
@@ -226,16 +227,17 @@ export function ReservationUpdateForm(props: Props) {
     const propsGuests = guestBreakdownFromUnknown(props);
     const pin = localSavePinRef.current;
 
+    setFormSeed((prev) => {
+      if (props.updatedAt === prev.updatedAt) return prev;
+      return { ...prev, updatedAt: props.updatedAt };
+    });
+
     if (pin) {
       if (guestBreakdownEqual(propsGuests, pin)) {
         localSavePinRef.current = null;
-        setFormSeed((prev) => ({
-          ...prev,
-          updatedAt: props.updatedAt,
-        }));
+      } else {
+        return;
       }
-      // ピン中は人数も他フィールドもリマウントしない
-      return;
     }
 
     setFormSeed(formSeedFromProps(props));
@@ -263,8 +265,11 @@ export function ReservationUpdateForm(props: Props) {
     props.phone,
   ]);
 
-  // 保存直後の router.refresh は古い RSC キャッシュを呼び込みやすいので行わない。
-  // 詳細の読み取り専用ブロックは次回遷移 / Realtime で追いつく。
+  // 保存後に部屋割・割当状態を追従（人数ピンでフォームの上書きは防ぐ）
+  useEffect(() => {
+    if (!appliedSaveAt) return;
+    router.refresh();
+  }, [appliedSaveAt, router]);
 
   const formAction = (formData: FormData) => {
     startTransition(() => {

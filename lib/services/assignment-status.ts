@@ -91,7 +91,7 @@ export async function syncAssignmentStatus(
 ): Promise<string> {
   const { data: reservation } = await supabase
     .from("reservations")
-    .select("guest_total, is_archived")
+    .select("guest_total, is_archived, assignment_status")
     .eq("reservation_id", reservationId)
     .maybeSingle();
 
@@ -116,12 +116,14 @@ export async function syncAssignmentStatus(
     ? ASSIGNED
     : UNASSIGNED;
 
+  const current = String(reservation?.assignment_status ?? UNASSIGNED);
+  if (current === status) return status;
+
+  // 派生キャッシュの更新のみ。reservations.updated_at は進めない
+  // （部屋割保存後に予約フォームの楽観ロックが不必要に競合するのを防ぐ）
   await supabase
     .from("reservations")
-    .update({
-      assignment_status: status,
-      updated_at: new Date().toISOString(),
-    })
+    .update({ assignment_status: status })
     .eq("reservation_id", reservationId);
 
   return status;

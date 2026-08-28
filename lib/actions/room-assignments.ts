@@ -528,7 +528,7 @@ export async function batchRoomAssignmentChangesAction(
       if (!room) return { ok: false, message: "部屋が見つかりません。" };
 
       const nowIso = new Date().toISOString();
-      const { error } = await supabase
+      const { data: movedRows, error } = await supabase
         .from("room_assignments")
         .update({
           room_id: ch.toRoomId,
@@ -537,15 +537,11 @@ export async function batchRoomAssignmentChangesAction(
           sheet_updated_at: nowIso,
         })
         .eq("room_assignment_id", ch.roomAssignmentId)
-        .eq("updated_at", ch.expectedUpdatedAt ?? existing.updated_at ?? "");
+        .eq("updated_at", ch.expectedUpdatedAt ?? existing.updated_at ?? "")
+        .select("room_assignment_id");
 
       if (error) return { ok: false, message: error.message };
-      const { data: updatedMove } = await supabase
-        .from("room_assignments")
-        .select("room_assignment_id")
-        .eq("room_assignment_id", ch.roomAssignmentId)
-        .maybeSingle();
-      if (!updatedMove) return { ok: false, message: CONFLICT_MESSAGE };
+      if (!movedRows?.length) return { ok: false, message: CONFLICT_MESSAGE };
       affected.add(ch.reservationId);
       applied++;
     } else if (ch.type === "assign") {
@@ -669,7 +665,7 @@ export async function batchRoomAssignmentChangesAction(
       }
 
       const nowIso = new Date().toISOString();
-      const { error } = await supabase
+      const { data: updatedRows, error } = await supabase
         .from("room_assignments")
         .update({
           room_id: nextRoomId,
@@ -689,15 +685,11 @@ export async function batchRoomAssignmentChangesAction(
           sheet_updated_at: nowIso,
         })
         .eq("room_assignment_id", ch.roomAssignmentId)
-        .eq("updated_at", ch.expectedUpdatedAt ?? existing.updated_at ?? "");
+        .eq("updated_at", ch.expectedUpdatedAt ?? existing.updated_at ?? "")
+        .select("room_assignment_id");
 
       if (error) return { ok: false, message: error.message };
-      const { data: updatedRow } = await supabase
-        .from("room_assignments")
-        .select("room_assignment_id")
-        .eq("room_assignment_id", ch.roomAssignmentId)
-        .maybeSingle();
-      if (!updatedRow) return { ok: false, message: CONFLICT_MESSAGE };
+      if (!updatedRows?.length) return { ok: false, message: CONFLICT_MESSAGE };
       affected.add(ch.reservationId);
       applied++;
     } else if (ch.type === "unassign") {

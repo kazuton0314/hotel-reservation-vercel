@@ -1,6 +1,7 @@
 "use client";
 
-import { useOptimistic, useState, useTransition } from "react";
+import { useOptimistic, useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { quickReservationStatusAction } from "@/lib/actions/reservations";
 import { Button } from "@/components/ui/button";
 import { markLocalDataMutation } from "@/lib/utils/local-mutation";
@@ -15,11 +16,17 @@ type Props = {
 export function ReservationDetailActions({
   reservationId,
   status,
-  updatedAt,
+  updatedAt: updatedAtProp,
 }: Props) {
+  const router = useRouter();
+  const [lockUpdatedAt, setLockUpdatedAt] = useState(updatedAtProp);
   const [optimisticStatus, setOptimisticStatus] = useOptimistic(status);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLockUpdatedAt(updatedAtProp);
+  }, [updatedAtProp]);
 
   function submit(nextStatus: string) {
     startTransition(async () => {
@@ -29,7 +36,7 @@ export function ReservationDetailActions({
       const fd = new FormData();
       fd.set("reservation_id", reservationId);
       fd.set("status", nextStatus);
-      if (updatedAt) fd.set("expected_updated_at", updatedAt);
+      if (lockUpdatedAt) fd.set("expected_updated_at", lockUpdatedAt);
       const result = await quickReservationStatusAction({ ok: true }, fd);
       if (!result.ok) {
         setOptimisticStatus(status);
@@ -37,7 +44,11 @@ export function ReservationDetailActions({
         showErrorToast(result.message ?? "更新に失敗しました");
         return;
       }
+      if ("updatedAt" in result && result.updatedAt) {
+        setLockUpdatedAt(result.updatedAt);
+      }
       showSuccessToast("ステータスを更新しました");
+      router.refresh();
     });
   }
 
