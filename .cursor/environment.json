@@ -1,0 +1,4 @@
+{
+  "install": "npm ci",
+  "start": "bash scripts/cloud-write-env-local.sh"
+}
