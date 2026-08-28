@@ -1,3 +1,5 @@
+import { jwtSessionErrorMessage } from "@/lib/auth/session-errors";
+
 export function SetupRequired() {
   return (
     <section className="detail-block">
@@ -11,12 +13,20 @@ export function SetupRequired() {
 }
 
 export function ConnectionError({ message }: { message: string }) {
+  const displayMessage = jwtSessionErrorMessage(message);
+  const isSessionIssue = displayMessage !== message;
+
   return (
     <section className="detail-block">
-      <h3>接続エラー</h3>
+      <h3>{isSessionIssue ? "ログインセッションエラー" : "接続エラー"}</h3>
       <p className="detail-hint" style={{ color: "#b91c1c" }}>
-        {message}
+        {displayMessage}
       </p>
+      {isSessionIssue ? (
+        <p className="form-hint" style={{ marginTop: 12 }}>
+          ヘッダーの「ログアウト」から一度サインアウトし、再ログインしてください。
+        </p>
+      ) : null}
     </section>
   );
 }
