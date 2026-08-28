@@ -7,7 +7,8 @@ import {
   todayIso,
   weekdayJa,
 } from "@/lib/utils/date-label";
-import { formatGuestCompact, formatGuestCountWithInfants, guestMainCount, guestUnder3Count } from "@/lib/utils/guest-display";
+import { formatGuestCompact, formatGuestCountWithInfants, guestMainCount, guestUnder3Count, effectiveGuestCountForCompanion } from "@/lib/utils/guest-display";
+import { reservationNeedsCompanionInfo } from "@/lib/services/mail-pending";
 import type { TodayRoomBoardItem } from "@/lib/queries/dashboard";
 
 const ACTIVE_STATUSES = ["仮予約", "確定"] as const;
@@ -35,6 +36,15 @@ export type CalendarReservation = {
   internal_memo: string | null;
   guest_memo: string | null;
   assignment_status: string | null;
+  vehicle_count: string | null;
+  companion_form_answered: boolean;
+  email: string | null;
+  completion_email_sent: boolean;
+  day11_email_sent: boolean;
+  day3_email_sent: boolean;
+  created_at: string | null;
+  sheet_created_at: string | null;
+  updated_at: string | null;
 };
 
 export type CalendarAssignment = {
@@ -88,6 +98,17 @@ export type CalendarDayCard = {
   inquiry: string | null;
   internalMemo: string | null;
   guestMemo: string | null;
+  vehicleCount: string | null;
+  companionPending: boolean;
+  companionGuestRequired: boolean;
+  email: string | null;
+  completionEmailSent: boolean;
+  day11EmailSent: boolean;
+  day3EmailSent: boolean;
+  companionFormAnswered: boolean;
+  createdAt: string | null;
+  sheetCreatedAt: string | null;
+  updatedAt: string | null;
   nightNumber?: number;
 };
 
@@ -344,8 +365,10 @@ function indexEventsByDate(events: CalendarEvent[]): Record<string, CalendarEven
 function toDayCard(
   r: CalendarReservation,
   assignmentsByReservation: Map<string, CalendarAssignment[]>,
+  refDate: Date,
   nightNumber?: number
 ): CalendarDayCard {
+  const guestRequired = effectiveGuestCountForCompanion(r) >= 2;
   return {
     reservationId: r.reservation_id,
     representativeName: r.representative_name ?? "—",
@@ -371,6 +394,17 @@ function toDayCard(
     inquiry: r.inquiry,
     internalMemo: r.internal_memo,
     guestMemo: r.guest_memo,
+    vehicleCount: r.vehicle_count,
+    companionPending: reservationNeedsCompanionInfo(r, refDate),
+    companionGuestRequired: guestRequired,
+    email: r.email,
+    completionEmailSent: r.completion_email_sent,
+    day11EmailSent: r.day11_email_sent,
+    day3EmailSent: r.day3_email_sent,
+    companionFormAnswered: r.companion_form_answered,
+    createdAt: r.created_at,
+    sheetCreatedAt: r.sheet_created_at,
+    updatedAt: r.updated_at,
     nightNumber,
   };
 }
@@ -460,10 +494,11 @@ export function buildDayCalendarView(
 ): DayCalendarView {
   const d = parseReservationDate(date) || businessToday();
   const iso = formatDateIso(d);
+  const refDate = d;
 
   const checkinCards = reservations
     .filter((r) => isActiveReservation(r) && r.check_in === iso)
-    .map((r) => toDayCard(r, assignmentsByReservation))
+    .map((r) => toDayCard(r, assignmentsByReservation, refDate))
     .sort((a, b) => {
       const at = a.arrivalTime ?? "";
       const bt = b.arrivalTime ?? "";
@@ -473,7 +508,7 @@ export function buildDayCalendarView(
 
   const checkoutCards = reservations
     .filter((r) => isActiveReservation(r) && r.check_out === iso)
-    .map((r) => toDayCard(r, assignmentsByReservation))
+    .map((r) => toDayCard(r, assignmentsByReservation, refDate))
     .sort((a, b) => {
       const at = a.arrivalTime?.trim() ?? "";
       const bt = b.arrivalTime?.trim() ?? "";
@@ -487,7 +522,9 @@ export function buildDayCalendarView(
 
   const staying = reservations
     .filter((r) => isStayingOn(r, iso))
-    .map((r) => toDayCard(r, assignmentsByReservation, stayNightNumber(r, iso)))
+    .map((r) =>
+      toDayCard(r, assignmentsByReservation, refDate, stayNightNumber(r, iso))
+    )
     .sort((a, b) => {
       const at = a.arrivalTime?.trim() ?? "";
       const bt = b.arrivalTime?.trim() ?? "";

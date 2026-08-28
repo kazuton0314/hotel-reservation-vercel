@@ -11,9 +11,8 @@ import type {
 } from "@/lib/services/calendar";
 import { shiftIsoDate, shiftMonth } from "@/lib/services/calendar";
 import { TodayRoomsBoard } from "@/components/dashboard/TodayRoomsBoard";
-import { ReservationDashboardCard } from "@/components/dashboard/ReservationDashboardCard";
+import { ReservationDashboardCard, calendarDayCardToListItem } from "@/components/dashboard/ReservationDashboardCard";
 import { NavDatePicker } from "@/components/calendar/NavDatePicker";
-import type { DashboardListItem } from "@/lib/queries/dashboard";
 
 type CalendarMode = "month" | "week" | "day";
 
@@ -42,42 +41,6 @@ function calendarHref(
     params.set("date", anchor);
   }
   return `/calendar?${params.toString()}`;
-}
-
-function toDashboardItem(card: DayCalendarView["checkinCards"][0]): DashboardListItem {
-  return {
-    reservationId: card.reservationId,
-    representativeName: card.representativeName,
-    status: card.status,
-    checkIn: card.checkIn,
-    checkOut: card.checkOut,
-    guestTotal: card.guestTotal,
-    adultMale: card.adultMale,
-    adultFemale: card.adultFemale,
-    boyStudent: card.boyStudent,
-    girlStudent: card.girlStudent,
-    age3plus: card.age3plus,
-    under3: card.under3,
-    meal: card.meal,
-    bbq: card.bbq,
-    somen: card.somen,
-    inquiry: card.inquiry,
-    internalMemo: card.internalMemo,
-    guestMemo: card.guestMemo,
-    arrivalTime: card.arrivalTime,
-    vehicleCount: null,
-    assignmentStatus: card.assignmentStatus,
-    assignedRooms: card.assignedRooms,
-    companionPending: false,
-    companionGuestRequired: false,
-    email: null,
-    completionEmailSent: false,
-    day11EmailSent: false,
-    day3EmailSent: false,
-    companionFormAnswered: false,
-    createdAt: null,
-    sheetCreatedAt: null,
-  };
 }
 
 function MonthView({
@@ -305,7 +268,8 @@ function DayView({ data, anchor }: { data: DayCalendarView; anchor: string }) {
         data.checkinCards.map((card) => (
           <ReservationDashboardCard
             key={card.reservationId}
-            item={toDashboardItem(card)}
+            item={calendarDayCardToListItem(card)}
+            detailFrom="calendar"
           />
         ))
       ) : (
@@ -317,8 +281,9 @@ function DayView({ data, anchor }: { data: DayCalendarView; anchor: string }) {
         data.staying.map((card) => (
           <ReservationDashboardCard
             key={`${card.reservationId}-stay`}
-            item={toDashboardItem(card)}
+            item={calendarDayCardToListItem(card)}
             nightNumber={card.nightNumber}
+            detailFrom="calendar"
           />
         ))
       ) : (
@@ -330,7 +295,8 @@ function DayView({ data, anchor }: { data: DayCalendarView; anchor: string }) {
         data.checkoutCards.map((card) => (
           <ReservationDashboardCard
             key={card.reservationId}
-            item={toDashboardItem(card)}
+            item={calendarDayCardToListItem(card)}
+            detailFrom="calendar"
           />
         ))
       ) : (

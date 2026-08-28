@@ -48,9 +48,7 @@ async function fetchCalendarData(from: string, to: string) {
 
   let reservationsQuery = supabase
     .from("reservations")
-    .select(
-      "reservation_id, representative_name, status, check_in, check_out, nights, guest_total, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3, arrival_time, meal, bbq, somen, channel, inquiry, internal_memo, guest_memo, assignment_status"
-    )
+    .select(CALENDAR_RESERVATION_SELECT)
     .lte("check_in", to)
     .gte("check_out", from);
 
@@ -81,8 +79,10 @@ async function fetchCalendarData(from: string, to: string) {
   };
 }
 
-const DAY_RESERVATION_SELECT =
-  "reservation_id, representative_name, status, check_in, check_out, nights, guest_total, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3, arrival_time, meal, bbq, somen, channel, inquiry, internal_memo, guest_memo, assignment_status";
+const CALENDAR_RESERVATION_SELECT =
+  "reservation_id, representative_name, status, check_in, check_out, nights, guest_total, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3, arrival_time, meal, bbq, somen, channel, inquiry, internal_memo, guest_memo, assignment_status, vehicle_count, companion_form_answered, email, completion_email_sent, day11_email_sent, day3_email_sent, created_at, sheet_created_at, updated_at";
+
+const DAY_RESERVATION_SELECT = CALENDAR_RESERVATION_SELECT;
 
 const DAY_ASSIGNMENT_SELECT =
   "room_assignment_id, reservation_id, room_id, room_name, stay_start, stay_end, assigned_guest_count, male_count, female_count, boy_student_count, girl_student_count, age_3plus_count, under_3_count";

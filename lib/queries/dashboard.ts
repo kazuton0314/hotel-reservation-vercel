@@ -60,6 +60,7 @@ type DbReservation = {
   day3_email_sent: boolean;
   created_at: string | null;
   sheet_created_at: string | null;
+  updated_at: string | null;
   is_archived: boolean;
 };
 
@@ -118,6 +119,7 @@ export type DashboardListItem = {
   companionFormAnswered: boolean;
   createdAt: string | null;
   sheetCreatedAt: string | null;
+  updatedAt: string | null;
   nightNumber?: number;
 };
 
@@ -212,6 +214,7 @@ function toListItem(
     companionFormAnswered: r.companion_form_answered,
     createdAt: r.created_at,
     sheetCreatedAt: r.sheet_created_at,
+    updatedAt: r.updated_at,
   };
 }
 
@@ -340,7 +343,7 @@ async function getDashboardSummaryUncached(): Promise<{
     supabase
       .from("reservations")
       .select(
-        "reservation_id, representative_name, status, check_in, check_out, nights, guest_total, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3, arrival_time, meal, bbq, somen, channel, inquiry, internal_memo, guest_memo, vehicle_count, assignment_status, companion_form_answered, email, completion_email_sent, day11_email_sent, day3_email_sent, created_at, sheet_created_at, is_archived"
+        "reservation_id, representative_name, status, check_in, check_out, nights, guest_total, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3, arrival_time, meal, bbq, somen, channel, inquiry, internal_memo, guest_memo, vehicle_count, assignment_status, companion_form_answered, email, completion_email_sent, day11_email_sent, day3_email_sent, created_at, sheet_created_at, updated_at, is_archived"
       )
       .eq("is_archived", false)
       .or(todayOrClause),
