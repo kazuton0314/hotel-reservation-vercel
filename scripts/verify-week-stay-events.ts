@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
-import { buildCalendarEventsForRange } from "../lib/services/calendar";
+import {
+  buildCalendarEventsForRange,
+  type CalendarReservation,
+} from "../lib/services/calendar";
 
 function res(
   id: string,
@@ -7,7 +10,7 @@ function res(
   checkIn: string,
   checkOut: string,
   nights: number
-) {
+): CalendarReservation {
   return {
     reservation_id: id,
     representative_name: name,
@@ -31,6 +34,15 @@ function res(
     internal_memo: null,
     guest_memo: null,
     assignment_status: null,
+    vehicle_count: null,
+    companion_form_answered: false,
+    email: null,
+    completion_email_sent: false,
+    day11_email_sent: false,
+    day3_email_sent: false,
+    created_at: null,
+    sheet_created_at: null,
+    updated_at: null,
   };
 }
 
