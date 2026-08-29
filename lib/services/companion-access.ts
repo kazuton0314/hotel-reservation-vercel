@@ -23,6 +23,43 @@ function isUsableReservation(
   return Boolean(row && !row.is_archived);
 }
 
+function isActiveCompanionTarget(
+  row: CompanionReservationRow | null | undefined
+): row is CompanionReservationRow {
+  return Boolean(row && !row.is_archived && row.status !== "キャンセル");
+}
+
+/** 同一 access_key が複数行あるとき、同行者フォームに使う予約を選ぶ */
+function companionReservationPriority(row: CompanionReservationRow): number {
+  let score = 0;
+  if (!row.is_archived) score += 100;
+  if (row.status !== "キャンセル") score += 50;
+  if (row.status === "確定") score += 30;
+  else if (row.status === "仮予約") score += 10;
+  return score;
+}
+
+function pickBestCompanionReservation(
+  rows: CompanionReservationRow[]
+): CompanionReservationRow | null {
+  if (!rows.length) return null;
+  return [...rows].sort(
+    (a, b) => companionReservationPriority(b) - companionReservationPriority(a)
+  )[0];
+}
+
+async function loadReservationsByAccessKey(
+  supabase: SupabaseClient,
+  key: string
+): Promise<CompanionReservationRow[]> {
+  const { data, error } = await supabase
+    .from("reservations")
+    .select(RESERVATION_SELECT)
+    .eq("access_key", key);
+  if (error) throw new Error(error.message);
+  return (data ?? []) as CompanionReservationRow[];
+}
+
 async function loadReservationById(
   supabase: SupabaseClient,
   reservationId: string
@@ -34,6 +71,22 @@ async function loadReservationById(
     .maybeSingle();
   if (error) throw new Error(error.message);
   return (data as CompanionReservationRow | null) ?? null;
+}
+
+/** キャンセル/アーカイブ済み側の重複キーを外し、有効予約だけに残す */
+async function clearStaleDuplicateAccessKeys(
+  supabase: SupabaseClient,
+  key: string,
+  keepReservationId: string
+): Promise<void> {
+  const nowIso = new Date().toISOString();
+  const { error } = await supabase
+    .from("reservations")
+    .update({ access_key: null, updated_at: nowIso })
+    .eq("access_key", key)
+    .neq("reservation_id", keepReservationId)
+    .or("is_archived.eq.true,status.eq.キャンセル");
+  if (error) throw new Error(error.message);
 }
 
 /** 予約側 access_key が欠落していれば、メール送信済みキーを復元する */
@@ -56,6 +109,11 @@ async function healReservationAccessKey(
     .eq("reservation_id", reservation.reservation_id);
   if (error) throw new Error(error.message);
 
+  await clearStaleDuplicateAccessKeys(
+    supabase,
+    linkKey,
+    reservation.reservation_id
+  );
   return { ...reservation, access_key: linkKey };
 }
 
@@ -87,13 +145,70 @@ async function resolveViaStaleLinkedReservation(
     supabase,
     String(request.linked_reservation_id)
   );
-  if (!isUsableReservation(linked)) return null;
+  if (!isActiveCompanionTarget(linked)) return null;
   return healReservationAccessKey(supabase, linked, key);
+}
+
+async function resolveFromDirectMatches(
+  supabase: SupabaseClient,
+  key: string
+): Promise<CompanionReservationRow | null> {
+  const matches = await loadReservationsByAccessKey(supabase, key);
+  if (!matches.length) return null;
+
+  const activeBest = pickBestCompanionReservation(
+    matches.filter(isActiveCompanionTarget)
+  );
+  if (activeBest) {
+    if (matches.length > 1) {
+      await clearStaleDuplicateAccessKeys(
+        supabase,
+        key,
+        activeBest.reservation_id
+      );
+    }
+    return activeBest;
+  }
+
+  for (const stale of matches) {
+    const viaSwitch = await resolveViaStaleLinkedReservation(
+      supabase,
+      stale,
+      key
+    );
+    if (viaSwitch) return viaSwitch;
+  }
+
+  return null;
+}
+
+async function resolveFromRequestAccessKey(
+  supabase: SupabaseClient,
+  key: string
+): Promise<CompanionReservationRow | null> {
+  const { data: requests, error: requestError } = await supabase
+    .from("reservation_requests")
+    .select("request_id, linked_reservation_id, access_key, is_archived")
+    .eq("access_key", key);
+  if (requestError) throw new Error(requestError.message);
+
+  for (const request of requests ?? []) {
+    if (request.is_archived || !request.linked_reservation_id) continue;
+    const linked = await loadReservationById(
+      supabase,
+      String(request.linked_reservation_id)
+    );
+    if (isActiveCompanionTarget(linked)) {
+      return healReservationAccessKey(supabase, linked!, key);
+    }
+  }
+
+  return null;
 }
 
 /**
  * 同行者フォーム URL の access_key から予約を解決する。
- * 1. reservations.access_key（有効な予約）
+ * 1. reservations.access_key（重複時は有効な確定予約を優先）
  * 1b. キャンセル/アーカイブ済み予約のキー → RQ 経由で付け替え先本予約
  * 2. reservation_requests.access_key → linked_reservation_id
  * 3. companions.access_key → reservation_id
@@ -105,59 +220,28 @@ export async function findReservationForCompanionAccessKey(
   const key = rawKey.trim();
   if (!key) return null;
 
-  const { data: direct, error: directError } = await supabase
-    .from("reservations")
-    .select(RESERVATION_SELECT)
-    .eq("access_key", key)
-    .maybeSingle();
-  if (directError) throw new Error(directError.message);
-  if (isUsableReservation(direct as CompanionReservationRow | null)) {
-    return direct as CompanionReservationRow;
-  }
-  if (direct) {
-    const viaSwitch = await resolveViaStaleLinkedReservation(
-      supabase,
-      direct as CompanionReservationRow,
-      key
-    );
-    if (viaSwitch) return viaSwitch;
-  }
+  const fromDirect = await resolveFromDirectMatches(supabase, key);
+  if (fromDirect) return fromDirect;
 
-  const { data: request, error: requestError } = await supabase
-    .from("reservation_requests")
-    .select("request_id, linked_reservation_id, access_key, is_archived")
-    .eq("access_key", key)
-    .maybeSingle();
-  if (requestError) throw new Error(requestError.message);
-  if (
-    request &&
-    !request.is_archived &&
-    request.linked_reservation_id
-  ) {
-    const linked = await loadReservationById(
-      supabase,
-      String(request.linked_reservation_id)
-    );
-    if (isUsableReservation(linked)) {
-      return healReservationAccessKey(supabase, linked, key);
-    }
-  }
+  const fromRequest = await resolveFromRequestAccessKey(supabase, key);
+  if (fromRequest) return fromRequest;
 
-  const { data: companionHit, error: companionError } = await supabase
+  const { data: companionHits, error: companionError } = await supabase
     .from("companions")
     .select("reservation_id")
     .eq("access_key", key)
     .order("updated_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(5);
   if (companionError) throw new Error(companionError.message);
-  if (companionHit?.reservation_id) {
+
+  for (const hit of companionHits ?? []) {
+    if (!hit.reservation_id) continue;
     const linked = await loadReservationById(
       supabase,
-      String(companionHit.reservation_id)
+      String(hit.reservation_id)
     );
-    if (isUsableReservation(linked)) {
-      return healReservationAccessKey(supabase, linked, key);
+    if (isActiveCompanionTarget(linked)) {
+      return healReservationAccessKey(supabase, linked!, key);
     }
   }
 
