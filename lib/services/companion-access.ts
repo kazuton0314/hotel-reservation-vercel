@@ -11,10 +11,11 @@ export type CompanionReservationRow = {
   status: string;
   companion_form_answered: boolean;
   is_archived: boolean;
+  request_id?: string | null;
 };
 
 const RESERVATION_SELECT =
-  "reservation_id, access_key, representative_name, check_in, check_out, guest_total, status, companion_form_answered, is_archived";
+  "reservation_id, access_key, representative_name, check_in, check_out, guest_total, status, companion_form_answered, is_archived, request_id";
 
 function isUsableReservation(
   row: CompanionReservationRow | null | undefined
@@ -58,9 +59,42 @@ async function healReservationAccessKey(
   return { ...reservation, access_key: linkKey };
 }
 
+/** キャンセル/アーカイブ済み仮予約のキー → 付け替え先の本予約をたどる */
+async function resolveViaStaleLinkedReservation(
+  supabase: SupabaseClient,
+  stale: CompanionReservationRow,
+  key: string
+): Promise<CompanionReservationRow | null> {
+  const requestId = String(stale.request_id ?? "").trim();
+  if (!requestId) return null;
+
+  const { data: request, error } = await supabase
+    .from("reservation_requests")
+    .select("linked_reservation_id, is_archived")
+    .eq("request_id", requestId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (
+    !request ||
+    request.is_archived ||
+    !request.linked_reservation_id ||
+    String(request.linked_reservation_id) === stale.reservation_id
+  ) {
+    return null;
+  }
+
+  const linked = await loadReservationById(
+    supabase,
+    String(request.linked_reservation_id)
+  );
+  if (!isUsableReservation(linked)) return null;
+  return healReservationAccessKey(supabase, linked, key);
+}
+
 /**
  * 同行者フォーム URL の access_key から予約を解決する。
- * 1. reservations.access_key
+ * 1. reservations.access_key（有効な予約）
+ * 1b. キャンセル/アーカイブ済み予約のキー → RQ 経由で付け替え先本予約
  * 2. reservation_requests.access_key → linked_reservation_id
  * 3. companions.access_key → reservation_id
  */
@@ -79,6 +113,14 @@ export async function findReservationForCompanionAccessKey(
   if (directError) throw new Error(directError.message);
   if (isUsableReservation(direct as CompanionReservationRow | null)) {
     return direct as CompanionReservationRow;
+  }
+  if (direct) {
+    const viaSwitch = await resolveViaStaleLinkedReservation(
+      supabase,
+      direct as CompanionReservationRow,
+      key
+    );
+    if (viaSwitch) return viaSwitch;
   }
 
   const { data: request, error: requestError } = await supabase
