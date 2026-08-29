@@ -3,6 +3,10 @@
 import { MAX_COMPANION_ENTRIES } from "@/lib/config/companions";
 import { revalidateReservationCompanions } from "@/lib/cache/revalidate";
 import {
+  findReservationForCompanionAccessKey,
+  verifyCompanionAccessKey,
+} from "@/lib/services/companion-access";
+import {
   normalizeCompanionAgeInput,
   validateCompanionAge,
 } from "@/lib/utils/companion-age";
@@ -18,18 +22,16 @@ export async function getReservationByAccessKey(accessKey: string) {
   const key = accessKey.trim();
   if (!key) return { reservation: null, error: null };
 
-  const supabase = createAdminClient();
-  const { data, error } = await supabase
-    .from("reservations")
-    .select(
-      "reservation_id, access_key, representative_name, check_in, check_out, guest_total, status, companion_form_answered, is_archived"
-    )
-    .eq("access_key", key)
-    .maybeSingle();
-
-  if (error) return { reservation: null, error: error.message };
-  if (!data || data.is_archived) return { reservation: null, error: null };
-  return { reservation: data, error: null };
+  try {
+    const supabase = createAdminClient();
+    const reservation = await findReservationForCompanionAccessKey(supabase, key);
+    return { reservation, error: null };
+  } catch (e) {
+    return {
+      reservation: null,
+      error: e instanceof Error ? e.message : String(e),
+    };
+  }
 }
 
 export async function submitCompanionsPublicAction(
@@ -46,19 +48,9 @@ export async function submitCompanionsPublicAction(
   if (!names.length) return { ok: false, message: "同行者の氏名を1名以上入力してください。" };
 
   const supabase = createAdminClient();
-  const { data: reservation, error: reservationError } = await supabase
-    .from("reservations")
-    .select("reservation_id, access_key, status, is_archived")
-    .eq("access_key", accessKey)
-    .maybeSingle();
-
-  if (reservationError) return { ok: false, message: reservationError.message };
-  if (!reservation || reservation.is_archived) {
-    return { ok: false, message: "予約が見つかりません。リンクをご確認ください。" };
-  }
-  if (reservation.status === "キャンセル") {
-    return { ok: false, message: "この予約はキャンセル済みのため入力できません。" };
-  }
+  const verified = await verifyCompanionAccessKey(supabase, accessKey);
+  if (!verified.ok) return { ok: false, message: verified.message };
+  const reservation = verified.reservation;
 
   const { count: existingCount } = await supabase
     .from("companions")
