@@ -4,6 +4,7 @@ import {
   normalizeRequestStatus,
   type RequestWorkflowStatus,
 } from "@/lib/domain/request-status";
+import { resolvePreservedAccessKey } from "@/lib/utils/access-key";
 
 export type LinkOpResult = { ok: true } | { ok: false; message: string };
 
@@ -34,13 +35,32 @@ export async function syncBidirectionalRequestLink(
   }
 
   if (nextLinkedId) {
+    const { data: target, error: fetchError } = await supabase
+      .from("reservations")
+      .select("access_key")
+      .eq("reservation_id", nextLinkedId)
+      .maybeSingle();
+    if (fetchError) return { ok: false, message: fetchError.message };
+    if (!target) {
+      return { ok: false, message: "指定の本予約が見つかりません。" };
+    }
+
+    const preservedKey = resolvePreservedAccessKey(
+      target.access_key as string | null | undefined,
+      accessKey
+    );
+    const updatePayload: Record<string, unknown> = {
+      request_id: requestId,
+      updated_at: nowIso,
+    };
+    // メール等で発行済みのキーを null や別キーで上書きしない
+    if (!String(target.access_key ?? "").trim() && preservedKey) {
+      updatePayload.access_key = preservedKey;
+    }
+
     const { error } = await supabase
       .from("reservations")
-      .update({
-        request_id: requestId,
-        access_key: accessKey ?? null,
-        updated_at: nowIso,
-      })
+      .update(updatePayload)
       .eq("reservation_id", nextLinkedId)
       .or(`request_id.is.null,request_id.eq.${requestId}`);
     if (error) return { ok: false, message: error.message };
