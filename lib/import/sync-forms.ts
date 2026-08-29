@@ -34,10 +34,11 @@ import type { ReservationInsert } from "@/lib/import/reservation-mapper";
 import { syncReservationToGCal } from "@/lib/services/gcal-sync";
 import { fetchSheetRows } from "@/lib/sheets/client";
 import type { SheetRow } from "@/lib/sheets/client";
+import { resolvePreservedAccessKey } from "@/lib/utils/access-key";
 
 /** 仮予約上書き時に残す運用系フィールド（フォーム値で潰さない） */
 const PROVISIONAL_PRESERVE_SELECT =
-  "gcal_event_id, internal_memo, guest_memo, assignment_status, companion_form_answered, completion_email_sent, completion_email_sent_at, day11_email_sent, day11_email_sent_at, day3_email_sent, day3_email_sent_at, customer_id, payment_method, payment_status";
+  "access_key, gcal_event_id, internal_memo, guest_memo, assignment_status, companion_form_answered, completion_email_sent, completion_email_sent_at, day11_email_sent, day11_email_sent_at, day3_email_sent, day3_email_sent_at, customer_id, payment_method, payment_status";
 
 export type ImportResult = {
   imported: number;
@@ -412,7 +413,10 @@ export async function importStudioFormRows(
           .maybeSingle();
         record = {
           ...record,
-          access_key: matchedProvisional.access_key || record.access_key,
+          access_key: resolvePreservedAccessKey(
+            provisionalRow?.access_key ?? matchedProvisional.access_key,
+            record.access_key
+          ),
           request_id: matchedProvisional.request_id || null,
           gcal_event_id: provisionalRow?.gcal_event_id ?? null,
           internal_memo: provisionalRow?.internal_memo ?? null,
@@ -442,7 +446,10 @@ export async function importStudioFormRows(
         record = {
           ...record,
           request_id: matchedRequest.request_id,
-          access_key: matchedRequest.access_key || record.access_key,
+          access_key: resolvePreservedAccessKey(
+            matchedRequest.access_key,
+            record.access_key
+          ),
         };
       }
 

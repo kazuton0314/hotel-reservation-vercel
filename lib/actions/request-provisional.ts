@@ -3,6 +3,7 @@ import { after } from "next/server";
 import { DEFAULTS } from "@/lib/config/forms";
 import { deleteGCalEventIfAny, syncReservationToGCal } from "@/lib/services/gcal-sync";
 import { createAdminClient } from "@/lib/supabase/server";
+import { resolvePreservedAccessKey } from "@/lib/utils/access-key";
 
 export async function buildProvisionalFromRequest(
   current: Record<string, unknown>,
@@ -82,19 +83,35 @@ export async function createProvisionalForRequest(
   current: Record<string, unknown>
 ): Promise<{ ok: true; provisionalId: string } | { ok: false; message: string }> {
   const provisionalId = String(current.request_id);
+  const { data: existing } = await supabase
+    .from("reservations")
+    .select("access_key")
+    .eq("reservation_id", provisionalId)
+    .maybeSingle();
+
   const provisional = await buildProvisionalFromRequest(current, provisionalId);
+  provisional.access_key = resolvePreservedAccessKey(
+    (existing?.access_key as string | null | undefined) ?? null,
+    (provisional.access_key as string | null | undefined) ?? null
+  );
+
   const { error } = await supabase
     .from("reservations")
     .upsert(provisional, { onConflict: "reservation_id" });
   if (error) return { ok: false, message: error.message };
 
+  const linkUpdate: Record<string, unknown> = {
+    request_id: String(current.request_id),
+    updated_at: new Date().toISOString(),
+  };
+  if (!provisional.access_key) {
+    const requestKey = String(current.access_key ?? "").trim();
+    if (requestKey) linkUpdate.access_key = requestKey;
+  }
+
   const { error: linkError } = await supabase
     .from("reservations")
-    .update({
-      request_id: String(current.request_id),
-      access_key: current.access_key || null,
-      updated_at: new Date().toISOString(),
-    })
+    .update(linkUpdate)
     .eq("reservation_id", provisionalId);
   if (linkError) return { ok: false, message: linkError.message };
 
