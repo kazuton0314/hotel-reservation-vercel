@@ -139,6 +139,14 @@ export async function syncBidirectionalRequestLink(
       .or(`request_id.is.null,request_id.eq.${requestId}`);
     if (error) return { ok: false, message: error.message };
 
+    if (isLinkSwitch && previousLinkedId && resolvedKey) {
+      await supabase
+        .from("reservations")
+        .update({ access_key: null, updated_at: nowIso })
+        .eq("reservation_id", previousLinkedId)
+        .eq("access_key", resolvedKey);
+    }
+
     if (resolvedKey && (isLinkSwitch || preferPriorKey)) {
       await supabase
         .from("reservation_requests")
