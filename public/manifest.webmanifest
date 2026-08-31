@@ -2,6 +2,7 @@
   "name": "みどりの時計台 予約管理",
   "short_name": "時計台予約",
   "description": "予約台帳・リクエスト・部屋割りの管理",
+  "id": "/",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -23,7 +24,7 @@
       "purpose": "any"
     },
     {
-      "src": "/icons/icon-512.png",
+      "src": "/icons/icon-maskable-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"

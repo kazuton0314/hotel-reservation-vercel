@@ -5,7 +5,15 @@ import { resolvePostLoginPath } from "@/lib/auth/post-login-path";
 
 const PUBLIC_PATHS = ["/login", "/auth/callback", "/companions"];
 
+/** PWA メタデータ（認証不要・中身のデータは含まない） */
+const PWA_PUBLIC_FILES = [
+  "/manifest.webmanifest",
+  "/sw.js",
+  "/favicon.ico",
+];
+
 function isPublicPath(pathname: string) {
+  if (PWA_PUBLIC_FILES.includes(pathname)) return true;
   if (PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
     return true;
   }
