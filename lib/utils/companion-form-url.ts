@@ -1,4 +1,31 @@
-/** アプリの公開ベース URL を解決（末尾スラッシュなし） */
+/** Vercel 付与ドメイン（ゲスト向けリンクには使わない） */
+export function isDeploymentPlatformHost(hostOrUrl: string): boolean {
+  try {
+    const host = hostOrUrl.includes("://")
+      ? new URL(hostOrUrl).hostname
+      : hostOrUrl.split("/")[0]?.split(":")[0] ?? "";
+    const h = host.toLowerCase();
+    return (
+      h.endsWith(".vercel.app") ||
+      h.endsWith(".vercel.sh") ||
+      h === "vercel.app"
+    );
+  } catch {
+    return false;
+  }
+}
+
+function normalizeBaseUrl(raw: string | null | undefined): string {
+  let value = String(raw ?? "").trim().replace(/\/$/, "");
+  if (!value) return "";
+  if (!/^https?:\/\//i.test(value)) {
+    value = `https://${value}`;
+  }
+  if (isDeploymentPlatformHost(value)) return "";
+  return value;
+}
+
+/** 内部用（Vercel フォールバック含む） */
 export function resolveAppBaseUrl(explicitBase?: string | null): string {
   const candidates = [
     explicitBase,
@@ -12,12 +39,31 @@ export function resolveAppBaseUrl(explicitBase?: string | null): string {
   ];
 
   for (const raw of candidates) {
-    let value = String(raw ?? "").trim().replace(/\/$/, "");
-    if (!value) continue;
-    if (!/^https?:\/\//i.test(value)) {
-      value = `https://${value}`;
-    }
-    return value;
+    const value = normalizeBaseUrl(raw);
+    if (value) return value;
+  }
+  return "";
+}
+
+/**
+ * ゲスト向けリンク用（同行者フォーム等）。
+ * NEXT_PUBLIC_APP_URL を最優先し、Vercel 付与ドメイン (*.vercel.app) にはフォールバックしない。
+ */
+export function resolveGuestAppBaseUrl(
+  explicitBase?: string | null,
+  requestHostBase?: string | null
+): string {
+  const candidates = [
+    explicitBase,
+    process.env.NEXT_PUBLIC_APP_URL,
+    process.env.NEXT_PUBLIC_SITE_URL,
+    requestHostBase,
+    process.env.NODE_ENV === "development" ? "http://localhost:3000" : "",
+  ];
+
+  for (const raw of candidates) {
+    const value = normalizeBaseUrl(raw);
+    if (value) return value;
   }
   return "";
 }
@@ -30,7 +76,7 @@ export function buildCompanionFormUrl(
   const key = String(accessKey ?? "").trim();
   if (!key) return "";
 
-  const base = resolveAppBaseUrl(baseUrl);
+  const base = resolveGuestAppBaseUrl(baseUrl);
   if (!base) return "";
 
   return `${base}/companions/${encodeURIComponent(key)}`;
