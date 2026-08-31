@@ -5,7 +5,7 @@ import { formatDateIso, parseDateValue } from "@/lib/import/date-utils";
 import { generateAccessKey } from "@/lib/utils/access-key";
 import {
   buildCompanionFormUrl,
-  resolveAppBaseUrl,
+  resolveGuestAppBaseUrl,
 } from "@/lib/utils/companion-form-url";
 import { formatGuestBreakdownMail } from "@/lib/utils/guest-display";
 import { formatBbqDisplayLabel } from "@/lib/utils/occ-display";
@@ -45,7 +45,6 @@ function extractMailAddress(from: string): string {
   return (m?.[1] ?? from).trim();
 }
 
-/** リクエスト Host から公開 URL を組み立て（環境変数未設定時のフォールバック） */
 async function appBaseUrlFromRequest(): Promise<string> {
   try {
     const h = await headers();
@@ -109,8 +108,9 @@ export async function buildMailEntityContext(
   entityId: string
 ): Promise<MailEntityContext> {
   const base = baseContext();
-  // 公開URLは環境変数を優先（ゲスト向けリンクのため）。未設定時のみリクエスト Host を使う
-  const appBase = resolveAppBaseUrl() || (await appBaseUrlFromRequest());
+  // ゲスト向け URL は NEXT_PUBLIC_APP_URL 必須（Vercel 付与ドメインは使わない）
+  const appBase =
+    resolveGuestAppBaseUrl(null, await appBaseUrlFromRequest()) || "";
 
   if (entityType === "reservation" && entityId) {
     const { data } = await supabase
