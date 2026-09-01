@@ -32,6 +32,51 @@ export async function rebuildCustomersAction(): Promise<
   }
 }
 
+export async function refreshCustomerVisitStatsAction(
+  customerId: string
+): Promise<
+  | {
+      ok: true;
+      before: { visit_count: number | null; last_check_out: string | null; is_repeater: boolean | null };
+      after: { visit_count: number | null; last_check_out: string | null; is_repeater: boolean | null };
+    }
+  | { ok: false; message: string }
+> {
+  const id = String(customerId ?? "").trim();
+  if (!id) {
+    return { ok: false, message: "顧客IDを入力してください。" };
+  }
+  try {
+    const supabase = await createStaffClient();
+    const { data: before, error: beforeError } = await supabase
+      .from("customers")
+      .select("visit_count, last_check_out, is_repeater")
+      .eq("customer_id", id)
+      .maybeSingle();
+    if (beforeError) return { ok: false, message: beforeError.message };
+    if (!before) return { ok: false, message: "顧客が見つかりません。" };
+
+    await refreshCustomerVisitStats(supabase, id);
+
+    const { data: after, error: afterError } = await supabase
+      .from("customers")
+      .select("visit_count, last_check_out, is_repeater")
+      .eq("customer_id", id)
+      .maybeSingle();
+    if (afterError) return { ok: false, message: afterError.message };
+
+    revalidateCustomerDetail(id);
+    revalidateCustomers();
+    revalidatePath("/settings/operations");
+    return { ok: true, before, after: after! };
+  } catch (e) {
+    return {
+      ok: false,
+      message: e instanceof Error ? e.message : "来館回数の再計算に失敗しました",
+    };
+  }
+}
+
 export async function mergeCustomersAction(formData: FormData): Promise<
   { ok: true } | { ok: false; message: string }
 > {

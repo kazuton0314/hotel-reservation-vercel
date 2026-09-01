@@ -4,7 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { confirmRequestReservationLinkAction } from "@/lib/actions/ops";
-import { mergeCustomersAction } from "@/lib/actions/customers";
+import {
+  mergeCustomersAction,
+  refreshCustomerVisitStatsAction,
+} from "@/lib/actions/customers";
 import type { CustomerMergeCandidate, LinkCandidate, LinkCandidateSide } from "@/lib/queries/ops";
 import { Button } from "@/components/ui/button";
 import { formatDisplayName } from "@/lib/utils/display-name";
@@ -65,6 +68,7 @@ function CandidateSideCard({
 export function OperationsConsole({ linkCandidates, mergeCandidates }: Props) {
   const router = useRouter();
   const [busyKey, setBusyKey] = useState<string | null>(null);
+  const [refreshCustomerId, setRefreshCustomerId] = useState("");
 
   async function runLink(candidate: LinkCandidate) {
     const key = `${candidate.requestId}:${candidate.reservationId}`;
@@ -76,6 +80,25 @@ export function OperationsConsole({ linkCandidates, mergeCandidates }: Props) {
     setBusyKey(null);
     if (result.ok) {
       showSuccessToast("リクエストと本予約を連携しました");
+      router.refresh();
+      return;
+    }
+    showErrorToast(result.message);
+  }
+
+  async function runRefreshVisitStats() {
+    const id = refreshCustomerId.trim();
+    if (!id) {
+      showErrorToast("顧客IDを入力してください");
+      return;
+    }
+    setBusyKey(`refresh:${id}`);
+    const result = await refreshCustomerVisitStatsAction(id);
+    setBusyKey(null);
+    if (result.ok) {
+      showSuccessToast(
+        `来館回数を更新しました（${result.before.visit_count ?? 0} → ${result.after.visit_count ?? 0}）`
+      );
       router.refresh();
       return;
     }
@@ -230,6 +253,35 @@ export function OperationsConsole({ linkCandidates, mergeCandidates }: Props) {
             })}
           </ul>
         )}
+      </section>
+
+      <section className="settings-section detail-block">
+        <div className="settings-section-head">
+          <h2 className="settings-section-title">来館回数の再計算</h2>
+          <p className="settings-section-desc">
+            顧客統合後などで来館回数が合わない場合、紐づく予約から visit_count / last_check_out /
+            is_repeater を再計算します（キャンセル以外で check_in・check_out がある予約をカウント）。
+          </p>
+        </div>
+        <div className="settings-candidate-actions" style={{ gap: "0.5rem", flexWrap: "wrap" }}>
+          <input
+            type="text"
+            className="settings-filter-select"
+            placeholder="CU-2025-1"
+            value={refreshCustomerId}
+            onChange={(e) => setRefreshCustomerId(e.target.value)}
+            aria-label="顧客ID"
+          />
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            disabled={busyKey?.startsWith("refresh:") ?? false}
+            onClick={runRefreshVisitStats}
+          >
+            {busyKey?.startsWith("refresh:") ? "再計算中…" : "再計算を実行"}
+          </Button>
+        </div>
       </section>
     </>
   );
