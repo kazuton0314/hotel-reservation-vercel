@@ -179,6 +179,36 @@ function computeVisitStats(source: ReservationRow[]) {
   return { visitCount, lastCheckOut };
 }
 
+/** 統合・手動補正後に、紐づく予約から来館回数を再計算する */
+export async function refreshCustomerVisitStats(
+  supabase: SupabaseClient,
+  customerId: string
+): Promise<void> {
+  const id = String(customerId ?? "").trim();
+  if (!id) return;
+
+  const { data, error } = await supabase
+    .from("reservations")
+    .select("status, check_in, check_out")
+    .eq("customer_id", id);
+  if (error) throw new Error(error.message);
+
+  const { visitCount, lastCheckOut } = computeVisitStats(
+    (data ?? []) as ReservationRow[]
+  );
+  const nowIso = new Date().toISOString();
+  const { error: updateError } = await supabase
+    .from("customers")
+    .update({
+      visit_count: visitCount,
+      last_check_out: lastCheckOut,
+      is_repeater: visitCount >= 2,
+      updated_at: nowIso,
+    })
+    .eq("customer_id", id);
+  if (updateError) throw new Error(updateError.message);
+}
+
 function pickProfileSample(rows: ReservationRow[]): ReservationRow {
   return (
     [...rows].sort((a, b) =>
