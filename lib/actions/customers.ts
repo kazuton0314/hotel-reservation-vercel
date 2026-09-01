@@ -6,8 +6,8 @@ import {
   type CustomerSearchCriteria,
 } from "@/lib/queries/customers";
 import { revalidatePath } from "next/cache";
-import { revalidateCustomers } from "@/lib/cache/revalidate";
-import { rebuildAllCustomers } from "@/lib/services/customer-index";
+import { revalidateCustomerDetail, revalidateCustomers } from "@/lib/cache/revalidate";
+import { rebuildAllCustomers, refreshCustomerVisitStats } from "@/lib/services/customer-index";
 import { createStaffClient } from "@/lib/supabase/server";
 
 export async function searchCustomersAction(criteria: CustomerSearchCriteria) {
@@ -42,15 +42,22 @@ export async function mergeCustomersAction(formData: FormData): Promise<
   }
   try {
     const supabase = await createStaffClient();
-    await supabase
+    const nowIso = new Date().toISOString();
+    const { error: moveError } = await supabase
       .from("reservations")
-      .update({ customer_id: primaryCustomerId, updated_at: new Date().toISOString() })
+      .update({ customer_id: primaryCustomerId, updated_at: nowIso })
       .eq("customer_id", duplicateCustomerId);
+    if (moveError) return { ok: false, message: moveError.message };
+
     const { error } = await supabase
       .from("customers")
       .delete()
       .eq("customer_id", duplicateCustomerId);
     if (error) return { ok: false, message: error.message };
+
+    await refreshCustomerVisitStats(supabase, primaryCustomerId);
+
+    revalidateCustomerDetail(primaryCustomerId);
     revalidateCustomers();
     revalidatePath("/settings/operations");
     return { ok: true };
