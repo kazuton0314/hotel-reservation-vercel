@@ -32,6 +32,7 @@ import {
 } from "@/lib/import/reservation-mapper";
 import type { ReservationInsert } from "@/lib/import/reservation-mapper";
 import { syncReservationToGCal } from "@/lib/services/gcal-sync";
+import { upsertCustomerFromReservation } from "@/lib/services/customer-index";
 import { fetchSheetRows } from "@/lib/sheets/client";
 import type { SheetRow } from "@/lib/sheets/client";
 import { resolvePreservedAccessKey } from "@/lib/utils/access-key";
@@ -514,6 +515,34 @@ export async function importStudioFormRows(
           })
           .eq("request_id", requestIdToLink);
         if (requestUpdateError) throw requestUpdateError;
+      }
+
+      // 手動追加と同じく、取込直後に顧客索引を作成／紐づけする
+      // （失敗しても予約本体は残す。errors に記録し、backfill で救済可能）
+      try {
+        const customerId = await upsertCustomerFromReservation(supabase, {
+          reservation_id: record.reservation_id,
+          customer_id: record.customer_id ?? null,
+          representative_name: record.representative_name ?? null,
+          name_kana: record.name_kana ?? null,
+          email: record.email ?? null,
+          phone: record.phone ?? null,
+          check_in: record.check_in ?? null,
+          check_out: record.check_out ?? null,
+          status: "確定",
+          is_archived: false,
+        });
+        if (customerId) {
+          record = { ...record, customer_id: customerId };
+        }
+      } catch (customerError) {
+        const message =
+          customerError instanceof Error
+            ? customerError.message
+            : String(customerError);
+        errors.push(
+          `row ${row.sheetRow} (${record.reservation_id}): customer index failed: ${message}`
+        );
       }
 
       await logStudioFormImport(supabase, row.sheetRow, record.reservation_id);
