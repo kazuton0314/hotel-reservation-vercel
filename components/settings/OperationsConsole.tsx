@@ -12,6 +12,7 @@ import { mergeCustomersAction } from "@/lib/actions/customers";
 import type { CustomerMergeCandidate, LinkCandidate, LinkCandidateSide } from "@/lib/queries/ops";
 import type { ReservationIdRefCounts } from "@/lib/services/rename-reservation-id";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { formatDisplayName } from "@/lib/utils/display-name";
 import { showErrorToast, showSuccessToast } from "@/lib/utils/toast";
 
@@ -324,9 +325,9 @@ export function OperationsConsole({ linkCandidates, mergeCandidates }: Props) {
           className="settings-candidate-actions"
           style={{ gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}
         >
-          <input
+          <Input
             type="text"
-            className="settings-filter-select"
+            className="settings-rename-id-input"
             placeholder="変更元（例: STUDIO-RQ66）"
             value={renameFromId}
             onChange={(e) => {
@@ -336,9 +337,9 @@ export function OperationsConsole({ linkCandidates, mergeCandidates }: Props) {
             aria-label="変更元の予約ID"
           />
           <span aria-hidden>→</span>
-          <input
+          <Input
             type="text"
-            className="settings-filter-select"
+            className="settings-rename-id-input"
             placeholder="変更先（例: STUDIO-MT200）"
             value={renameToId}
             onChange={(e) => setRenameToId(e.target.value)}
