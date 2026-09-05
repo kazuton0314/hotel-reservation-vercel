@@ -27,6 +27,7 @@ export function calendarDayCardToListItem(card: CalendarDayCard): DashboardListI
     bbq: card.bbq,
     somen: card.somen,
     inquiry: card.inquiry,
+    requestInquiry: card.requestInquiry,
     internalMemo: card.internalMemo,
     guestMemo: card.guestMemo,
     arrivalTime: card.arrivalTime,
@@ -123,6 +124,7 @@ export function ReservationDashboardCard({
         somen={normalized.somen}
         vehicleCount={normalized.vehicleCount}
         inquiry={normalized.inquiry}
+        requestInquiry={normalized.requestInquiry}
         internalMemo={normalized.internalMemo}
         guestMemo={normalized.guestMemo}
       />
