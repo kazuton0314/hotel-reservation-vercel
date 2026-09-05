@@ -10,6 +10,7 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "import:csv": "tsx scripts/import-csv.ts",
+    "import:past-ledger": "tsx scripts/import-past-ledger.ts",
     "import:forms-csv": "tsx scripts/import-forms-csv.ts",
     "check:form-import": "tsx scripts/check-form-import.ts",
     "sync:forms": "tsx scripts/sync-forms.ts",
