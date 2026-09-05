@@ -13,6 +13,7 @@ function res(
 ): CalendarReservation {
   return {
     reservation_id: id,
+    request_id: null,
     representative_name: name,
     status: "確定",
     check_in: checkIn,

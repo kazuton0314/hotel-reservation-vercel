@@ -3,6 +3,7 @@ import { jwtSessionErrorMessage } from "@/lib/auth/session-errors";
 import { CACHE_TAGS } from "@/lib/cache/tags";
 import { createReadClient } from "@/lib/supabase/read";
 import { stripTime } from "@/lib/import/date-utils";
+import { loadRequestInquiriesByIds } from "@/lib/queries/request-inquiry-lookup";
 import { fetchAssignmentsForReservationIds } from "@/lib/queries/room-assignment-lookup";
 import {
   computeDashboardCounts,
@@ -31,6 +32,7 @@ const STAYING_STATUSES = ["仮予約", "確定"];
 
 type DbReservation = {
   reservation_id: string;
+  request_id: string | null;
   representative_name: string | null;
   status: string;
   check_in: string | null;
@@ -104,6 +106,7 @@ export type DashboardListItem = {
   bbq: string | null;
   somen: string | null;
   inquiry: string | null;
+  requestInquiry: string | null;
   internalMemo: string | null;
   guestMemo: string | null;
   arrivalTime: string | null;
@@ -172,7 +175,8 @@ export type DashboardSummary = {
 function toListItem(
   r: DbReservation,
   assignmentsByReservation: Map<string, DbAssignment[]>,
-  refDate: Date
+  refDate: Date,
+  requestInquiries: Map<string, string>
 ): DashboardListItem {
   const assignments = assignmentsByReservation.get(r.reservation_id) ?? [];
   const assignedRooms =
@@ -181,6 +185,7 @@ function toListItem(
       .filter(Boolean)
       .join(" / ") || "";
   const guestRequired = effectiveGuestCountForCompanion(r) >= 2;
+  const requestId = String(r.request_id ?? "").trim();
 
   return {
     reservationId: r.reservation_id,
@@ -199,6 +204,7 @@ function toListItem(
     bbq: r.bbq,
     somen: r.somen,
     inquiry: r.inquiry,
+    requestInquiry: requestId ? (requestInquiries.get(requestId) ?? null) : null,
     internalMemo: r.internal_memo,
     guestMemo: r.guest_memo,
     arrivalTime: r.arrival_time,
@@ -343,7 +349,7 @@ async function getDashboardSummaryUncached(): Promise<{
     supabase
       .from("reservations")
       .select(
-        "reservation_id, representative_name, status, check_in, check_out, nights, guest_total, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3, arrival_time, meal, bbq, somen, channel, inquiry, internal_memo, guest_memo, vehicle_count, assignment_status, companion_form_answered, email, completion_email_sent, day11_email_sent, day3_email_sent, created_at, sheet_created_at, updated_at, is_archived"
+        "reservation_id, request_id, representative_name, status, check_in, check_out, nights, guest_total, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3, arrival_time, meal, bbq, somen, channel, inquiry, internal_memo, guest_memo, vehicle_count, assignment_status, companion_form_answered, email, completion_email_sent, day11_email_sent, day3_email_sent, created_at, sheet_created_at, updated_at, is_archived"
       )
       .eq("is_archived", false)
       .or(todayOrClause),
@@ -395,6 +401,21 @@ async function getDashboardSummaryUncached(): Promise<{
     );
   if (assignError) return { dashboard: null, error: jwtSessionErrorMessage(assignError) };
 
+  let requestInquiries: Map<string, string>;
+  try {
+    requestInquiries = await loadRequestInquiriesByIds(
+      supabase,
+      all.map((r) => String(r.request_id ?? ""))
+    );
+  } catch (e) {
+    return {
+      dashboard: null,
+      error: jwtSessionErrorMessage(
+        e instanceof Error ? e.message : "リクエスト問合せの取得に失敗しました"
+      ),
+    };
+  }
+
   const taskRows = (counterRows ?? []) as DbReservation[];
   const dayAssignments = assignments;
   const assignmentsByReservation = new Map<string, DbAssignment[]>();
@@ -431,7 +452,7 @@ async function getDashboardSummaryUncached(): Promise<{
         ACTIVE_STATUSES.includes(r.status)
       );
     })
-    .map((r) => toListItem(r, assignmentsByReservation, refDate))
+    .map((r) => toListItem(r, assignmentsByReservation, refDate, requestInquiries))
     .sort(byArrivalThenName);
 
   const todayCheckouts = all
@@ -443,7 +464,7 @@ async function getDashboardSummaryUncached(): Promise<{
         ACTIVE_STATUSES.includes(r.status)
       );
     })
-    .map((r) => toListItem(r, assignmentsByReservation, refDate))
+    .map((r) => toListItem(r, assignmentsByReservation, refDate, requestInquiries))
     .sort(byArrivalThenName);
 
   const staying = all
@@ -455,7 +476,7 @@ async function getDashboardSummaryUncached(): Promise<{
       return STAYING_STATUSES.includes(r.status);
     })
     .map((r) => {
-      const item = toListItem(r, assignmentsByReservation, refDate);
+      const item = toListItem(r, assignmentsByReservation, refDate, requestInquiries);
       const ci = parseReservationDate(r.check_in)!;
       item.nightNumber = Math.max(
         1,

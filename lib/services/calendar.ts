@@ -15,6 +15,7 @@ const ACTIVE_STATUSES = ["仮予約", "確定"] as const;
 
 export type CalendarReservation = {
   reservation_id: string;
+  request_id: string | null;
   representative_name: string | null;
   status: string;
   check_in: string | null;
@@ -96,6 +97,7 @@ export type CalendarDayCard = {
   bbq: string | null;
   somen: string | null;
   inquiry: string | null;
+  requestInquiry: string | null;
   internalMemo: string | null;
   guestMemo: string | null;
   vehicleCount: string | null;
@@ -366,9 +368,11 @@ function toDayCard(
   r: CalendarReservation,
   assignmentsByReservation: Map<string, CalendarAssignment[]>,
   refDate: Date,
+  requestInquiries: Map<string, string>,
   nightNumber?: number
 ): CalendarDayCard {
   const guestRequired = effectiveGuestCountForCompanion(r) >= 2;
+  const requestId = String(r.request_id ?? "").trim();
   return {
     reservationId: r.reservation_id,
     representativeName: r.representative_name ?? "—",
@@ -392,6 +396,7 @@ function toDayCard(
     bbq: r.bbq,
     somen: r.somen,
     inquiry: r.inquiry,
+    requestInquiry: requestId ? (requestInquiries.get(requestId) ?? null) : null,
     internalMemo: r.internal_memo,
     guestMemo: r.guest_memo,
     vehicleCount: r.vehicle_count,
@@ -490,7 +495,8 @@ export function buildDayCalendarView(
   date: string,
   reservations: CalendarReservation[],
   assignmentsByReservation: Map<string, CalendarAssignment[]>,
-  todayRooms: TodayRoomBoardItem[]
+  todayRooms: TodayRoomBoardItem[],
+  requestInquiries: Map<string, string> = new Map()
 ): DayCalendarView {
   const d = parseReservationDate(date) || businessToday();
   const iso = formatDateIso(d);
@@ -498,7 +504,7 @@ export function buildDayCalendarView(
 
   const checkinCards = reservations
     .filter((r) => isActiveReservation(r) && r.check_in === iso)
-    .map((r) => toDayCard(r, assignmentsByReservation, refDate))
+    .map((r) => toDayCard(r, assignmentsByReservation, refDate, requestInquiries))
     .sort((a, b) => {
       const at = a.arrivalTime ?? "";
       const bt = b.arrivalTime ?? "";
@@ -508,7 +514,7 @@ export function buildDayCalendarView(
 
   const checkoutCards = reservations
     .filter((r) => isActiveReservation(r) && r.check_out === iso)
-    .map((r) => toDayCard(r, assignmentsByReservation, refDate))
+    .map((r) => toDayCard(r, assignmentsByReservation, refDate, requestInquiries))
     .sort((a, b) => {
       const at = a.arrivalTime?.trim() ?? "";
       const bt = b.arrivalTime?.trim() ?? "";
@@ -523,7 +529,13 @@ export function buildDayCalendarView(
   const staying = reservations
     .filter((r) => isStayingOn(r, iso))
     .map((r) =>
-      toDayCard(r, assignmentsByReservation, refDate, stayNightNumber(r, iso))
+      toDayCard(
+        r,
+        assignmentsByReservation,
+        refDate,
+        requestInquiries,
+        stayNightNumber(r, iso)
+      )
     )
     .sort((a, b) => {
       const at = a.arrivalTime?.trim() ?? "";

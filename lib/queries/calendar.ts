@@ -1,5 +1,6 @@
 import { unstable_cache } from "next/cache";
 import { CACHE_TAGS } from "@/lib/cache/tags";
+import { loadRequestInquiriesByIds } from "@/lib/queries/request-inquiry-lookup";
 import { fetchAssignmentsForReservationIds } from "@/lib/queries/room-assignment-lookup";
 import { createReadClient } from "@/lib/supabase/read";
 import { stripTime } from "@/lib/import/date-utils";
@@ -80,7 +81,7 @@ async function fetchCalendarData(from: string, to: string) {
 }
 
 const CALENDAR_RESERVATION_SELECT =
-  "reservation_id, representative_name, status, check_in, check_out, nights, guest_total, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3, arrival_time, meal, bbq, somen, channel, inquiry, internal_memo, guest_memo, assignment_status, vehicle_count, companion_form_answered, email, completion_email_sent, day11_email_sent, day3_email_sent, created_at, sheet_created_at, updated_at";
+  "reservation_id, request_id, representative_name, status, check_in, check_out, nights, guest_total, adult_male, adult_female, boy_student, girl_student, age_3plus, under_3, arrival_time, meal, bbq, somen, channel, inquiry, internal_memo, guest_memo, assignment_status, vehicle_count, companion_form_answered, email, completion_email_sent, day11_email_sent, day3_email_sent, created_at, sheet_created_at, updated_at";
 
 const DAY_RESERVATION_SELECT = CALENDAR_RESERVATION_SELECT;
 
@@ -153,6 +154,7 @@ async function fetchDayCalendarSnapshot(iso: string) {
       reservations: [] as CalendarReservation[],
       assignmentsByReservation: new Map<string, CalendarAssignment[]>(),
       todayRooms: [] as TodayRoomBoardItem[],
+      requestInquiries: new Map<string, string>(),
       error: "日付が不正です",
     };
   }
@@ -201,6 +203,22 @@ async function fetchDayCalendarSnapshot(iso: string) {
     reservationRows.map((r) => [r.reservation_id, r])
   );
 
+  let requestInquiries: Map<string, string>;
+  try {
+    requestInquiries = await loadRequestInquiriesByIds(
+      supabase,
+      reservationRows.map((r) => String(r.request_id ?? ""))
+    );
+  } catch (e) {
+    return {
+      reservations: [] as CalendarReservation[],
+      assignmentsByReservation: new Map<string, CalendarAssignment[]>(),
+      todayRooms: [] as TodayRoomBoardItem[],
+      requestInquiries: new Map<string, string>(),
+      error: e instanceof Error ? e.message : "リクエスト問合せの取得に失敗しました",
+    };
+  }
+
   return {
     reservations: reservationRows,
     assignmentsByReservation,
@@ -211,6 +229,7 @@ async function fetchDayCalendarSnapshot(iso: string) {
       assignmentRows,
       reservationsById
     ),
+    requestInquiries,
     error:
       roomsError?.message ?? resError?.message ?? assignError ?? null,
   };
@@ -274,7 +293,8 @@ export async function getDayCalendar(
           date,
           snap.reservations,
           snap.assignmentsByReservation,
-          snap.todayRooms
+          snap.todayRooms,
+          snap.requestInquiries
         ),
         error: null,
       };
