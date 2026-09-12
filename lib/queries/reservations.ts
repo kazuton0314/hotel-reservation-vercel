@@ -7,6 +7,7 @@ import {
 } from "@/lib/services/reservation-active-tasks";
 import { reservationNeedsCompanionInfo } from "@/lib/services/mail-pending";
 import {
+  applyReservationKeywordFilter,
   applyReservationListOrder,
   isSqlEqReservationFilterField,
   needsInMemoryReservationListProcessing,
@@ -294,11 +295,24 @@ function mapReservationListItem(
 
 export async function getReservations(filters: ReservationFilters = {}) {
   const key = JSON.stringify(filters);
-  return unstable_cache(
-    () => getReservationsUncached(filters),
-    ["reservations", key],
-    { tags: [CACHE_TAGS.reservations], revalidate: 120 }
-  )();
+  try {
+    return await unstable_cache(
+      async () => {
+        const result = await getReservationsUncached(filters);
+        // エラー結果を 120 秒キャッシュすると Gateway Timeout が一覧に張り付く
+        if (result.error) throw new Error(result.error);
+        return result;
+      },
+      ["reservations", key],
+      { tags: [CACHE_TAGS.reservations], revalidate: 120 }
+    )();
+  } catch (e) {
+    return {
+      reservations: [] as ReservationListItem[],
+      total: 0,
+      error: e instanceof Error ? e.message : String(e),
+    };
+  }
 }
 
 async function loadAssignmentsByReservationIds(
@@ -541,10 +555,13 @@ async function getReservationsUncached(filters: ReservationFilters = {}) {
     };
   }
 
+  // メモリ経路でも SQL で候補を絞り、全件取得による Gateway Timeout を防ぐ
+  const IN_MEMORY_FETCH_CAP = 2000;
   let query = supabase
     .from("reservations")
     .select(LIST_SELECT)
-    .order("check_in", { ascending: true, nullsFirst: false });
+    .order("check_in", { ascending: true, nullsFirst: false })
+    .limit(IN_MEMORY_FETCH_CAP);
 
   if (filters.scope === "archive" || filters.scope === "past") {
     query = query.or(`is_archived.eq.true,check_out.lt.${today}`);
@@ -561,6 +578,20 @@ async function getReservationsUncached(filters: ReservationFilters = {}) {
 
   if (filters.assignment === "unassigned") {
     query = query.eq("assignment_status", "未割当").eq("status", "確定");
+  }
+
+  
+  const checkIn = String(list?.checkIn ?? "").trim();
+  if (checkIn) {
+    query = query.eq("check_in", checkIn);
+  }
+  query = applyReservationKeywordFilter(query, list?.q);
+
+  // 未割当／割当済は最終判定を JS に残しつつ、DB キャッシュ列で候補を先に絞る
+  if (list?.filterField === "roomId" && list.filterValue === UNASSIGNED_ROOM_FILTER) {
+    query = query.eq("assignment_status", "未割当");
+  } else if (list?.filterField === "roomId" && list.filterValue === ASSIGNED_ROOM_FILTER) {
+    query = query.eq("assignment_status", "割当済");
   }
 
   const { data, error } = await query;
@@ -598,20 +629,25 @@ async function getReservationsUncached(filters: ReservationFilters = {}) {
     );
   }
 
-  const requestInquiries = await loadRequestInquiriesForRows(supabase, rows);
+  if (!paged) {
+    const requestInquiries = await loadRequestInquiriesForRows(supabase, rows);
+    const reservations = rows.map((row) =>
+      mapReservationListItem(row, assignmentsByReservation, refDate, requestInquiries, {
+        deriveAssignmentStatus: needsAllAssignments,
+      })
+    );
+    return { reservations, total: reservations.length, error: null };
+  }
 
-  const reservations = rows.map((row) =>
-    mapReservationListItem(row, assignmentsByReservation, refDate, requestInquiries, {
+  // 問合せ文言は表示用のみ。ページ確定後に読む（全件取得での Timeout を避ける）
+  const reservationsWithoutInquiry = rows.map((row) =>
+    mapReservationListItem(row, assignmentsByReservation, refDate, new Map(), {
       deriveAssignmentStatus: needsAllAssignments,
     })
   );
 
-  if (!paged) {
-    return { reservations, total: reservations.length, error: null };
-  }
-
   const filtered = applyReservationListFilter(
-    reservations,
+    reservationsWithoutInquiry,
     list?.filterField,
     list?.filterValue
   );
@@ -625,6 +661,11 @@ async function getReservationsUncached(filters: ReservationFilters = {}) {
   const page = list?.page ?? parsePageParam(undefined);
   const pageSize = list?.pageSize ?? DEFAULT_LIST_PAGE_SIZE;
   const pagedResult = paginateItems(sorted, page, pageSize);
+
+  const pageRows = pagedResult.items
+    .map((item) => rows.find((r) => r.reservation_id === item.reservation_id))
+    .filter((r): r is DbListRow => Boolean(r));
+  const requestInquiries = await loadRequestInquiriesForRows(supabase, pageRows);
 
   if (!needsAllAssignments) {
     const pageIds = pagedResult.items.map((r) => r.reservation_id);
@@ -648,8 +689,16 @@ async function getReservationsUncached(filters: ReservationFilters = {}) {
     };
   }
 
+  const hydrated = pagedResult.items.map((item) => {
+    const row = rows.find((r) => r.reservation_id === item.reservation_id);
+    if (!row) return item;
+    return mapReservationListItem(row, assignmentsByReservation, refDate, requestInquiries, {
+      deriveAssignmentStatus: true,
+    });
+  });
+
   return {
-    reservations: pagedResult.items,
+    reservations: hydrated,
     total: pagedResult.total,
     error: null,
   };

@@ -27,6 +27,19 @@ export function normalizeSearchText(input: string): string {
   return normalizeKana(input.trim().toLowerCase());
 }
 
+/** SQL ilike 用にひらがな・カタカナ双方の候補を返す（JS 側カナ折りとの取りこぼしを減らす） */
+export function kanaSearchVariants(input: string): string[] {
+  const raw = input.trim();
+  if (!raw) return [];
+  const hira = normalizeKana(raw);
+  const kata = hira
+    .split("")
+    .map((ch) => HIRA_TO_KATA[ch] ?? ch)
+    .join("");
+  return [...new Set([raw, hira, kata].map((s) => s.trim()).filter(Boolean))];
+}
+
+
 function digitsOnly(input: string): string {
   return input.replace(/[^\d]/g, "");
 }
