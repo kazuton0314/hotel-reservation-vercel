@@ -71,11 +71,23 @@ export const REQUEST_STATUS_OPTIONS = REQUEST_WORKFLOW_STATUSES;
 
 export async function getRequests(filters: RequestListFilters = {}) {
   const key = JSON.stringify(filters);
-  return unstable_cache(
-    () => getRequestsUncached(filters),
-    ["requests", key],
-    { tags: [CACHE_TAGS.requests], revalidate: 120 }
-  )();
+  try {
+    return await unstable_cache(
+      async () => {
+        const result = await getRequestsUncached(filters);
+        if (result.error) throw new Error(result.error);
+        return result;
+      },
+      ["requests", key],
+      { tags: [CACHE_TAGS.requests], revalidate: 120 }
+    )();
+  } catch (e) {
+    return {
+      requests: [] as RequestListItem[],
+      total: 0,
+      error: e instanceof Error ? e.message : String(e),
+    };
+  }
 }
 
 const REQUEST_LIST_SELECT =
@@ -176,10 +188,12 @@ async function getRequestsUncached(filters: RequestListFilters = {}) {
     };
   }
 
+  const IN_MEMORY_FETCH_CAP = 2000;
   let query = supabase
     .from("reservation_requests")
     .select(REQUEST_LIST_SELECT)
-    .order("check_in", { ascending: true, nullsFirst: false });
+    .order("check_in", { ascending: true, nullsFirst: false })
+    .limit(IN_MEMORY_FETCH_CAP);
 
   if (filters.scope === "archive" || filters.scope === "past") {
     query = query.or(`is_archived.eq.true,check_out.lt.${today}`);
@@ -192,7 +206,14 @@ async function getRequestsUncached(filters: RequestListFilters = {}) {
     query = query.eq("status", filters.status);
   }
 
-  const { data, error } = await query;
+  
+  const checkIn = String(list?.checkIn ?? "").trim();
+  if (checkIn) {
+    query = query.eq("check_in", checkIn);
+  }
+  query = applyRequestKeywordFilter(query, list?.q);
+
+const { data, error } = await query;
   if (error) {
     return { requests: [] as RequestListItem[], total: 0, error: error.message };
   }

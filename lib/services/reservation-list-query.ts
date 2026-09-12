@@ -8,6 +8,7 @@ import { UNASSIGNED_ROOM_FILTER } from "@/lib/services/reservation-list-filter";
 import { idPrefixIlikePattern, isIdLikeQuery } from "@/lib/utils/id-search";
 import type { ListSort } from "@/lib/utils/list-sort";
 import { escapeIlike } from "@/lib/utils/sql-ilike";
+import { kanaSearchVariants } from "@/lib/utils/list-search";
 
 /** DB 列へ直接 eq/in できる絞り込み（SQL ページング経路で適用） */
 const SQL_EQ_RESERVATION_FILTER_FIELDS = new Set([
@@ -67,20 +68,25 @@ export function applyReservationKeywordFilter<
     return query.ilike("reservation_id", `${idPrefixIlikePattern(keyword)}%`);
   }
 
-  const q = escapeIlike(keyword);
-  return query.or(
-    [
-      `representative_name.ilike.%${q}%`,
-      `name_kana.ilike.%${q}%`,
-      `last_name.ilike.%${q}%`,
-      `first_name.ilike.%${q}%`,
-      `last_name_kana.ilike.%${q}%`,
-      `first_name_kana.ilike.%${q}%`,
-      `group_name.ilike.%${q}%`,
-      `email.ilike.%${q}%`,
-      `phone.ilike.%${q}%`,
-    ].join(",")
-  );
+  const fields = [
+    "representative_name",
+    "name_kana",
+    "last_name",
+    "first_name",
+    "last_name_kana",
+    "first_name_kana",
+    "group_name",
+    "email",
+    "phone",
+  ];
+  const clauses: string[] = [];
+  for (const variant of kanaSearchVariants(keyword)) {
+    const q = escapeIlike(variant);
+    for (const field of fields) {
+      clauses.push(`${field}.ilike.%${q}%`);
+    }
+  }
+  return query.or(clauses.join(","));
 }
 
 export function applyRequestKeywordFilter<
@@ -93,19 +99,24 @@ export function applyRequestKeywordFilter<
     return query.ilike("request_id", `${idPrefixIlikePattern(keyword)}%`);
   }
 
-  const q = escapeIlike(keyword);
-  return query.or(
-    [
-      `representative_name.ilike.%${q}%`,
-      `name_kana.ilike.%${q}%`,
-      `last_name.ilike.%${q}%`,
-      `first_name.ilike.%${q}%`,
-      `last_name_kana.ilike.%${q}%`,
-      `first_name_kana.ilike.%${q}%`,
-      `email.ilike.%${q}%`,
-      `phone.ilike.%${q}%`,
-    ].join(",")
-  );
+  const fields = [
+    "representative_name",
+    "name_kana",
+    "last_name",
+    "first_name",
+    "last_name_kana",
+    "first_name_kana",
+    "email",
+    "phone",
+  ];
+  const clauses: string[] = [];
+  for (const variant of kanaSearchVariants(keyword)) {
+    const q = escapeIlike(variant);
+    for (const field of fields) {
+      clauses.push(`${field}.ilike.%${q}%`);
+    }
+  }
+  return query.or(clauses.join(","));
 }
 
 export function applyReservationListOrder<
