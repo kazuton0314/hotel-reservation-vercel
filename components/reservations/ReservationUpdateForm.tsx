@@ -199,6 +199,18 @@ export function ReservationUpdateForm(props: Props) {
   const [appliedSaveAt, setAppliedSaveAt] = useState<string | null>(null);
   const skipFirstPropsSync = useRef(true);
   const localSavePinRef = useRef<GuestBreakdownValues | null>(null);
+  const handledConflictRef = useRef(false);
+
+  // 楽観ロック競合時は最新の updated_at を取り直す（入力中の人数ピンは維持）
+  useEffect(() => {
+    if (isPending) {
+      handledConflictRef.current = false;
+      return;
+    }
+    if (state.ok !== false || !state.conflict || handledConflictRef.current) return;
+    handledConflictRef.current = true;
+    router.refresh();
+  }, [state, isPending, router]);
 
   const savedGuests =
     state.ok === true && "guests" in state && state.guests
