@@ -253,11 +253,12 @@ async function syncReservationToGCalUnlocked(
           .eq("reservation_id", reservationId)
           .maybeSingle();
         if (latest && shouldRemoveFromGCal(latest)) {
+          // gcal_event_id のみ更新。updated_at は進めない
+          // （部屋割保存後のカレンダー同期で台帳の楽観ロックが壊れるのを防ぐ）
           await supabase
             .from("reservations")
             .update({
               gcal_event_id: null,
-              updated_at: new Date().toISOString(),
             })
             .eq("reservation_id", reservationId)
             .eq("status", "キャンセル");
@@ -315,7 +316,6 @@ async function syncReservationToGCalUnlocked(
             .from("reservations")
             .update({
               gcal_event_id: null,
-              updated_at: new Date().toISOString(),
             })
             .eq("reservation_id", reservationId)
             .eq("status", "キャンセル");
@@ -323,11 +323,11 @@ async function syncReservationToGCalUnlocked(
         return { ok: true, skipped: true };
       }
 
+      // カレンダー側メタのみ。updated_at を触ると詳細画面の台帳保存と競合する
       await supabase
         .from("reservations")
         .update({
           gcal_event_id: eventId,
-          updated_at: new Date().toISOString(),
         })
         .eq("reservation_id", reservationId)
         .in("status", ["仮予約", "確定"]);
