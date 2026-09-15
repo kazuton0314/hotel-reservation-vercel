@@ -60,7 +60,7 @@ function parseCsv(content: string): string[][] {
   return rows;
 }
 
-function csvToRecords(filePath: string): Record<string, unknown>[] {
+export function csvToRecords(filePath: string): Record<string, unknown>[] {
   const raw = readFileSync(filePath, "utf-8").replace(/^\uFEFF/, "");
   const table = parseCsv(raw);
   if (table.length === 0) return [];
