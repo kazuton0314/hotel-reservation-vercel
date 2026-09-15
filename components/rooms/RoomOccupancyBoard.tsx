@@ -163,6 +163,14 @@ function OccEventBlock({
   );
 }
 
+type OccBoardEvent =
+  RoomOccupancyMonthView["days"][0]["cells"][0]["events"][0];
+
+/** 純 OUT（オレンジ）だけを上段に。同日IN/OUT・IN・滞在は下段。 */
+function isPureCheckoutEvent(ev: OccBoardEvent): boolean {
+  return Boolean(ev.isCheckout && !ev.isCheckin);
+}
+
 function OccCellContent({
   cell,
   editMode,
@@ -173,30 +181,45 @@ function OccCellContent({
   cell: RoomOccupancyMonthView["days"][0]["cells"][0];
   editMode: boolean;
   assignmentCountByReservation: Map<string, number>;
-  onAddRoom: (ev: RoomOccupancyMonthView["days"][0]["cells"][0]["events"][0]) => void;
-  onRemoveRoom: (
-    ev: RoomOccupancyMonthView["days"][0]["cells"][0]["events"][0]
-  ) => void;
+  onAddRoom: (ev: OccBoardEvent) => void;
+  onRemoveRoom: (ev: OccBoardEvent) => void;
 }) {
   if (!cell.events.length) {
     return <span className="occ-empty">—</span>;
   }
 
+  const outEvents = cell.events.filter(isPureCheckoutEvent);
+  const inStayEvents = cell.events.filter((ev) => !isPureCheckoutEvent(ev));
+  const hasOut = outEvents.length > 0;
+
+  const renderBlock = (ev: OccBoardEvent) => (
+    <OccEventBlock
+      key={`${ev.reservationId}-${ev.roomAssignmentId}-${ev.isCheckin}-${ev.isCheckout}-${ev.isStay}`}
+      ev={ev}
+      isShared={cell.isShared}
+      editMode={editMode}
+      assignmentCount={
+        assignmentCountByReservation.get(ev.reservationId) ?? 0
+      }
+      onAddRoom={() => onAddRoom(ev)}
+      onRemoveRoom={() => onRemoveRoom(ev)}
+    />
+  );
+
+  // OUT なし: これまで通り上詰めの1列
+  if (!hasOut) {
+    return <>{inStayEvents.map(renderBlock)}</>;
+  }
+
+  // OUT あり: 上段 OUT / 下段 IN・滞在（OUT 群の最下部に続けて表示）
   return (
     <>
-      {cell.events.map((ev) => (
-        <OccEventBlock
-          key={`${ev.reservationId}-${ev.roomAssignmentId}-${ev.isCheckin}-${ev.isCheckout}-${ev.isStay}`}
-          ev={ev}
-          isShared={cell.isShared}
-          editMode={editMode}
-          assignmentCount={
-            assignmentCountByReservation.get(ev.reservationId) ?? 0
-          }
-          onAddRoom={() => onAddRoom(ev)}
-          onRemoveRoom={() => onRemoveRoom(ev)}
-        />
-      ))}
+      <div className="occ-cell-row occ-cell-row-out">{outEvents.map(renderBlock)}</div>
+      {inStayEvents.length ? (
+        <div className="occ-cell-row occ-cell-row-in">
+          {inStayEvents.map(renderBlock)}
+        </div>
+      ) : null}
     </>
   );
 }

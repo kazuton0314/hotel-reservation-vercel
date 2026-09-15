@@ -1715,17 +1715,23 @@ html[data-theme="dark"] .setup-room-trigger {
   padding: 3px;
   min-height: 100%;
 }
-.occ-cell-inner .occ-event.occ-checkout {
-  order: 1;
+/* OUT 上段 / IN・滞在 下段。行内の並びは DOM 順（ソート済み）を使う */
+.occ-cell-row {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
-.occ-cell-inner .occ-event.occ-turn {
-  order: 2;
+.occ-cell-row-out {
+  flex: 0 0 auto;
 }
-.occ-cell-inner .occ-event.occ-checkin {
-  order: 3;
+.occ-cell-row-in {
+  flex: 0 0 auto;
 }
-.occ-cell-inner .occ-event.occ-stay {
-  order: 4;
+.occ-cell-row-out + .occ-cell-row-in {
+  margin-top: 3px;
+}
+.occ-cell-row .occ-event:last-child {
+  margin-bottom: 0;
 }
 .occ-day-num {
   display: block;
