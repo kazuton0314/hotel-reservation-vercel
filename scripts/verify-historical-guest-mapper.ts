@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
-import { mapHistoricalGuestExtras } from "../lib/import/historical-guest-mapper";
+import {
+  evaluateHistoricalLodgingPayment,
+  mapHistoricalGuestExtras,
+} from "../lib/import/historical-guest-mapper";
 
 const mapped = mapHistoricalGuestExtras({
   代表者年齢: "42",
@@ -33,5 +36,27 @@ assert.equal(mapped.charges[1]?.category, "BBQ料金");
 assert.equal(mapped.charges[1]?.unit_price, 2000);
 assert.equal(mapped.charges[2]?.label, "20%");
 assert.equal(mapped.charges[2]?.subtotal, 1000);
+
+const paid = evaluateHistoricalLodgingPayment({
+  チェックイン日: "2006-08-01",
+  チェックアウト日: "2006-08-03",
+  宿泊人数: "2",
+  "宿泊料金1（単価）": "3500",
+  "宿泊料金1（人数）": "4",
+  "宿泊料金1（小計）": "14000",
+});
+assert.equal(paid.complete, true);
+assert.equal(paid.expectedGuestNights, 4);
+
+const unpaid = evaluateHistoricalLodgingPayment({
+  チェックイン日: "2006-08-01",
+  チェックアウト日: "2006-08-03",
+  宿泊人数: "2",
+  "宿泊料金1（単価）": "3500",
+  "宿泊料金1（人数）": "2",
+  "宿泊料金1（小計）": "14000",
+});
+assert.equal(unpaid.complete, false);
+assert.equal(unpaid.issues.length, 2);
 
 console.log("historical guest mapper: OK");

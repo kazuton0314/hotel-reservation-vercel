@@ -1,6 +1,10 @@
 import { createHash } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { mapHistoricalGuestExtras, type HistoricalChargeInsert } from "@/lib/import/historical-guest-mapper";
+import {
+  evaluateHistoricalLodgingPayment,
+  mapHistoricalGuestExtras,
+  type HistoricalChargeInsert,
+} from "@/lib/import/historical-guest-mapper";
 import { normalizeGuestBreakdownForStorage, normalizeGuestTotalForStorage } from "@/lib/utils/guest-count-format";
 import {
   ARRIVAL_TIME_OPTIONS,
@@ -126,6 +130,7 @@ export function mapHistoricalGuestRecord(record: JsonRecord): HistoricalImportIt
   warnIfOutside(warnings, "支払方法", fields["支払方法"], ["Cash", "Pay", "Airbnb", "振込", "その他"]);
 
   const extras = mapHistoricalGuestExtras(fields);
+  const lodgingPayment = evaluateHistoricalLodgingPayment(fields);
   const lastName = text(fields["代表者姓"]);
   const firstName = text(fields["代表者名"]);
   const representativeName = [lastName, firstName].filter(Boolean).join(" ") || null;
@@ -227,7 +232,7 @@ export function mapHistoricalGuestRecord(record: JsonRecord): HistoricalImportIt
     assignment_status: rooms.length ? "割当済" : "未割当",
     companion_form_answered: companions.length > 0,
     payment_method: text(fields["支払方法"]),
-    payment_status: text(fields["入金状況"]) ?? "未払い",
+    payment_status: lodgingPayment.complete ? "完了" : "未払い",
     customer_id: null,
     internal_memo: text(record.review?.memo) ?? text(fields["運用メモ"]),
     guest_memo: appendPastMemo(extras.guestMemo, fields),

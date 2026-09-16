@@ -14,6 +14,7 @@
     "sync:historical-sheet": "tsx scripts/sync-historical-sheet.ts",
     "write:historical-json-to-sheet": "tsx scripts/write-historical-json-to-sheet.ts",
     "import:historical-guests": "tsx scripts/import-historical-guests.ts",
+    "backfill:historical-payment-status": "tsx scripts/backfill-historical-payment-status.ts",
     "check:form-import": "tsx scripts/check-form-import.ts",
     "sync:forms": "tsx scripts/sync-forms.ts",
     "sync:gcal": "tsx scripts/sync-gcal.ts",
