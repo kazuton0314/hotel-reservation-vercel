@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { OverlapStayItem } from "@/lib/queries/overlapping-stays";
 import { groupOverlapStays } from "@/lib/utils/overlap-stay-display";
+import { formatReservationId } from "@/lib/utils/reservation-id";
 
 export function OverlapStayList({
   stays,
@@ -34,7 +35,7 @@ export function OverlapStayList({
                 {stay.representative_name || "—"}
               </p>
               <p className="card-sub">
-                {stay.reservation_id} / {stay.check_in}〜{stay.check_out} /{" "}
+                {formatReservationId(stay.reservation_id)} / {stay.check_in}〜{stay.check_out} /{" "}
                 {stay.status || "—"}
                 {stay.guest_total ? ` / ${stay.guest_total}名` : ""}
               </p>

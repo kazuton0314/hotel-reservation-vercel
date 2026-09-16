@@ -6,6 +6,7 @@ import { ReservationListStatusActions } from "@/components/reservations/Reservat
 import { ReservationTaskChips } from "@/components/reservations/ReservationTaskChips";
 import { formatDisplayName } from "@/lib/utils/display-name";
 import { formatGuestCompact } from "@/lib/utils/guest-display";
+import { formatReservationId } from "@/lib/utils/reservation-id";
 
 export type ReservationCardItem = DashboardListItem;
 
@@ -88,7 +89,7 @@ export function ReservationDashboardCard({
         </div>
       </div>
       <p className="card-sub">
-        {normalized.reservationId} / {normalized.checkIn}〜{normalized.checkOut}
+        {formatReservationId(normalized.reservationId)} / {normalized.checkIn}〜{normalized.checkOut}
         {displayNight ? ` / ${displayNight}泊目` : ""}
       </p>
       <ReservationTaskChips

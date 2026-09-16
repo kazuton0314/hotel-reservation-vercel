@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { formatReservationId } from "@/lib/utils/reservation-id";
 
 type Reservation = {
   reservationId: string;
@@ -34,7 +35,7 @@ export function CustomerReservationHistory({
           className="customer-history-row block"
         >
           <div className="customer-history-row-main">
-            <span className="customer-history-id">{r.reservationId}</span>
+            <span className="customer-history-id">{formatReservationId(r.reservationId)}</span>
             <span className="customer-history-status">{r.status || "—"}</span>
           </div>
           <p className="customer-history-meta">

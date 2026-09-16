@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { filterListBySearch } from "@/lib/utils/list-search";
+import { formatReservationId } from "@/lib/utils/reservation-id";
 
 type Candidate = {
   reservation_id: string;
@@ -85,7 +86,7 @@ export function LinkReservationPicker({
                   {c.representative_name || "—"}
                 </p>
                 <p className="card-sub">
-                  {c.reservation_id} / {c.check_in}〜{c.check_out} /{" "}
+                  {formatReservationId(c.reservation_id)} / {c.check_in}〜{c.check_out} /{" "}
                   {c.status}
                 </p>
               </Button>

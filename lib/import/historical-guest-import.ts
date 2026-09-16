@@ -63,6 +63,14 @@ function stableId(prefix: string, source: string, length = 16): string {
   return `${prefix}-${createHash("sha256").update(source).digest("hex").slice(0, length)}`;
 }
 
+function historicalReservationId(importKey: string, year: string): string {
+  const fileName = importKey.replace(/\\/g, "/").split("/").pop() ?? "";
+  const stem = fileName.replace(/\.[^.]+$/, "");
+  const match = stem.match(/(\d+)$/);
+  if (!match) throw new Error(`${importKey}: ファイル名末尾に連番がありません`);
+  return `PAST-${year}-${match[1].padStart(3, "0")}`;
+}
+
 function appendPastMemo(base: string | null, fields: Record<string, unknown>): string | null {
   const parts = base ? [base] : [];
   const reservationDate = text(fields["予約日"]);
@@ -77,7 +85,7 @@ export function mapHistoricalGuestRecord(record: JsonRecord): HistoricalImportIt
   if (!importKey || !sha256) throw new Error("import_key または source.sha256 がありません");
   const year = text(record.source?.year_folder) ?? importKey.split("/")[0] ?? "unknown";
   const importRowId = `sha256:${sha256}`;
-  const reservationId = `PAST-${year}-${sha256.slice(0, 12).toUpperCase()}`;
+  const reservationId = historicalReservationId(importKey, year);
   const checkIn = text(fields["チェックイン日"]);
   const checkOut = text(fields["チェックアウト日"]);
   const warnings: string[] = [];

@@ -20,6 +20,7 @@ import { getReservationById } from "@/lib/queries/reservations";
 import { formatReceivedDateFromIso } from "@/lib/utils/received-date";
 import { buildCustomerHistoryHref } from "@/lib/utils/customer-history-link";
 import { formatGuestCompact } from "@/lib/utils/guest-display";
+import { formatReservationId } from "@/lib/utils/reservation-id";
 import {
   RESERVATION_STATUS_RAIL_BRANCH,
   RESERVATION_STATUS_RAIL_MAIN,
@@ -141,7 +142,7 @@ async function DetailContent({
 
       <DetailBlock title="予約内容">
         <FormSectionLabel>管理</FormSectionLabel>
-        <Kv label="予約ID" value={String(r.reservation_id)} />
+        <Kv label="予約ID" value={formatReservationId(String(r.reservation_id))} />
         <Kv
           label="受付日"
           value={formatReceivedDateFromIso(

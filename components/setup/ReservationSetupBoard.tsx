@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { formatReservationId } from "@/lib/utils/reservation-id";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { SetupCommitBar } from "@/components/setup/SetupCommitBar";
@@ -271,7 +272,7 @@ export function ReservationSetupBoard({ reservations, rooms }: Props) {
                   >
                     <td className="setup-sticky setup-col-id">
                       <Link href={`/reservations/${row.reservation_id}`}>
-                        {row.reservation_id}
+                        {formatReservationId(row.reservation_id)}
                       </Link>
                     </td>
                     <td

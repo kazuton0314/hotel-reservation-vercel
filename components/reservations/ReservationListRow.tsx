@@ -6,6 +6,7 @@ import { ReservationTaskChips } from "@/components/reservations/ReservationTaskC
 import { formatReceivedDate } from "@/lib/services/reservation-list-filter";
 import { formatDisplayName } from "@/lib/utils/display-name";
 import { formatGuestCompact } from "@/lib/utils/guest-display";
+import { formatReservationId } from "@/lib/utils/reservation-id";
 
 export function ReservationListRow({ item }: { item: ReservationListItem }) {
   const compact = formatGuestCompact({
@@ -37,7 +38,7 @@ export function ReservationListRow({ item }: { item: ReservationListItem }) {
         </div>
       </div>
       <p className="card-sub">
-        {item.reservation_id} / {item.check_in}〜{item.check_out}
+        {formatReservationId(item.reservation_id)} / {item.check_in}〜{item.check_out}
         {received ? ` / 受付 ${received}` : ""}
       </p>
       <ReservationTaskChips

@@ -4,6 +4,7 @@ import { loadEnvLocal } from "./load-env";
 import { createAdminClient } from "@/lib/supabase/server";
 import { finishImportJobRun, startImportJobRun } from "@/lib/ops/job-runs";
 import { rebuildAllCustomers } from "@/lib/services/customer-index";
+import { renameReservationId } from "@/lib/services/rename-reservation-id";
 import {
   findExistingHistoricalReservations,
   mapHistoricalGuestRecord,
@@ -47,6 +48,13 @@ async function main() {
   const existing = await findExistingHistoricalReservations(supabase, year);
   const sourceIds = new Set(items.map((item) => item.importRowId));
   const stale = existing.filter((row) => !sourceIds.has(String(row.import_row_id ?? "")));
+  const desiredByImportId = new Map(items.map((item) => [item.importRowId, item.reservationId]));
+  const renames = existing
+    .map((row) => ({
+      fromId: String(row.reservation_id),
+      toId: desiredByImportId.get(String(row.import_row_id ?? "")) ?? "",
+    }))
+    .filter((item) => item.toId && item.fromId !== item.toId);
   const warnings = items.flatMap((item) => item.warnings.map((warning) => `${item.importKey}: ${warning}`));
   const summary = {
     mode: execute ? "execute" : "dry-run",
@@ -58,6 +66,7 @@ async function main() {
     charges: items.reduce((sum, item) => sum + item.charges.length, 0),
     existingHistoricalReservations: existing.length,
     staleHistoricalReservations: stale.map((row) => row.reservation_id),
+    reservationIdRenames: renames,
     warnings,
   };
   const previewDir = path.join(extractorRoot, "output", "import-previews");
@@ -71,6 +80,9 @@ async function main() {
 
   const runId = await startImportJobRun(supabase, "import-historical-guests", year);
   try {
+    for (const rename of renames) {
+      await renameReservationId(supabase, rename);
+    }
     for (const chunk of chunks(items.map((item) => item.reservation), 50)) {
       await checked(supabase.from("reservations").upsert(chunk, { onConflict: "reservation_id" }));
     }
