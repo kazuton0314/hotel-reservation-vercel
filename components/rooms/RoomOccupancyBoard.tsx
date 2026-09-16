@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import {
+  Fragment,
   useCallback,
   useEffect,
   useMemo,
@@ -171,26 +172,35 @@ function isPureCheckoutEvent(ev: OccBoardEvent): boolean {
   return Boolean(ev.isCheckout && !ev.isCheckin);
 }
 
+type OccCellSection = "all" | "out" | "in-stay";
+
 function OccCellContent({
   cell,
+  section = "all",
+  showEmpty = true,
   editMode,
   assignmentCountByReservation,
   onAddRoom,
   onRemoveRoom,
 }: {
   cell: RoomOccupancyMonthView["days"][0]["cells"][0];
+  section?: OccCellSection;
+  showEmpty?: boolean;
   editMode: boolean;
   assignmentCountByReservation: Map<string, number>;
   onAddRoom: (ev: OccBoardEvent) => void;
   onRemoveRoom: (ev: OccBoardEvent) => void;
 }) {
-  if (!cell.events.length) {
-    return <span className="occ-empty">—</span>;
-  }
+  const events =
+    section === "out"
+      ? cell.events.filter(isPureCheckoutEvent)
+      : section === "in-stay"
+        ? cell.events.filter((ev) => !isPureCheckoutEvent(ev))
+        : cell.events;
 
-  const outEvents = cell.events.filter(isPureCheckoutEvent);
-  const inStayEvents = cell.events.filter((ev) => !isPureCheckoutEvent(ev));
-  const hasOut = outEvents.length > 0;
+  if (!events.length) {
+    return showEmpty ? <span className="occ-empty">—</span> : null;
+  }
 
   const renderBlock = (ev: OccBoardEvent) => (
     <OccEventBlock
@@ -206,22 +216,7 @@ function OccCellContent({
     />
   );
 
-  // OUT なし: これまで通り上詰めの1列
-  if (!hasOut) {
-    return <>{inStayEvents.map(renderBlock)}</>;
-  }
-
-  // OUT あり: 上段 OUT / 下段 IN・滞在（OUT 群の最下部に続けて表示）
-  return (
-    <>
-      <div className="occ-cell-row occ-cell-row-out">{outEvents.map(renderBlock)}</div>
-      {inStayEvents.length ? (
-        <div className="occ-cell-row occ-cell-row-in">
-          {inStayEvents.map(renderBlock)}
-        </div>
-      ) : null}
-    </>
-  );
+  return <>{events.map(renderBlock)}</>;
 }
 
 export function RoomOccupancyBoard({
@@ -673,58 +668,101 @@ export function RoomOccupancyBoard({
           </thead>
           <tbody>
             {displayData.days.map((day) => {
-              const rowCls = [
+              const baseRowCls = [
                 "occ-day-row",
                 day.isToday ? "occ-today-row" : "",
                 day.isWeekend ? "occ-weekend-row" : "",
               ]
                 .filter(Boolean)
                 .join(" ");
+              const hasOut = day.cells.some((cell) =>
+                cell.events.some(isPureCheckoutEvent)
+              );
+              const hasInStay = day.cells.some((cell) =>
+                cell.events.some((ev) => !isPureCheckoutEvent(ev))
+              );
+              const splitTurnover = hasOut && hasInStay;
+
+              const renderCells = (
+                section: OccCellSection,
+                keySuffix: string
+              ) =>
+                day.cells.map((cell) => {
+                  const cellCls = [
+                    "occ-cell",
+                    cell.isShared ? "occ-shared-cell" : "",
+                    cell.isUnassignedColumn ? "occ-unassigned-cell" : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ");
+                  return (
+                    <td
+                      key={`${day.date}-${cell.roomId}-${keySuffix}`}
+                      className={cellCls}
+                      data-date={day.date}
+                      data-room-id={cell.roomId}
+                    >
+                      <div className="occ-cell-inner">
+                        <OccCellContent
+                          cell={cell}
+                          section={section}
+                          showEmpty={!splitTurnover}
+                          editMode={editMode}
+                          assignmentCountByReservation={
+                            assignmentCountByReservation
+                          }
+                          onAddRoom={(ev) =>
+                            handleAddRoomRequest(ev, cell.roomId)
+                          }
+                          onRemoveRoom={(ev) =>
+                            handleRemoveRoom(ev, cell.roomId)
+                          }
+                        />
+                      </div>
+                    </td>
+                  );
+                });
+
+              const dateCell = (rowSpan?: number) => (
+                <td className="occ-date-col" rowSpan={rowSpan}>
+                  <span className="occ-day-num">{day.dayNum}</span>
+                  <span className="occ-wd">{day.weekday}</span>
+                </td>
+              );
+
+              if (!splitTurnover) {
+                return (
+                  <tr
+                    key={day.date}
+                    className={baseRowCls}
+                    data-date={day.date}
+                    id={day.isToday ? "occ-row-today" : undefined}
+                  >
+                    {dateCell()}
+                    {renderCells("all", "all")}
+                  </tr>
+                );
+              }
+
               return (
-                <tr
-                  key={day.date}
-                  className={rowCls}
-                  data-date={day.date}
-                  id={day.isToday ? "occ-row-today" : undefined}
-                >
-                  <td className="occ-date-col">
-                    <span className="occ-day-num">{day.dayNum}</span>
-                    <span className="occ-wd">{day.weekday}</span>
-                  </td>
-                  {day.cells.map((cell) => {
-                    const cellCls = [
-                      "occ-cell",
-                      cell.isShared ? "occ-shared-cell" : "",
-                      cell.isUnassignedColumn ? "occ-unassigned-cell" : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" ");
-                    return (
-                      <td
-                        key={`${day.date}-${cell.roomId}`}
-                        className={cellCls}
-                        data-date={day.date}
-                        data-room-id={cell.roomId}
-                      >
-                        <div className="occ-cell-inner">
-                          <OccCellContent
-                            cell={cell}
-                            editMode={editMode}
-                            assignmentCountByReservation={
-                              assignmentCountByReservation
-                            }
-                            onAddRoom={(ev) =>
-                              handleAddRoomRequest(ev, cell.roomId)
-                            }
-                            onRemoveRoom={(ev) =>
-                              handleRemoveRoom(ev, cell.roomId)
-                            }
-                          />
-                        </div>
-                      </td>
-                    );
-                  })}
-                </tr>
+                <Fragment key={day.date}>
+                  <tr
+                    className={`${baseRowCls} occ-day-row-out`}
+                    data-date={day.date}
+                    data-occupancy-section="out"
+                    id={day.isToday ? "occ-row-today" : undefined}
+                  >
+                    {dateCell(2)}
+                    {renderCells("out", "out")}
+                  </tr>
+                  <tr
+                    className={`${baseRowCls} occ-day-row-in-stay`}
+                    data-date={day.date}
+                    data-occupancy-section="in-stay"
+                  >
+                    {renderCells("in-stay", "in-stay")}
+                  </tr>
+                </Fragment>
               );
             })}
           </tbody>

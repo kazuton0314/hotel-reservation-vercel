@@ -86,6 +86,19 @@ function scrubDragArtifacts(body: HTMLElement | null) {
   });
 }
 
+function markDropCells(body: HTMLElement, target: HTMLElement) {
+  const roomId = target.getAttribute("data-room-id");
+  const date = target.getAttribute("data-date");
+  body.querySelectorAll<HTMLElement>(".occ-cell[data-room-id]").forEach((cell) => {
+    if (
+      cell.getAttribute("data-room-id") === roomId &&
+      cell.getAttribute("data-date") === date
+    ) {
+      cell.classList.add("occ-drop-hover");
+    }
+  });
+}
+
 function cellFromPoint(
   body: HTMLElement,
   ghost: HTMLElement | null,
@@ -154,7 +167,7 @@ export function useOccBoardDrag({
       if (!targetRoom || targetRoom === session.fromRoomId) return;
       if (targetRoom === UNASSIGNED_ROOM_ID && session.isUnassigned) return;
       session.dropRoomId = targetRoom;
-      cell.classList.add("occ-drop-hover");
+      markDropCells(body!, cell);
     }
 
     function beginMove(
