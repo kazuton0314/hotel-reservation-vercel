@@ -29,6 +29,7 @@ async function main() {
   const extractorRoot = path.resolve(
     arg("--extractor-root", path.join(process.cwd(), "..", "hotel-guest-form-extract"))!
   );
+  const apply = process.argv.includes("--apply");
   if (!year || !/^\d{4}$/.test(year)) throw new Error("--year YYYY を指定してください");
   if (!spreadsheetId) throw new Error("--spreadsheet-id を指定してください");
 
@@ -63,9 +64,13 @@ async function main() {
 
   const outputDir = path.join(extractorRoot, "output");
   const recordsDir = path.join(outputDir, "records", year);
-  const backupDir = path.join(outputDir, "backups", `before-sheet-sync-${year}-${timestamp()}`);
-  await mkdir(path.dirname(backupDir), { recursive: true });
-  await cp(recordsDir, backupDir, { recursive: true, errorOnExist: true });
+  const backupDir = apply
+    ? path.join(outputDir, "backups", `before-sheet-sync-${year}-${timestamp()}`)
+    : null;
+  if (backupDir) {
+    await mkdir(path.dirname(backupDir), { recursive: true });
+    await cp(recordsDir, backupDir, { recursive: true, errorOnExist: true });
+  }
 
   const syncDir = path.join(outputDir, "sheet-sync");
   await mkdir(syncDir, { recursive: true });
@@ -74,6 +79,24 @@ async function main() {
   await writeFile(csvPath, `\uFEFF${csv}`, "utf8");
 
   const runScript = path.join(extractorRoot, "run.ps1");
+  const audit = spawnSync(
+    "powershell.exe",
+    ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", runScript, "audit", csvPath],
+    { cwd: extractorRoot, encoding: "utf8", stdio: "pipe" }
+  );
+  process.stdout.write(audit.stdout ?? "");
+  process.stderr.write(audit.stderr ?? "");
+  if (audit.status !== 0 && audit.status !== 2) {
+    throw new Error(`事前監査に失敗しました (exit=${audit.status})`);
+  }
+  if (!apply) {
+    console.log(JSON.stringify({ mode: "audit-only", year, rows: rows.length, csvPath, backupDir }, null, 2));
+    return;
+  }
+  if (audit.status === 2) {
+    throw new Error("問題候補が残っているためJSONへ書き戻しません。監査CSVを確認してください");
+  }
+
   const result = spawnSync(
     "powershell.exe",
     ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", runScript, "apply", csvPath],
@@ -83,7 +106,7 @@ async function main() {
   process.stderr.write(result.stderr ?? "");
   if (result.status !== 0) throw new Error(`JSON書き戻しに失敗しました (exit=${result.status})`);
 
-  console.log(JSON.stringify({ year, rows: rows.length, csvPath, backupDir }, null, 2));
+  console.log(JSON.stringify({ mode: "applied", year, rows: rows.length, csvPath, backupDir }, null, 2));
 }
 
 main().catch((error) => {

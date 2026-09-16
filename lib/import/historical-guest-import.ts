@@ -2,6 +2,17 @@ import { createHash } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { mapHistoricalGuestExtras, type HistoricalChargeInsert } from "@/lib/import/historical-guest-mapper";
 import { normalizeGuestBreakdownForStorage, normalizeGuestTotalForStorage } from "@/lib/utils/guest-count-format";
+import {
+  ARRIVAL_TIME_OPTIONS,
+  BBQ_OPTIONS,
+  GROUP_TYPE_OPTIONS,
+  MEAL_OPTIONS,
+  PAYMENT_STATUS_OPTIONS,
+  REFERRAL_OPTIONS,
+  TRANSPORT_OPTIONS,
+  TRAVEL_PURPOSE_OPTIONS,
+  parseMultiSelectValues,
+} from "@/lib/config/field-options";
 
 type JsonRecord = {
   import_key?: string;
@@ -78,6 +89,18 @@ function appendPastMemo(base: string | null, fields: Record<string, unknown>): s
   return parts.length ? parts.join("\n") : null;
 }
 
+function warnIfOutside(
+  warnings: string[],
+  label: string,
+  value: unknown,
+  options: readonly string[],
+  multi = false
+) {
+  const values = multi ? parseMultiSelectValues(text(value)) : [text(value)].filter(Boolean) as string[];
+  const outside = values.filter((item) => !options.includes(item));
+  if (outside.length) warnings.push(`${label}が選択肢外: ${outside.join("、")}`);
+}
+
 export function mapHistoricalGuestRecord(record: JsonRecord): HistoricalImportItem {
   const fields = record.fields ?? {};
   const importKey = text(record.import_key) ?? "";
@@ -92,6 +115,15 @@ export function mapHistoricalGuestRecord(record: JsonRecord): HistoricalImportIt
   if (!checkIn) warnings.push("チェックイン日が空欄");
   if (!checkOut) warnings.push("チェックアウト日が空欄");
   if (text(record.review?.status) !== "確認済") warnings.push("確認状態が確認済ではありません");
+  warnIfOutside(warnings, "グループ形態", fields["グループ形態"], GROUP_TYPE_OPTIONS);
+  warnIfOutside(warnings, "利用目的", fields["利用目的"], TRAVEL_PURPOSE_OPTIONS, true);
+  warnIfOutside(warnings, "紹介元", fields["紹介元"], REFERRAL_OPTIONS);
+  warnIfOutside(warnings, "到着時間", fields["到着時間"], ARRIVAL_TIME_OPTIONS);
+  warnIfOutside(warnings, "交通手段", fields["交通手段"], TRANSPORT_OPTIONS);
+  warnIfOutside(warnings, "食事", fields["食事"], MEAL_OPTIONS);
+  warnIfOutside(warnings, "BBQレンタル", fields["BBQレンタル"], BBQ_OPTIONS);
+  warnIfOutside(warnings, "入金状況", fields["入金状況"], PAYMENT_STATUS_OPTIONS);
+  warnIfOutside(warnings, "支払方法", fields["支払方法"], ["Cash", "Pay", "Airbnb", "振込", "その他"]);
 
   const extras = mapHistoricalGuestExtras(fields);
   const lastName = text(fields["代表者姓"]);
