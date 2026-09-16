@@ -29,10 +29,10 @@ export const MANUAL_CHANNEL_OPTIONS = CHANNEL_OPTIONS;
 export const GROUP_TYPE_OPTIONS = [
   "家族",
   "友人",
-  "企業",
-  "学生",
   "団体",
-  "サークル",
+  "大学",
+  "学生",
+  "会社",
   "その他",
 ] as const;
 
@@ -54,10 +54,9 @@ export const TRANSPORT_OPTIONS = [
 
 export const TRAVEL_PURPOSE_OPTIONS = [
   "観光",
-  "合宿",
-  "仕事",
   "ラフティング",
   "体育館",
+  "BBQ",
   "その他",
 ] as const;
 
@@ -65,8 +64,9 @@ export const REFERRAL_OPTIONS = [
   "リピーター",
   "友人・知人",
   "ネット検索",
-  "Googleマップ",
-  "雑誌等",
+  "Gmap検索",
+  "雑誌など",
+  "TVなど",
   "その他",
 ] as const;
 
