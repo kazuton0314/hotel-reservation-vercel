@@ -26,7 +26,6 @@ import {
   CHANNEL_OPTIONS,
   GROUP_TYPE_OPTIONS,
   MEAL_OPTIONS,
-  PAYMENT_STATUS_OPTIONS,
   REPRESENTATIVE_GENDER_OPTIONS,
   PHONE_AVAILABLE_OPTIONS,
   REFERRAL_OPTIONS,
@@ -82,7 +81,6 @@ type Props = {
   lastStay: string | null;
   internalMemo: string | null;
   guestMemo: string | null;
-  paymentStatus: string | null;
 };
 
 type FormSeed = {
@@ -120,7 +118,6 @@ type FormSeed = {
   lastStay: string | null;
   internalMemo: string | null;
   guestMemo: string | null;
-  paymentStatus: string | null;
 };
 
 const initialState = { ok: true } as const;
@@ -185,7 +182,6 @@ function formSeedFromProps(props: Props): FormSeed {
     lastStay: props.lastStay,
     internalMemo: props.internalMemo,
     guestMemo: props.guestMemo,
-    paymentStatus: props.paymentStatus,
   };
 }
 
@@ -277,7 +273,6 @@ export function ReservationUpdateForm(props: Props) {
     props.checkOut,
     props.internalMemo,
     props.guestMemo,
-    props.paymentStatus,
     props.lastName,
     props.firstName,
     props.representativeAge,
@@ -427,7 +422,7 @@ export function ReservationUpdateForm(props: Props) {
         defaultValue={formSeed.vehicleCount}
       />
 
-      <p className="form-section-label">食事・支払</p>
+      <p className="form-section-label">食事</p>
       <FormSelectField
         label="食事"
         name="meal"
@@ -446,15 +441,6 @@ export function ReservationUpdateForm(props: Props) {
         options={SOMEN_OPTIONS}
         defaultValue={formSeed.somen}
       />
-      <FormSelectField
-        id="f-pay"
-        label="支払"
-        name="payment_status"
-        options={PAYMENT_STATUS_OPTIONS}
-        defaultValue={formSeed.paymentStatus ?? "未払い"}
-        allowEmpty={false}
-      />
-
       <p className="form-section-label">アンケート</p>
       <div className="form-group">
         <label htmlFor="f-inquiry">お問い合わせ内容</label>

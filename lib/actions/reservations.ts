@@ -14,7 +14,6 @@ import { upsertCustomerFromReservation } from "@/lib/services/customer-index";
 import { DEFAULTS } from "@/lib/config/forms";
 import {
   joinMultiSelectValues,
-  PAYMENT_STATUS_OPTIONS,
   REPRESENTATIVE_GENDER_OPTIONS,
   RESERVATION_STATUS_OPTIONS,
 } from "@/lib/config/field-options";
@@ -34,6 +33,7 @@ import { syncReservationToGCal } from "@/lib/services/gcal-sync";
 import { syncAssignmentStatus } from "@/lib/services/assignment-status";
 import { syncRoomAssignmentGuestBreakdown } from "@/lib/services/room-assignment-guest-sync";
 import { syncAssignmentStayDates } from "@/lib/services/room-assignment-stay-sync";
+import { syncAutomaticPaymentStatus } from "@/lib/services/payment-status";
 import {
   clearRoomAssignmentsForReservation,
   shouldClearRoomAssignmentsOnStatus,
@@ -304,6 +304,9 @@ export async function updateReservationAction(
     });
     await syncAssignmentStatus(supabase, reservationId);
   }
+
+  // 人数・日程の変更後、手動上書きでなければ料金明細から支払状況を再判定する。
+  await syncAutomaticPaymentStatus(supabase, reservationId);
 
   const { data: fresh } = await supabase
     .from("reservations")

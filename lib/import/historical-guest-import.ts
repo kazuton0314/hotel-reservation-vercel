@@ -248,7 +248,7 @@ export function mapHistoricalGuestRecord(record: JsonRecord): HistoricalImportIt
 export async function findExistingHistoricalReservations(supabase: SupabaseClient, year: string) {
   const { data, error } = await supabase
     .from("reservations")
-    .select("reservation_id,import_row_id")
+    .select("reservation_id,import_row_id,payment_status,payment_status_manual_override")
     .eq("import_source", "過去取込")
     .gte("check_in", `${year}-01-01`)
     .lte("check_in", `${year}-12-31`);

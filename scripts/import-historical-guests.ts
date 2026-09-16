@@ -56,6 +56,13 @@ async function main() {
     }))
     .filter((item) => item.toId && item.fromId !== item.toId);
   const warnings = items.flatMap((item) => item.warnings.map((warning) => `${item.importKey}: ${warning}`));
+  const existingByImportId = new Map(existing.map((row) => [String(row.import_row_id ?? ""), row]));
+  const reservations = items.map((item) => {
+    const current = existingByImportId.get(item.importRowId);
+    return current?.payment_status_manual_override
+      ? { ...item.reservation, payment_status: current.payment_status, payment_status_manual_override: true }
+      : item.reservation;
+  });
   const summary = {
     mode: execute ? "execute" : "dry-run",
     year,
@@ -83,7 +90,7 @@ async function main() {
     for (const rename of renames) {
       await renameReservationId(supabase, rename);
     }
-    for (const chunk of chunks(items.map((item) => item.reservation), 50)) {
+    for (const chunk of chunks(reservations, 50)) {
       await checked(supabase.from("reservations").upsert(chunk, { onConflict: "reservation_id" }));
     }
     for (const item of items) {

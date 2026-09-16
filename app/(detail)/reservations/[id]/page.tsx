@@ -304,7 +304,6 @@ async function DetailContent({
           lastStay={asString(r.last_stay)}
           internalMemo={asString(r.internal_memo)}
           guestMemo={asString(r.guest_memo)}
-          paymentStatus={asString(r.payment_status)}
         />
       </DetailBlock>
 

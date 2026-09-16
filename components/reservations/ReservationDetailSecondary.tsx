@@ -203,6 +203,8 @@ async function RoomsCompanionsAsync({
           reservationId={reservationId}
           charges={charges}
           tableMissing={chargesTableMissing}
+          paymentStatus={asString(r.payment_status) ?? "未払い"}
+          paymentStatusManualOverride={Boolean(r.payment_status_manual_override)}
         />
       </DetailBlock>
     </>

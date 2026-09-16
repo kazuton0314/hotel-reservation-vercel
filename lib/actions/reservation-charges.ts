@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { revalidateReservationDetail } from "@/lib/cache/revalidate";
 import { RESERVATION_CHARGE_CATEGORY_OPTIONS } from "@/lib/config/field-options";
 import { createStaffClient } from "@/lib/supabase/server";
+import { syncAutomaticPaymentStatus } from "@/lib/services/payment-status";
 
 type ActionResult = { ok: true } | { ok: false; message: string };
 type ParsedNumber = { ok: true; value: number } | { ok: false; error: string };
@@ -93,6 +94,7 @@ export async function addReservationChargeAction(
     sort_order: (last?.[0]?.sort_order ?? 0) + 1,
   });
   if (error) return { ok: false, message: error.message };
+  await syncAutomaticPaymentStatus(supabase, reservationId);
   refresh(reservationId);
   return { ok: true };
 }
@@ -114,6 +116,7 @@ export async function updateReservationChargeAction(
     .eq("id", id)
     .eq("reservation_id", reservationId);
   if (error) return { ok: false, message: error.message };
+  await syncAutomaticPaymentStatus(supabase, reservationId);
   refresh(reservationId);
   return { ok: true };
 }
@@ -133,6 +136,50 @@ export async function deleteReservationChargeAction(
     .eq("id", id)
     .eq("reservation_id", reservationId);
   if (error) return { ok: false, message: error.message };
+  await syncAutomaticPaymentStatus(supabase, reservationId);
+  refresh(reservationId);
+  return { ok: true };
+}
+
+export async function toggleReservationPaymentStatusAction(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const reservationId = String(formData.get("reservation_id") ?? "").trim();
+  const current = String(formData.get("current_status") ?? "未払い");
+  if (!reservationId) return { ok: false, message: "予約IDが不足しています。" };
+  const next = current === "完了" ? "未払い" : "完了";
+  const supabase = await createStaffClient();
+  const { error } = await supabase
+    .from("reservations")
+    .update({
+      payment_status: next,
+      payment_status_manual_override: true,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("reservation_id", reservationId);
+  if (error) return { ok: false, message: error.message };
+  refresh(reservationId);
+  return { ok: true };
+}
+
+export async function resetReservationPaymentStatusAction(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const reservationId = String(formData.get("reservation_id") ?? "").trim();
+  if (!reservationId) return { ok: false, message: "予約IDが不足しています。" };
+  const supabase = await createStaffClient();
+  const { error } = await supabase
+    .from("reservations")
+    .update({ payment_status_manual_override: false })
+    .eq("reservation_id", reservationId);
+  if (error) return { ok: false, message: error.message };
+  try {
+    await syncAutomaticPaymentStatus(supabase, reservationId, { force: true });
+  } catch (syncError) {
+    return { ok: false, message: syncError instanceof Error ? syncError.message : String(syncError) };
+  }
   refresh(reservationId);
   return { ok: true };
 }
