@@ -1717,7 +1717,7 @@ html[data-theme="dark"] .setup-room-trigger {
 }
 /* OUT と IN・滞在が両方ある日は、全室で共通の境界線を作る */
 .occ-day-row-out .occ-cell {
-  border-bottom: 2px solid color-mix(in srgb, var(--border) 65%, var(--text));
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, var(--card));
 }
 .occ-day-row-out .occ-cell-inner,
 .occ-day-row-in-stay .occ-cell-inner {
