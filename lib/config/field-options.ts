@@ -92,6 +92,22 @@ export const SOMEN_OPTIONS = ["要", "不要"] as const;
 
 export const PAYMENT_STATUS_OPTIONS = ["未払い", "完了"] as const;
 
+export const REPRESENTATIVE_GENDER_OPTIONS = [
+  "男性",
+  "女性",
+  "その他",
+  "回答しない",
+] as const;
+
+export const RESERVATION_CHARGE_CATEGORY_OPTIONS = [
+  "宿泊料金",
+  "BBQ料金",
+  "追加炭料金",
+  "体育館料金",
+  "キャンセル料金",
+  "その他",
+] as const;
+
 export const MANUAL_RESERVATION_STATUS_OPTIONS = ["仮予約", "確定"] as const;
 
 /** STUDIO フォームと同じ人数内訳（1〜50）。合計「人数」欄はテキストのまま */

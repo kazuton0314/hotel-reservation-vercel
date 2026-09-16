@@ -38,6 +38,8 @@ export type ReservationInsert = {
   last_name_kana: string | null;
   first_name_kana: string | null;
   name_kana: string | null;
+  representative_age: number | null;
+  representative_gender: string | null;
   group_type: string | null;
   group_name: string | null;
   email: string | null;
@@ -171,6 +173,8 @@ export function mapLedgerCsvRow(
     last_name_kana: asTextField(record["姓ふりがな"]) || null,
     first_name_kana: asTextField(record["名ふりがな"]) || null,
     name_kana: asTextField(record["ふりがな"]) || null,
+    representative_age: Number(asTextField(record["代表者年齢"])) || null,
+    representative_gender: asTextField(record["代表者性別"]) || null,
     group_type: asTextField(record["グループ形態"]) || null,
     group_name: asTextField(record["グループ名"]) || null,
     email: asTextField(record["メールアドレス"]).toLowerCase() || null,
@@ -297,6 +301,8 @@ export function mapStudioFormRow(
     last_name_kana: lastNameKana || null,
     first_name_kana: firstNameKana || null,
     name_kana: joinName(lastNameKana, firstNameKana) || null,
+    representative_age: null,
+    representative_gender: null,
     group_type: asTextField(g(v, idx, "グループ形態")) || null,
     group_name: asTextField(g(v, idx, "グループ名")) || null,
     email: email || null,

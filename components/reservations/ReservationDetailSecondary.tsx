@@ -4,9 +4,11 @@ import { DetailBlock } from "@/components/detail/DetailBlock";
 import { MailHistorySection } from "@/components/mail/MailHistorySection";
 import { OverlapStayList } from "@/components/requests/OverlapStayList";
 import { CompanionSection } from "@/components/reservations/CompanionSection";
+import { ReservationChargesSection } from "@/components/reservations/ReservationChargesSection";
 import { ReservationMailSection } from "@/components/reservations/ReservationMailSection";
 import { RoomAssignmentManager } from "@/components/reservations/RoomAssignmentManager";
 import { getCompanionsByReservationId } from "@/lib/queries/companions";
+import { getReservationCharges } from "@/lib/queries/reservation-charges";
 import { getMailTemplates } from "@/lib/queries/mail-templates";
 import { getOverlappingStays } from "@/lib/queries/overlapping-stays";
 import {
@@ -130,18 +132,23 @@ async function RoomsCompanionsAsync({
   reservationId: string;
   reservation: Record<string, unknown>;
 }) {
-  let [
-    { assignments, error: assignmentError },
+  const [
+    assignmentResult,
     { rooms, error: roomsError },
     { companions, tableMissing: companionsTableMissing },
+    { charges, error: chargesError, tableMissing: chargesTableMissing },
   ] = await Promise.all([
     getRoomAssignmentsByReservationId(reservationId),
     getRooms(),
     getCompanionsByReservationId(reservationId),
+    getReservationCharges(reservationId),
   ]);
+  let { assignments } = assignmentResult;
+  const { error: assignmentError } = assignmentResult;
 
   if (assignmentError) return <ConnectionError message={assignmentError} />;
   if (roomsError) return <ConnectionError message={roomsError} />;
+  if (chargesError) return <ConnectionError message={chargesError} />;
 
   // アーカイブ編集で同一部屋が二重登録された残骸を詳細表示前に畳む
   if (hasDuplicateRoomAssignments(assignments)) {
@@ -188,6 +195,14 @@ async function RoomsCompanionsAsync({
           companions={companions}
           companionFormAnswered={Boolean(r.companion_form_answered)}
           tableMissing={companionsTableMissing}
+        />
+      </DetailBlock>
+
+      <DetailBlock title="料金">
+        <ReservationChargesSection
+          reservationId={reservationId}
+          charges={charges}
+          tableMissing={chargesTableMissing}
         />
       </DetailBlock>
     </>

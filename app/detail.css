@@ -432,6 +432,49 @@ body.subview {
   border-bottom: none;
 }
 
+.charge-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.charge-item {
+  position: relative;
+}
+.charge-line-summary,
+.charge-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.charge-line-summary {
+  margin: 8px 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+.charge-total {
+  margin: 12px 0;
+  padding: 12px 0;
+  border-top: 2px solid var(--border);
+  border-bottom: 2px solid var(--border);
+  font-size: 1rem;
+}
+.charge-total strong {
+  font-size: 1.15rem;
+}
+.charge-delete-form {
+  margin-top: 8px;
+}
+.form-error {
+  color: #b91c1c;
+}
+
+@media (max-width: 420px) {
+  .charge-fields {
+    grid-template-columns: 1fr;
+  }
+}
+
 .detail-nav {
   display: grid;
   grid-template-columns: auto 1fr auto;

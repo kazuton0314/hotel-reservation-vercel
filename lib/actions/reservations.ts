@@ -15,6 +15,7 @@ import { DEFAULTS } from "@/lib/config/forms";
 import {
   joinMultiSelectValues,
   PAYMENT_STATUS_OPTIONS,
+  REPRESENTATIVE_GENDER_OPTIONS,
   RESERVATION_STATUS_OPTIONS,
 } from "@/lib/config/field-options";
 import {
@@ -99,6 +100,29 @@ export async function updateReservationAction(
   const lastNameKana = String(
     formData.get("last_name_kana") ?? current.last_name_kana ?? ""
   );
+  const representativeAgeRaw = String(
+    formData.get("representative_age") ?? current.representative_age ?? ""
+  ).trim();
+  const representativeAge = representativeAgeRaw
+    ? Number(representativeAgeRaw)
+    : null;
+  if (
+    representativeAge !== null &&
+    (!Number.isInteger(representativeAge) || representativeAge < 0 || representativeAge > 120)
+  ) {
+    return { ok: false, message: "代表者年齢は0〜120の整数で入力してください。" };
+  }
+  const representativeGender = String(
+    formData.get("representative_gender") ?? current.representative_gender ?? ""
+  ).trim();
+  if (
+    representativeGender &&
+    !REPRESENTATIVE_GENDER_OPTIONS.includes(
+      representativeGender as (typeof REPRESENTATIVE_GENDER_OPTIONS)[number]
+    )
+  ) {
+    return { ok: false, message: "代表者性別が不正です。" };
+  }
   const firstNameKana = String(
     formData.get("first_name_kana") ?? current.first_name_kana ?? ""
   );
@@ -142,6 +166,8 @@ export async function updateReservationAction(
     last_name_kana: lastNameKana,
     first_name_kana: firstNameKana,
     name_kana: joinName(lastNameKana, firstNameKana),
+    representative_age: representativeAge,
+    representative_gender: representativeGender || null,
     email: String(formData.get("email") ?? current.email ?? ""),
     phone: String(formData.get("phone") ?? current.phone ?? ""),
     phone_available: String(

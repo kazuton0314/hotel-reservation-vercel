@@ -27,6 +27,7 @@ import {
   GROUP_TYPE_OPTIONS,
   MEAL_OPTIONS,
   PAYMENT_STATUS_OPTIONS,
+  REPRESENTATIVE_GENDER_OPTIONS,
   PHONE_AVAILABLE_OPTIONS,
   REFERRAL_OPTIONS,
   RESERVATION_STATUS_OPTIONS,
@@ -49,6 +50,8 @@ type Props = {
   firstName: string | null;
   lastNameKana: string | null;
   firstNameKana: string | null;
+  representativeAge: string | null;
+  representativeGender: string | null;
   email: string | null;
   phone: string | null;
   phoneAvailable: string | null;
@@ -92,6 +95,8 @@ type FormSeed = {
   firstName: string | null;
   lastNameKana: string | null;
   firstNameKana: string | null;
+  representativeAge: string | null;
+  representativeGender: string | null;
   email: string | null;
   phone: string | null;
   phoneAvailable: string | null;
@@ -155,6 +160,8 @@ function formSeedFromProps(props: Props): FormSeed {
     firstName: props.firstName,
     lastNameKana: props.lastNameKana,
     firstNameKana: props.firstNameKana,
+    representativeAge: props.representativeAge,
+    representativeGender: props.representativeGender,
     email: props.email,
     phone: props.phone,
     phoneAvailable: props.phoneAvailable,
@@ -273,6 +280,8 @@ export function ReservationUpdateForm(props: Props) {
     props.paymentStatus,
     props.lastName,
     props.firstName,
+    props.representativeAge,
+    props.representativeGender,
     props.email,
     props.phone,
   ]);
@@ -340,6 +349,18 @@ export function ReservationUpdateForm(props: Props) {
         label="名ふりがな"
         name="first_name_kana"
         defaultValue={formSeed.firstNameKana}
+      />
+      <Fg
+        label="代表者年齢"
+        name="representative_age"
+        type="number"
+        defaultValue={formSeed.representativeAge}
+      />
+      <FormSelectField
+        label="代表者性別"
+        name="representative_gender"
+        options={REPRESENTATIVE_GENDER_OPTIONS}
+        defaultValue={formSeed.representativeGender}
       />
       <FormSelectField
         label="グループ形態"

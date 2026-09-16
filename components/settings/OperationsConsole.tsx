@@ -33,6 +33,7 @@ function formatRefSummary(refs: ReservationIdRefCounts): string {
   return [
     `部屋割 ${refs.roomAssignments}`,
     `同行者 ${refs.companions}`,
+    `料金 ${refs.charges}`,
     `RQ連携 ${refs.linkedRequests}`,
     `取込ログ ${refs.formImportLogs}`,
     `メールログ ${refs.mailLogs}`,

@@ -8,6 +8,7 @@ import { syncSequencesFromLedger } from "@/lib/import/id-generation";
  * - reservation_requests.linked_reservation_id … FK → reservations
  * - room_assignments.reservation_id … FK → reservations
  * - companions.reservation_id … FK → reservations (ON DELETE CASCADE)
+ * - reservation_charges.reservation_id … FK → reservations (ON DELETE CASCADE)
  * - form_import_log.reservation_id … FK → reservations
  * - mail_logs.entity_id … entity_type='reservation' のとき（FKなし）
  *
@@ -17,6 +18,7 @@ import { syncSequencesFromLedger } from "@/lib/import/id-generation";
 export type ReservationIdRefCounts = {
   roomAssignments: number;
   companions: number;
+  charges: number;
   linkedRequests: number;
   formImportLogs: number;
   mailLogs: number;
@@ -56,10 +58,11 @@ export async function countReservationIdReferences(
   reservationId: string
 ): Promise<ReservationIdRefCounts> {
   const id = normalizeId(reservationId);
-  const [roomAssignments, companions, linkedRequests, formImportLogs, mailLogs] =
+  const [roomAssignments, companions, charges, linkedRequests, formImportLogs, mailLogs] =
     await Promise.all([
       countEq(supabase, "room_assignments", "reservation_id", id),
       countEq(supabase, "companions", "reservation_id", id),
+      countEq(supabase, "reservation_charges", "reservation_id", id),
       countEq(supabase, "reservation_requests", "linked_reservation_id", id),
       countEq(supabase, "form_import_log", "reservation_id", id),
       countEq(supabase, "mail_logs", "entity_id", id, {
@@ -70,6 +73,7 @@ export async function countReservationIdReferences(
   return {
     roomAssignments,
     companions,
+    charges,
     linkedRequests,
     formImportLogs,
     mailLogs,
@@ -160,6 +164,13 @@ export async function renameReservationId(
       .update({ reservation_id: toId })
       .eq("reservation_id", fromId);
     if (error) fail("companions", error.message);
+  }
+  {
+    const { error } = await supabase
+      .from("reservation_charges")
+      .update({ reservation_id: toId, updated_at: now })
+      .eq("reservation_id", fromId);
+    if (error) fail("reservation_charges", error.message);
   }
   {
     const { error } = await supabase

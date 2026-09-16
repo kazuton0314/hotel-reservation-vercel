@@ -75,7 +75,10 @@ async function DetailContent({
 
   return (
     <>
-      <RealtimeRefresh tables={["reservations", "room_assignments"]} notify />
+      <RealtimeRefresh
+        tables={["reservations", "room_assignments", "reservation_charges"]}
+        notify
+      />
       <DetailNav
         backHref={backHref}
         backSection={
@@ -152,6 +155,8 @@ async function DetailContent({
         {asString(r.name_kana) ? (
           <Kv label="ふりがな" value={asString(r.name_kana)} />
         ) : null}
+        <Kv label="代表者年齢" value={asString(r.representative_age)} />
+        <Kv label="代表者性別" value={asString(r.representative_gender)} />
         <Kv label="グループ形態" value={asString(r.group_type)} />
         <Kv label="グループ名" value={asString(r.group_name)} />
 
@@ -266,6 +271,8 @@ async function DetailContent({
           firstName={asString(r.first_name)}
           lastNameKana={asString(r.last_name_kana)}
           firstNameKana={asString(r.first_name_kana)}
+          representativeAge={asString(r.representative_age)}
+          representativeGender={asString(r.representative_gender)}
           email={asString(r.email)}
           phone={asString(r.phone)}
           phoneAvailable={asString(r.phone_available)}

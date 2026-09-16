@@ -39,7 +39,7 @@ import { resolvePreservedAccessKey } from "@/lib/utils/access-key";
 
 /** 仮予約上書き時に残す運用系フィールド（フォーム値で潰さない） */
 const PROVISIONAL_PRESERVE_SELECT =
-  "access_key, gcal_event_id, internal_memo, guest_memo, assignment_status, companion_form_answered, completion_email_sent, completion_email_sent_at, day11_email_sent, day11_email_sent_at, day3_email_sent, day3_email_sent_at, customer_id, payment_method, payment_status";
+  "access_key, gcal_event_id, internal_memo, guest_memo, representative_age, representative_gender, assignment_status, companion_form_answered, completion_email_sent, completion_email_sent_at, day11_email_sent, day11_email_sent_at, day3_email_sent, day3_email_sent_at, customer_id, payment_method, payment_status";
 
 export type ImportResult = {
   imported: number;
@@ -422,6 +422,8 @@ export async function importStudioFormRows(
           gcal_event_id: provisionalRow?.gcal_event_id ?? null,
           internal_memo: provisionalRow?.internal_memo ?? null,
           guest_memo: provisionalRow?.guest_memo ?? null,
+          representative_age: provisionalRow?.representative_age ?? null,
+          representative_gender: provisionalRow?.representative_gender ?? null,
           assignment_status:
             provisionalRow?.assignment_status ?? record.assignment_status,
           companion_form_answered:
