@@ -1,8 +1,9 @@
-import { readdir, readFile } from "node:fs/promises";
-import path from "node:path";
-import { createAdminClient } from "@/lib/supabase/server";
-import { evaluateHistoricalLodgingPayment } from "@/lib/import/historical-guest-mapper";
 import { loadEnvLocal } from "./load-env";
+import { createAdminClient } from "@/lib/supabase/server";
+import {
+  calculatePaymentStatus,
+  syncAutomaticPaymentStatus,
+} from "@/lib/services/payment-status";
 
 loadEnvLocal();
 
@@ -14,38 +15,45 @@ function arg(name: string, fallback?: string): string | undefined {
 async function main() {
   const year = arg("--year", process.argv[2]);
   const execute = process.argv.includes("--execute");
-  const extractorRoot = path.resolve(arg("--extractor-root", path.join(process.cwd(), "..", "hotel-guest-form-extract"))!);
   if (!year || !/^\d{4}$/.test(year)) throw new Error("--year YYYY を指定してください");
-  const recordsDir = path.join(extractorRoot, "output", "records", year);
-  const updates: { importRowId: string; importKey: string; paymentStatus: "完了" | "未払い"; issues: string[] }[] = [];
-  for (const file of (await readdir(recordsDir)).filter((name) => name.endsWith(".json")).sort()) {
-    const record = JSON.parse(await readFile(path.join(recordsDir, file), "utf8"));
-    const sha256 = String(record.source?.sha256 ?? "").trim();
-    if (!sha256) throw new Error(`${file}: source.sha256がありません`);
-    const evaluation = evaluateHistoricalLodgingPayment(record.fields ?? {});
-    updates.push({
-      importRowId: `sha256:${sha256}`,
-      importKey: String(record.import_key ?? file),
-      paymentStatus: evaluation.complete ? "完了" : "未払い",
-      issues: evaluation.issues,
-    });
-  }
+  const supabase = createAdminClient();
+  const { data: reservations, error } = await supabase
+    .from("reservations")
+    .select("reservation_id,guest_total,check_in,check_out,nights,payment_status_manual_override")
+    .eq("import_source", "過去取込")
+    .gte("check_in", `${year}-01-01`)
+    .lte("check_in", `${year}-12-31`)
+    .order("reservation_id");
+  if (error) throw error;
+
+  const ids = (reservations ?? []).map((row) => row.reservation_id);
+  const { data: charges, error: chargeError } = ids.length
+    ? await supabase
+        .from("reservation_charges")
+        .select("reservation_id,category,unit_price,quantity,subtotal")
+        .in("reservation_id", ids)
+    : { data: [], error: null };
+  if (chargeError) throw chargeError;
+
+  const results = (reservations ?? []).map((reservation) => ({
+    reservationId: reservation.reservation_id,
+    manualOverride: Boolean(reservation.payment_status_manual_override),
+    ...calculatePaymentStatus(
+      reservation,
+      (charges ?? []).filter((charge) => charge.reservation_id === reservation.reservation_id)
+    ),
+  }));
   console.log(JSON.stringify({
     mode: execute ? "execute" : "dry-run",
     year,
-    total: updates.length,
-    completed: updates.filter((item) => item.paymentStatus === "完了").length,
-    unpaid: updates.filter((item) => item.paymentStatus === "未払い").map((item) => ({ importKey: item.importKey, issues: item.issues })),
+    total: results.length,
+    completed: results.filter((item) => item.status === "完了").length,
+    unpaid: results.filter((item) => item.status === "未払い").map((item) => item.reservationId),
+    manualOverrides: results.filter((item) => item.manualOverride).map((item) => item.reservationId),
   }, null, 2));
   if (!execute) return;
-  const supabase = createAdminClient();
-  for (const item of updates) {
-    const { error } = await supabase
-      .from("reservations")
-      .update({ payment_status: item.paymentStatus, updated_at: new Date().toISOString() })
-      .eq("import_source", "過去取込")
-      .eq("import_row_id", item.importRowId);
-    if (error) throw error;
+  for (const item of results) {
+    await syncAutomaticPaymentStatus(supabase, item.reservationId);
   }
 }
 

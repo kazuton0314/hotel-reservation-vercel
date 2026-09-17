@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { finishImportJobRun, startImportJobRun } from "@/lib/ops/job-runs";
 import { rebuildAllCustomers } from "@/lib/services/customer-index";
 import { renameReservationId } from "@/lib/services/rename-reservation-id";
+import { syncAutomaticPaymentStatus } from "@/lib/services/payment-status";
 import {
   findExistingHistoricalReservations,
   mapHistoricalGuestRecord,
@@ -102,6 +103,7 @@ async function main() {
       if (item.charges.length) {
         await checked(supabase.from("reservation_charges").insert(item.charges.map((charge) => ({ ...charge, reservation_id: item.reservationId }))));
       }
+      await syncAutomaticPaymentStatus(supabase, item.reservationId);
     }
     await rebuildAllCustomers(supabase);
     await finishImportJobRun(supabase, runId, { status: "success", details: summary });
